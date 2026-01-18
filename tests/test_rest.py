@@ -4,15 +4,18 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import io
 import json
 from typing import Any
 from unittest.mock import patch
+from urllib.error import HTTPError
 
 import pytest
 
 from nonkyc_client.auth import ApiCredentials, AuthSigner
 from nonkyc_client.models import OrderRequest
-from nonkyc_client.rest import RestClient, RestRequest
+from nonkyc_client.rest import RestClient, RestError, RestRequest
+from nonkyc_client.time_sync import TimeSynchronizer
 
 
 class FakeResponse:
@@ -159,14 +162,47 @@ def test_rest_parse_retry_after_returns_none(value: str | None) -> None:
     assert client._parse_retry_after(value) is None
 
 
-def test_rest_signing_can_use_absolute_url() -> None:
+def test_rest_signing_defaults_to_absolute_url() -> None:
     credentials = ApiCredentials(api_key="full-url-key", api_secret="full-url-secret")
     signer = AuthSigner(time_provider=lambda: 1700000200.0)
+    client = RestClient(
+        base_url="https://api.example", credentials=credentials, signer=signer
+    )
+
+    captured: dict[str, Any] = {}
+
+    def fake_urlopen(request, timeout=10.0):
+        captured["request"] = request
+        return FakeResponse({"data": [{"asset": "USD", "available": "5", "held": "1"}]})
+
+    with patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen):
+        response = client.send(
+            RestRequest(method="GET", path="/balances", params={"limit": 1})
+        )
+
+    request = captured["request"]
+    assert request.full_url == "https://api.example/balances?limit=1"
+    assert request.data is None
+
+    nonce = str(int(1700000200.0 * 1e4))
+    data_to_sign = "https://api.example/balances?limit=1"
+    message = f"{credentials.api_key}{data_to_sign}{nonce}"
+    expected_signature = _expected_signature(message, credentials.api_secret)
+
+    assert request.headers["X-api-key"] == credentials.api_key
+    assert request.headers["X-api-nonce"] == nonce
+    assert request.headers["X-api-sign"] == expected_signature
+    assert response["data"][0]["asset"] == "USD"
+
+
+def test_rest_signing_can_opt_out_of_absolute_url() -> None:
+    credentials = ApiCredentials(api_key="path-key", api_secret="path-secret")
+    signer = AuthSigner(time_provider=lambda: 1700000300.0)
     client = RestClient(
         base_url="https://api.example",
         credentials=credentials,
         signer=signer,
-        sign_absolute_url=True,
+        sign_absolute_url=False,
     )
 
     captured: dict[str, Any] = {}

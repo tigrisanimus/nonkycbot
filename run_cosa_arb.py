@@ -5,23 +5,127 @@ import os
 import sys
 import time
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, ROUND_UP
 
 import yaml
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
-from nonkyc_client.auth import ApiCredentials
+from nonkyc_client.auth import ApiCredentials, AuthSigner
 from nonkyc_client.models import OrderRequest
+from nonkyc_client.pricing import (
+    effective_notional,
+    min_quantity_for_notional,
+    round_up_to_step,
+)
 from nonkyc_client.rest import RestClient
 from strategies.triangular_arb import evaluate_cycle, find_profitable_cycle
+from utils.notional import resolve_quantity_rounding
 
 
 def load_config(config_file):
     """Load configuration from YAML file."""
     with open(config_file, "r") as f:
         return yaml.safe_load(f)
+
+
+def _round_quantity(value, step_size, precision):
+    if step_size is not None:
+        return round_up_to_step(value, Decimal(str(step_size)))
+    if precision is None:
+        return value
+    quantizer = Decimal("1").scaleb(-precision)
+    return value.quantize(quantizer, rounding=ROUND_UP)
+
+
+def _min_quantities_for_cycle(config, prices, step_size, precision):
+    min_notional = Decimal(str(config.get("min_notional_usd", "1.0")))
+    fee_rate = Decimal(str(config.get("fee_rate", "0")))
+    min_quantities = {}
+    for pair in (config["pair_ab"], config["pair_bc"], config["pair_ac"]):
+        min_qty = min_quantity_for_notional(
+            price=prices[pair],
+            min_notional=min_notional,
+            fee_rate=fee_rate,
+        )
+        min_quantities[pair] = _round_quantity(min_qty, step_size, precision)
+    return min_quantities
+
+
+def _simulate_fee_adjusted_cycle(config, prices, start_amount, min_quantities):
+    fee_rate = Decimal(str(config.get("fee_rate", "0")))
+    pair_ab = config["pair_ab"]
+    pair_bc = config["pair_bc"]
+    pair_ac = config["pair_ac"]
+
+    adjusted_start = max(start_amount, min_quantities[pair_ab])
+
+    usdt_amount = adjusted_start * prices[pair_ab]
+    usdt_amount = usdt_amount * (Decimal("1") - fee_rate)
+
+    btc_amount = usdt_amount / prices[pair_bc]
+    btc_amount = max(btc_amount, min_quantities[pair_bc])
+    btc_amount = btc_amount * (Decimal("1") - fee_rate)
+
+    final_pirate = btc_amount / prices[pair_ac]
+    final_pirate = max(final_pirate, min_quantities[pair_ac])
+    final_pirate = final_pirate * (Decimal("1") - fee_rate)
+
+    profit = final_pirate - adjusted_start
+    profit_ratio = profit / adjusted_start
+    return adjusted_start, final_pirate, profit_ratio
+
+
+def _should_skip_notional(config, symbol, side, quantity, price, order_type):
+    min_notional = Decimal(str(config.get("min_notional_usd", "1.0")))
+    fee_rate = Decimal(str(config.get("fee_rate", "0")))
+    notional = effective_notional(quantity, price, fee_rate)
+    if notional < min_notional:
+        print(
+            "⚠️  Skipping order below min notional: "
+            f"symbol={symbol} side={side} order_type={order_type} "
+            f"price={price} quantity={quantity} notional={notional}"
+        )
+        return True
+    return False
+
+
+def _resolve_signing_enabled(config):
+    if "enable_signing" in config:
+        return config["enable_signing"]
+    if "use_signing" in config:
+        return config["use_signing"]
+    if "sign_requests" in config:
+        return config["sign_requests"]
+    return True
+
+
+def build_rest_client(config):
+    """Create a REST client with optional signer configuration overrides."""
+    signing_enabled = _resolve_signing_enabled(config)
+    creds = (
+        ApiCredentials(api_key=config["api_key"], api_secret=config["api_secret"])
+        if signing_enabled
+        else None
+    )
+    sign_absolute_url = config.get("sign_absolute_url")
+    signer = (
+        AuthSigner(
+            nonce_multiplier=config.get("nonce_multiplier", 1e4),
+            sort_params=config.get("sort_params", False),
+            sort_body=config.get("sort_body", False),
+        )
+        if signing_enabled
+        else None
+    )
+    return RestClient(
+        base_url="https://api.nonkyc.io",
+        credentials=creds,
+        signer=signer,
+        use_server_time=config.get("use_server_time"),
+        sign_absolute_url=sign_absolute_url,
+    )
 
 
 def get_price(client, pair):
@@ -74,17 +178,36 @@ def execute_arbitrage(client, config, prices):
         if "strictValidate" in config
         else config.get("strict_validate")
     )
+    fee_rate = Decimal(str(config.get("fee_rate", "0")))
+    step_size, precision = resolve_quantity_rounding(config)
+    min_quantities = _min_quantities_for_cycle(
+        config,
+        prices,
+        step_size,
+        precision,
+    )
 
     print(f"\n🔄 EXECUTING ARBITRAGE CYCLE")
     print(f"Starting amount: {start_amount} PIRATE")
 
     try:
+        order_type = config.get("order_type", "limit")
         # Step 1: Sell PIRATE for USDT
         print(f"\nStep 1: Selling PIRATE for USDT...")
+        start_amount = max(start_amount, min_quantities[config["pair_ab"]])
+        if _should_skip_notional(
+            config,
+            config["pair_ab"],
+            "sell",
+            start_amount,
+            prices[config["pair_ab"]],
+            order_type,
+        ):
+            return False
         order1 = OrderRequest(
             symbol=config["pair_ab"],
             side="sell",
-            order_type=config["order_type"],
+            order_type=order_type,
             quantity=str(start_amount),
             user_provided_id=user_provided_id,
             strict_validate=strict_validate,
@@ -95,7 +218,7 @@ def execute_arbitrage(client, config, prices):
         # TODO: Wait for order to fill and get actual USDT amount received
         # For now, estimate based on price
         usdt_amount = start_amount * prices[config["pair_ab"]]
-        usdt_amount = usdt_amount * (Decimal("1") - Decimal(str(config["fee_rate"])))
+        usdt_amount = usdt_amount * (Decimal("1") - fee_rate)
         print(f"  Received: ~{usdt_amount} USDT")
 
         time.sleep(2)  # Brief pause between orders
@@ -103,10 +226,20 @@ def execute_arbitrage(client, config, prices):
         # Step 2: Buy BTC with USDT
         print(f"\nStep 2: Buying BTC with USDT...")
         btc_amount = usdt_amount / prices[config["pair_bc"]]
+        btc_amount = max(btc_amount, min_quantities[config["pair_bc"]])
+        if _should_skip_notional(
+            config,
+            config["pair_bc"],
+            "buy",
+            btc_amount,
+            prices[config["pair_bc"]],
+            order_type,
+        ):
+            return False
         order2 = OrderRequest(
             symbol=config["pair_bc"],
             side="buy",
-            order_type=config["order_type"],
+            order_type=order_type,
             quantity=str(btc_amount),
             user_provided_id=user_provided_id,
             strict_validate=strict_validate,
@@ -114,7 +247,7 @@ def execute_arbitrage(client, config, prices):
         response2 = client.place_order(order2)
         print(f"  Order ID: {response2.order_id}, Status: {response2.status}")
 
-        btc_amount = btc_amount * (Decimal("1") - Decimal(str(config["fee_rate"])))
+        btc_amount = btc_amount * (Decimal("1") - fee_rate)
         print(f"  Received: ~{btc_amount} BTC")
 
         time.sleep(2)
@@ -122,10 +255,20 @@ def execute_arbitrage(client, config, prices):
         # Step 3: Buy PIRATE with BTC
         print(f"\nStep 3: Buying PIRATE with BTC...")
         final_pirate = btc_amount / prices[config["pair_ac"]]
+        final_pirate = max(final_pirate, min_quantities[config["pair_ac"]])
+        if _should_skip_notional(
+            config,
+            config["pair_ac"],
+            "buy",
+            final_pirate,
+            prices[config["pair_ac"]],
+            order_type,
+        ):
+            return False
         order3 = OrderRequest(
             symbol=config["pair_ac"],
             side="buy",
-            order_type=config["order_type"],
+            order_type=order_type,
             quantity=str(final_pirate),
             user_provided_id=user_provided_id,
             strict_validate=strict_validate,
@@ -133,7 +276,7 @@ def execute_arbitrage(client, config, prices):
         response3 = client.place_order(order3)
         print(f"  Order ID: {response3.order_id}, Status: {response3.status}")
 
-        final_pirate = final_pirate * (Decimal("1") - Decimal(str(config["fee_rate"])))
+        final_pirate = final_pirate * (Decimal("1") - fee_rate)
         print(f"  Received: ~{final_pirate} PIRATE")
 
         profit = final_pirate - start_amount
@@ -199,8 +342,7 @@ def run_arbitrage_bot(config_file):
     print(f"  Max refresh time: {max_refresh_seconds}s")
 
     # Setup client
-    creds = ApiCredentials(api_key=config["api_key"], api_secret=config["api_secret"])
-    client = RestClient(base_url="https://api.nonkyc.io", credentials=creds)
+    client = build_rest_client(config)
 
     print("\n✅ Connected to NonKYC API")
 
@@ -241,6 +383,7 @@ def run_arbitrage_bot(config_file):
             # Calculate expected profit
             start_amount = Decimal(str(config["trade_amount_a"]))
             fee_rate = Decimal(str(config["fee_rate"]))
+            step_size, precision = resolve_quantity_rounding(config)
 
             # Simulate the cycle
             amount = start_amount
@@ -268,6 +411,39 @@ def run_arbitrage_bot(config_file):
 
             if profit_ratio >= min_profit:
                 print(f"\n🚀 OPPORTUNITY FOUND! Profit: {profit_pct:.4f}%")
+                min_quantities = _min_quantities_for_cycle(
+                    config,
+                    prices,
+                    step_size,
+                    precision,
+                )
+                (
+                    adjusted_start,
+                    adjusted_final,
+                    adjusted_profit_ratio,
+                ) = _simulate_fee_adjusted_cycle(
+                    config,
+                    prices,
+                    start_amount,
+                    min_quantities,
+                )
+                adjusted_profit_pct = adjusted_profit_ratio * 100
+                print("\n🔎 Fee-Adjusted Cycle Check:")
+                print(f"  Start (adjusted): {adjusted_start} PIRATE")
+                print(f"  End (adjusted): {adjusted_final:.8f} PIRATE")
+                print(
+                    "  Profit (adjusted): "
+                    f"{adjusted_final - adjusted_start:.8f} PIRATE "
+                    f"({adjusted_profit_pct:.4f}%)"
+                )
+
+                if adjusted_profit_ratio < min_profit:
+                    print(
+                        "\n⏸️  Fee-adjusted profit below threshold. "
+                        "Skipping execution."
+                    )
+                    print(f"  Threshold: {float(config['min_profitability'])*100}%")
+                    continue
 
                 # Ask for confirmation
                 response = input("\nExecute arbitrage? (yes/no): ")
