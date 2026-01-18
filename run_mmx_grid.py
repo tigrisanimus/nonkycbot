@@ -14,7 +14,14 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 from nonkyc_client.auth import ApiCredentials, AuthSigner
 from nonkyc_client.models import OrderRequest
+from nonkyc_client.pricing import (
+    effective_notional,
+    min_quantity_for_notional,
+    round_up_to_step,
+    should_skip_fee_edge,
+)
 from nonkyc_client.rest import RestClient
+from utils.notional import resolve_quantity_rounding
 
 
 def load_config(config_file):
