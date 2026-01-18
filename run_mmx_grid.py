@@ -63,6 +63,32 @@ def _resolve_signing_enabled(config):
     return True
 
 
+def _looks_like_auth_error_message(message: str) -> bool:
+    lowered = message.lower()
+    return "401" in lowered and ("not authorized" in lowered or "unauthorized" in lowered)
+
+
+def _is_auth_failure_response(response: dict | None) -> bool:
+    if not response:
+        return False
+    for key in ("status", "code", "errorcode", "error_code", "http_status"):
+        value = response.get(key)
+        if value is None:
+            continue
+        if str(value) == "401":
+            return True
+        if isinstance(value, str) and _looks_like_auth_error_message(value):
+            return True
+    for value in response.values():
+        if isinstance(value, str) and _looks_like_auth_error_message(value):
+            return True
+    for key in ("error", "message", "errormsg", "detail", "msg"):
+        value = response.get(key)
+        if isinstance(value, str) and _looks_like_auth_error_message(value):
+            return True
+    return False
+
+
 def build_rest_client(config):
     """Create a REST client with optional signer configuration overrides."""
     signing_enabled = _resolve_signing_enabled(config)
@@ -241,14 +267,25 @@ def cancel_all_orders(client, config):
         success = client.cancel_all_orders(symbol)
         if success:
             print(f"  ✓ Cancelled all orders")
-            return True
-        print(
-            f"  ✗ Cancel all orders failed. Response: {client.last_cancel_all_response}"
-        )
-        return False
+            return True, False
+        response = client.last_cancel_all_response
+        if _is_auth_failure_response(response):
+            print(
+                "  🛑 Cancel all orders failed due to auth error (401 / Not Authorized). "
+                "Stopping cycle to avoid placing orders."
+            )
+            return False, True
+        print(f"  ✗ Cancel all orders failed. Response: {response}")
+        return False, False
     except Exception as e:
+        if _looks_like_auth_error_message(str(e)):
+            print(
+                "  🛑 Cancel all orders failed due to auth error (401 / Not Authorized). "
+                f"Stopping cycle to avoid placing orders. Error: {e}"
+            )
+            return False, True
         print(f"  ✗ Error cancelling orders: {e}")
-        return False
+        return False, False
 
 
 def run_mmx_grid_bot(config_file):
@@ -305,7 +342,13 @@ def run_mmx_grid_bot(config_file):
                 continue
 
             # Cancel existing orders
-            cancel_all_orders(client, config)
+            _, auth_failed = cancel_all_orders(client, config)
+            if auth_failed:
+                print(
+                    "🛑 Authorization failure detected during cancel-all. "
+                    "Check API credentials/permissions and restart after fixing."
+                )
+                break
             time.sleep(2)
 
             # Create new grid
