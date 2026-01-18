@@ -55,9 +55,8 @@ class WebSocketClient:
 
     def subscribe_account_updates(self) -> list[Subscription]:
         orders_subscription = Subscription(channel="subscribeReports", params={})
-        balances_subscription = Subscription(channel="subscribeBalances", params={})
-        self.subscriptions.extend([orders_subscription, balances_subscription])
-        return [orders_subscription, balances_subscription]
+        self.subscriptions.append(orders_subscription)
+        return [orders_subscription]
 
     def list_channels(self) -> list[str]:
         return [sub.channel for sub in self.subscriptions]

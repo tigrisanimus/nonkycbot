@@ -34,7 +34,6 @@ def test_ws_login_payload_and_subscriptions() -> None:
         {"method": "subscribeOrderbook", "params": {"symbol": "BTC/USD", "limit": 10}},
         {"method": "subscribeTrades", "params": {"symbol": "BTC/USD"}},
         {"method": "subscribeReports", "params": {}},
-        {"method": "subscribeBalances", "params": {}},
     ]
 
     mocked_events = [

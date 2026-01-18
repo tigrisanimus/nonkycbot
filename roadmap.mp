@@ -18,6 +18,7 @@
 - [x] Use RestRequest for cancel-all orders in all bot runners.
 - [x] Align cancel-order payload with NonKYC docs and support userProvidedId.
 - [x] Use documented limit field for order book subscriptions.
+- [x] Drop balances subscription from account updates in WS client.
 
 ## Next
 - [ ] Define API client interfaces and error handling.
