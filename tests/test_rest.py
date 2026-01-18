@@ -325,6 +325,51 @@ def test_cancel_all_orders_success_sets_last_response() -> None:
     assert client.last_cancel_all_response == {"success": True, "status": "Cancelled"}
 
 
+def test_cancel_all_orders_includes_symbol_in_body() -> None:
+    credentials = ApiCredentials(
+        api_key="cancel-body-key", api_secret="cancel-body-secret"
+    )
+    signer = AuthSigner(time_provider=lambda: 1700000350.0)
+    client = RestClient(
+        base_url="https://api.example", credentials=credentials, signer=signer
+    )
+
+    captured: dict[str, Any] = {}
+
+    def fake_urlopen(request, timeout=10.0):
+        captured["request"] = request
+        return FakeResponse({"data": {"success": True}})
+
+    with patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen):
+        client.cancel_all_orders("BTC_USDT")
+
+    request = captured["request"]
+    body = json.loads(request.data.decode("utf8"))
+    assert body == {"symbol": "BTC_USDT"}
+
+
+def test_cancel_all_orders_omits_body_when_symbol_none() -> None:
+    credentials = ApiCredentials(
+        api_key="cancel-none-key", api_secret="cancel-none-secret"
+    )
+    signer = AuthSigner(time_provider=lambda: 1700000375.0)
+    client = RestClient(
+        base_url="https://api.example", credentials=credentials, signer=signer
+    )
+
+    captured: dict[str, Any] = {}
+
+    def fake_urlopen(request, timeout=10.0):
+        captured["request"] = request
+        return FakeResponse({"data": {"success": True}})
+
+    with patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen):
+        client.cancel_all_orders(None)
+
+    request = captured["request"]
+    assert request.data is None
+
+
 def test_cancel_all_orders_failure_sets_last_response() -> None:
     credentials = ApiCredentials(api_key="cancel-key", api_secret="cancel-secret")
     signer = AuthSigner(time_provider=lambda: 1700000400.0)
