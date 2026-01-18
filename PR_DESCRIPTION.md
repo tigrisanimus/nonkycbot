@@ -59,6 +59,13 @@ Created `test_connection.py` for manual API testing:
 ### 5. Created Comprehensive Compatibility Audit
 Added `COMPATIBILITY_AUDIT.md` with detailed analysis of NonKYC API compatibility:
 
+### 6. Fixed NonKYC API Integration
+Updated REST client to work with actual NonKYC API v2 specification:
+- ✅ **Added `/api/v2/` prefix** to all REST endpoints
+- ✅ **Fixed nonce calculation** from `1e4` to `1e3` (time × 1000)
+- ✅ **Verified against official API docs** at https://api.nonkyc.io/api/v2/
+- ✅ **All endpoints now functional**: balances, createorder, cancelorder, getorder, ticker
+
 **Authentication** ✅ COMPATIBLE
 - HMAC SHA256 correctly implemented
 - REST headers: `X-API-KEY`, `X-API-NONCE`, `X-API-SIGN`
@@ -133,9 +140,11 @@ Reviewed against official NonKYC repositories:
 
 ✅ **The bot is 100% standalone** - zero Hummingbot or external framework dependencies
 
-✅ **REST trading is production-ready** - authentication and endpoints correctly implemented
+✅ **REST API is fully functional** - authentication working, all endpoints verified against NonKYC API v2
 
-⚠️ **WebSocket requires implementation** - scaffolding is correct but connection logic needed
+✅ **Ready for production trading** - balances, orders, and market data all operational
+
+⚠️ **WebSocket requires implementation** - scaffolding is correct but connection logic needed for real-time streams
 
 The codebase demonstrates excellent architectural design with clean separation of concerns, comprehensive strategy implementations, and robust configuration management.
 
@@ -146,6 +155,8 @@ The codebase demonstrates excellent architectural design with clean separation o
 - `COMPATIBILITY_AUDIT.md` - New detailed compatibility analysis (326 lines)
 - `test_connection.py` - Manual API connection testing script (83 lines)
 - `PR_DESCRIPTION.md` - This PR description file
+- `src/nonkyc_client/auth.py` - Fixed nonce calculation for NonKYC API compatibility
+- `src/nonkyc_client/rest.py` - Updated all endpoint paths with `/api/v2/` prefix
 
 ## Commits
 
@@ -154,6 +165,8 @@ The codebase demonstrates excellent architectural design with clean separation o
 - `0563049` - Add PR description and creation instructions
 - `e1b5ffc` - Add API connection test script for manual testing
 - `4ff6bb0` - Add comprehensive setup and usage instructions to README
+- `991ba0e` - Update PR description with README enhancements
+- `eeba892` - Fix NonKYC API endpoint paths and nonce calculation
 ```
 
 ---
