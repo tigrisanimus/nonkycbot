@@ -3,7 +3,7 @@ api_key: "your_api_key_here"
 api_secret: "your_api_secret_here"
 
 # Grid Trading Settings
-trading_pair: "COSA-PIRATE"     # NOTE: use hyphen, not slash!
+trading_pair: "COSA/PIRATE"     # NOTE: Won't work - this is a liquidity pool, not order book!
 grid_levels: 10                 # Number of buy and sell orders on each side
 grid_spread: "0.01"             # 1% spread between grid levels
 order_amount: "1000"            # Amount of COSA per order
