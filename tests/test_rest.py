@@ -341,14 +341,14 @@ def test_cancel_all_orders_includes_symbol_in_body() -> None:
         return FakeResponse({"data": {"success": True}})
 
     with patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen):
-        client.cancel_all_orders("BTC_USDT")
+        client.cancel_all_orders("BTC_USDT", "buy")
 
     request = captured["request"]
     body = json.loads(request.data.decode("utf8"))
-    assert body == {"symbol": "BTC_USDT"}
+    assert body == {"symbol": "BTC_USDT", "side": "buy"}
 
 
-def test_cancel_all_orders_omits_body_when_symbol_none() -> None:
+def test_cancel_all_orders_omits_side_when_none() -> None:
     credentials = ApiCredentials(
         api_key="cancel-none-key", api_secret="cancel-none-secret"
     )
@@ -364,10 +364,11 @@ def test_cancel_all_orders_omits_body_when_symbol_none() -> None:
         return FakeResponse({"data": {"success": True}})
 
     with patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen):
-        client.cancel_all_orders(None)
+        client.cancel_all_orders("BTC_USDT")
 
     request = captured["request"]
-    assert request.data is None
+    body = json.loads(request.data.decode("utf8"))
+    assert body == {"symbol": "BTC_USDT"}
 
 
 def test_cancel_all_orders_failure_sets_last_response() -> None:

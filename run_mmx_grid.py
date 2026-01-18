@@ -94,6 +94,8 @@ def _is_auth_failure_response(response: dict | None) -> bool:
 def _format_cancel_symbol(symbol: str, symbol_format: str) -> str:
     if symbol_format == "dash":
         return symbol.replace("/", "-")
+    if symbol_format == "slash":
+        return symbol
     if symbol_format == "underscore":
         return symbol.replace("/", "_")
     return symbol
@@ -283,7 +285,9 @@ def cancel_all_orders(client, config):
     """Cancel all open orders for the trading pair."""
     print(f"\n🗑️  Cancelling all open orders...")
     try:
-        symbol_format = config.get("cancel_symbol_format", "dash")
+        symbol_format = config.get("cancel_symbol_format", "slash")
+        cancel_side = config.get("cancel_side", "all")
+        side_arg = None if cancel_side == "all" else cancel_side
         symbol_base = config["trading_pair"]
         attempt_formats = [symbol_format]
         attempted_retry = False
@@ -293,7 +297,7 @@ def cancel_all_orders(client, config):
                 f"  ℹ️ Cancel attempt {attempt_index}: "
                 f"format={attempt_format} symbol={symbol}"
             )
-            success = client.cancel_all_orders(symbol)
+            success = client.cancel_all_orders(symbol, side_arg)
             if success:
                 print("  ✓ Cancelled all orders")
                 return True, False
