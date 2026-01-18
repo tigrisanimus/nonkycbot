@@ -30,6 +30,7 @@
 - [x] Stop grid cycles on cancel-all auth failures to avoid cascading order errors.
 - [x] Default cancel-all symbol format to dash and log resolved cancel symbols.
 - [x] Retry cancel-all with alternate symbol formats when required input is missing.
+- [x] Allow cancel-all requests without a symbol and verify request body handling in tests.
 
 ## Next
 - [ ] Define API client interfaces and error handling.

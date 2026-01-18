@@ -358,11 +358,10 @@ class RestClient:
             order_id=resolved_id, success=success, raw_payload=payload
         )
 
-    def cancel_all_orders(self, symbol: str) -> bool:
+    def cancel_all_orders(self, symbol: str | None) -> bool:
+        body = {"symbol": symbol} if symbol else None
         response = self.send(
-            RestRequest(
-                method="POST", path="/api/v2/cancelallorders", body={"symbol": symbol}
-            )
+            RestRequest(method="POST", path="/api/v2/cancelallorders", body=body)
         )
         payload = self._extract_payload(response) or {}
         if isinstance(payload, list):
