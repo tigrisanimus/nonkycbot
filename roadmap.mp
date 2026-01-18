@@ -23,6 +23,7 @@
 - [x] Honor absolute URL signing configuration in REST client.
 - [x] Standardize cancel-all orders handling with response validation and symbol formatting.
 - [x] Auto-refresh bot orders at most every 30 minutes.
+- [x] Add missing resolve_quantity_rounding import for MMX grid runner.
 
 ## Next
 - [ ] Define API client interfaces and error handling.
