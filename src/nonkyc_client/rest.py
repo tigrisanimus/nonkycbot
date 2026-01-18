@@ -93,11 +93,12 @@ class RestClient:
         env_debug = os.getenv("NONKYC_DEBUG_AUTH")
         self.debug_auth = debug_auth if debug_auth is not None else env_debug == "1"
         env_sign_full_url = os.getenv("NONKYC_SIGN_FULL_URL")
-        self.sign_absolute_url = (
-            sign_absolute_url
-            if sign_absolute_url is not None
-            else env_sign_full_url == "1"
-        )
+        if sign_absolute_url is None:
+            self.sign_absolute_url = (
+                True if env_sign_full_url is None else env_sign_full_url == "1"
+            )
+        else:
+            self.sign_absolute_url = sign_absolute_url
         self._last_cancel_all_response: dict[str, Any] | None = None
 
     @property
