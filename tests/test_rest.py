@@ -62,7 +62,7 @@ def test_rest_get_signing_and_request_formation() -> None:
     assert request.data is None
 
     nonce = str(int(1700000000.0 * 1e4))
-    data_to_sign = "/balances?limit=1"
+    data_to_sign = "https://api.example/balances?limit=1"
     message = f"{credentials.api_key}{data_to_sign}{nonce}"
     expected_signature = _expected_signature(message, credentials.api_secret)
 
@@ -116,7 +116,9 @@ def test_rest_post_signing_and_body_payload() -> None:
     }
 
     nonce = str(int(1700000100.0 * 1e4))
-    data_to_sign = "/api/v2/createorder" + json.dumps(body, separators=(",", ":"))
+    data_to_sign = "https://api.example/api/v2/createorder" + json.dumps(
+        body, separators=(",", ":")
+    )
     message = f"{credentials.api_key}{data_to_sign}{nonce}"
     expected_signature = _expected_signature(message, credentials.api_secret)
 
@@ -220,8 +222,8 @@ def test_rest_signing_can_opt_out_of_absolute_url() -> None:
     assert request.full_url == "https://api.example/balances?limit=1"
     assert request.data is None
 
-    nonce = str(int(1700000200.0 * 1e4))
-    data_to_sign = "https://api.example/balances?limit=1"
+    nonce = str(int(1700000300.0 * 1e4))
+    data_to_sign = "/balances?limit=1"
     message = f"{credentials.api_key}{data_to_sign}{nonce}"
     expected_signature = _expected_signature(message, credentials.api_secret)
 
