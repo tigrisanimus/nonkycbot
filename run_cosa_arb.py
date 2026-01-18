@@ -101,6 +101,12 @@ def _resolve_signing_enabled(config):
     return True
 
 
+def _missing_required_input_response(response: dict | str | None) -> bool:
+    if not response:
+        return False
+    return "missing required input" in str(response).lower()
+
+
 def build_rest_client(config):
     """Create a REST client with optional signer configuration overrides."""
     signing_enabled = _resolve_signing_enabled(config)
@@ -301,22 +307,61 @@ def cancel_all_orders(client, config):
     symbols = [config["pair_ab"], config["pair_bc"], config["pair_ac"]]
     success = True
     for symbol in symbols:
-        formatted_symbol = symbol
-        if symbol_format == "underscore":
-            formatted_symbol = symbol.replace("/", "_")
-        try:
-            canceled = client.cancel_all_orders(formatted_symbol)
-        except Exception as exc:
-            print(f"  ✗ Error cancelling orders for {symbol}: {exc}")
-            success = False
-            continue
-        if canceled:
-            print(f"  ✓ Cancelled all orders for {symbol}")
+        known_formats = ["underscore", "slash", "dash"]
+        if symbol_format in known_formats:
+            start_index = known_formats.index(symbol_format)
+            attempt_formats = (
+                known_formats[start_index:] + known_formats[:start_index]
+            )
         else:
+            attempt_formats = [symbol_format] + [
+                fmt for fmt in known_formats if fmt != symbol_format
+            ]
+        missing_required = False
+        canceled = False
+        for attempt_format in attempt_formats:
+            formatted_symbol = symbol
+            if attempt_format == "underscore":
+                formatted_symbol = symbol.replace("/", "_")
+            elif attempt_format == "dash":
+                formatted_symbol = symbol.replace("/", "-")
+            try:
+                canceled = client.cancel_all_orders(formatted_symbol)
+            except Exception as exc:
+                print(f"  ✗ Error cancelling orders for {symbol}: {exc}")
+                success = False
+                canceled = False
+                break
+            if canceled:
+                print(f"  ✓ Cancelled all orders for {symbol}")
+                break
+            response = client.last_cancel_all_response
+            if _missing_required_input_response(response):
+                missing_required = True
+                continue
             print(
-                f"  ✗ Cancel all orders failed for {symbol}. Response: {client.last_cancel_all_response}"
+                f"  ✗ Cancel all orders failed for {symbol}. Response: {response}"
             )
             success = False
+            break
+        if not canceled and missing_required:
+            print(
+                f"  ⚠️ Cancel all orders failed with missing required input for {symbol}. "
+                "Retrying without a symbol."
+            )
+            try:
+                canceled = client.cancel_all_orders(None)
+            except Exception as exc:
+                print(f"  ✗ Error cancelling orders for {symbol}: {exc}")
+                success = False
+                continue
+            if canceled:
+                print(f"  ✓ Cancelled all orders for {symbol} without symbol")
+            else:
+                print(
+                    f"  ✗ Cancel all orders failed for {symbol}. Response: {client.last_cancel_all_response}"
+                )
+                success = False
     return success
 
 

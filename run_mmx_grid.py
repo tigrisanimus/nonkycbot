@@ -299,6 +299,7 @@ def cancel_all_orders(client, config):
             attempt_formats = [symbol_format] + [
                 fmt for fmt in known_formats if fmt != symbol_format
             ]
+        missing_required = False
         for attempt_index, attempt_format in enumerate(attempt_formats, start=1):
             symbol = _format_cancel_symbol(symbol_base, attempt_format)
             print(
@@ -317,6 +318,7 @@ def cancel_all_orders(client, config):
                 )
                 return False, True
             if _missing_required_input_response(response):
+                missing_required = True
                 if attempt_index < len(attempt_formats):
                     fallback_format = attempt_formats[attempt_index]
                     print(
@@ -324,6 +326,24 @@ def cancel_all_orders(client, config):
                         f"Retrying with format={fallback_format}."
                     )
                     continue
+            print(f"  ✗ Cancel all orders failed. Response: {response}")
+            return False, False
+        if missing_required:
+            print(
+                "  ⚠️ Cancel all orders failed with missing required input across "
+                "symbol formats. Retrying without a symbol."
+            )
+            success = client.cancel_all_orders(None, side_arg)
+            if success:
+                print("  ✓ Cancelled all orders without symbol")
+                return True, False
+            response = client.last_cancel_all_response
+            if _is_auth_failure_response(response):
+                print(
+                    "  🛑 Cancel all orders failed due to auth error (401 / Not Authorized). "
+                    "Stopping cycle to avoid placing orders."
+                )
+                return False, True
             print(f"  ✗ Cancel all orders failed. Response: {response}")
             return False, False
         return False, False

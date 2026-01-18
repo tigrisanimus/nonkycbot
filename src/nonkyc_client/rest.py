@@ -13,7 +13,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from nonkyc_client.auth import ApiCredentials, AuthSigner
+from nonkyc_client.auth import ApiCredentials, AuthSigner, SignedHeaders
 from nonkyc_client.models import (
     Balance,
     MarketTicker,
@@ -161,6 +161,7 @@ class RestClient:
                             f"nonce={signed.nonce}",
                             f"json_str={signed.json_str or ''}",
                             f"data_to_sign={signed.data_to_sign}",
+                            f"signed_message={signed.signed_message}",
                             f"signature={signed.signature}",
                             f"headers={signed.headers}",
                             f"body={body if body else ''}",
@@ -358,8 +359,10 @@ class RestClient:
             order_id=resolved_id, success=success, raw_payload=payload
         )
 
-    def cancel_all_orders(self, symbol: str, side: str | None = None) -> bool:
-        body: dict[str, Any] = {"symbol": symbol}
+    def cancel_all_orders(self, symbol: str | None, side: str | None = None) -> bool:
+        body: dict[str, Any] = {}
+        if symbol:
+            body["symbol"] = symbol
         if side is not None:
             body["side"] = side
         response = self.send(
@@ -370,6 +373,77 @@ class RestClient:
             resolved_payload: dict[str, Any] = {"orders": payload}
         else:
             resolved_payload = dict(payload)
+        self._last_cancel_all_response = resolved_payload
+        success = bool(
+            resolved_payload.get("success")
+            or resolved_payload.get("status") == "Cancelled"
+            or resolved_payload.get("ok") is True
+        )
+        return success
+
+    def cancel_all_orders_v1(self, market: str, order_type: str) -> bool:
+        if not market:
+            raise ValueError("Market is required for cancel-all v1 requests.")
+        if order_type not in {"all", "buy", "sell"}:
+            raise ValueError("Cancel-all order_type must be one of: all, buy, sell.")
+        query = {"market": market, "type": order_type}
+        base_url = self.build_url("/api/v1/account/cancelallorders")
+        query_str = self.signer.serialize_query(query)
+        url = f"{base_url}?{query_str}"
+        headers = {"Accept": "application/json"}
+        signed: SignedHeaders | None = None
+        if self.credentials is not None:
+            nonce = self.signer.generate_nonce(multiplier=1e4)
+            signed = self.signer.build_headers_for_message(
+                credentials=self.credentials,
+                data_to_sign=url,
+                nonce=nonce,
+            )
+            headers.update(signed.headers)
+            if self.debug_auth:
+                print(
+                    "\n".join(
+                        [
+                            "NONKYC_DEBUG_AUTH=1",
+                            "method=GET",
+                            f"url={url}",
+                            f"nonce={signed.nonce}",
+                            "json_str=",
+                            f"data_to_sign={signed.data_to_sign}",
+                            f"signed_message={signed.signed_message}",
+                            f"signature={signed.signature}",
+                            f"headers={signed.headers}",
+                        ]
+                    )
+                )
+        http_request = Request(url=url, method="GET", headers=headers)
+        try:
+            with urlopen(http_request, timeout=self.timeout) as response:
+                payload = response.read().decode("utf8")
+        except HTTPError as exc:
+            if exc.code == 429:
+                retry_after = self._parse_retry_after(exc.headers.get("Retry-After"))
+                raise RateLimitError(
+                    "Rate limit exceeded", retry_after=retry_after
+                ) from exc
+            if exc.code == 401:
+                payload = exc.read().decode("utf8") if exc.fp else ""
+                raise RestError(
+                    self._build_unauthorized_message(payload, "/api/v1/account/cancelallorders")
+                ) from exc
+            if exc.code in {500, 502, 503, 504}:
+                raise TransientApiError(f"Transient HTTP error {exc.code}") from exc
+            payload = exc.read().decode("utf8") if exc.fp else ""
+            raise RestError(self._build_http_error_message(exc.code, payload)) from exc
+        except URLError as exc:
+            raise TransientApiError("Network error while contacting API") from exc
+
+        response = {} if not payload else json.loads(payload)
+        payload_data = self._extract_payload(response) or {}
+        if isinstance(payload_data, list):
+            resolved_payload: dict[str, Any] = {"orders": payload_data}
+        else:
+            resolved_payload = dict(payload_data)
         self._last_cancel_all_response = resolved_payload
         success = bool(
             resolved_payload.get("success")

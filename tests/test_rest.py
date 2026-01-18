@@ -228,9 +228,13 @@ def test_rest_debug_auth_includes_json_str(capsys, monkeypatch) -> None:
     captured = capsys.readouterr().out
     body = order.to_payload()
     expected_json_str = json.dumps(body, separators=(",", ":"))
+    nonce = str(int(1700000100.0 * 1e3))
+    data_to_sign = f"https://api.example/api/v2/createorder{expected_json_str}"
+    expected_message = f"{credentials.api_key}{data_to_sign}{nonce}"
 
     assert "NONKYC_DEBUG_AUTH=1" in captured
     assert f"json_str={expected_json_str}" in captured
+    assert f"signed_message={expected_message}" in captured
 
 
 @pytest.mark.parametrize("value", ["", None])
@@ -369,6 +373,60 @@ def test_cancel_all_orders_omits_side_when_none() -> None:
     request = captured["request"]
     body = json.loads(request.data.decode("utf8"))
     assert body == {"symbol": "BTC_USDT"}
+
+
+def test_cancel_all_orders_v1_signs_full_url_with_query() -> None:
+    credentials = ApiCredentials(api_key="v1-key", api_secret="v1-secret")
+    signer = AuthSigner(time_provider=lambda: 1700000500.0)
+    client = RestClient(
+        base_url="https://api.example", credentials=credentials, signer=signer
+    )
+
+    captured: dict[str, Any] = {}
+
+    def fake_urlopen(request, timeout=10.0):
+        captured["request"] = request
+        return FakeResponse({"data": {"success": True}})
+
+    with patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen):
+        client.cancel_all_orders_v1("MMX_USDT", "all")
+
+    request = captured["request"]
+    expected_url = (
+        "https://api.example/api/v1/account/cancelallorders?market=MMX_USDT&type=all"
+    )
+    assert request.full_url == expected_url
+
+    nonce = str(int(1700000500.0 * 1e4))
+    message = f"{credentials.api_key}{expected_url}{nonce}"
+    expected_signature = _expected_signature(message, credentials.api_secret)
+
+    assert request.headers["X-api-key"] == credentials.api_key
+    assert request.headers["X-api-nonce"] == nonce
+    assert request.headers["X-api-sign"] == expected_signature
+
+
+def test_cancel_all_orders_allows_missing_symbol() -> None:
+    credentials = ApiCredentials(
+        api_key="cancel-missing-key", api_secret="cancel-missing-secret"
+    )
+    signer = AuthSigner(time_provider=lambda: 1700000390.0)
+    client = RestClient(
+        base_url="https://api.example", credentials=credentials, signer=signer
+    )
+
+    captured: dict[str, Any] = {}
+
+    def fake_urlopen(request, timeout=10.0):
+        captured["request"] = request
+        return FakeResponse({"data": {"success": True}})
+
+    with patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen):
+        client.cancel_all_orders(None, "sell")
+
+    request = captured["request"]
+    body = json.loads(request.data.decode("utf8"))
+    assert body == {"side": "sell"}
 
 
 def test_cancel_all_orders_failure_sets_last_response() -> None:
