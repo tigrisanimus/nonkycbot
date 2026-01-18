@@ -40,6 +40,7 @@ class AuthSigner:
         sort_body: bool = False,
     ) -> None:
         self._time_provider = time_provider or time.time
+        self._uses_default_time_provider = time_provider is None
         self._nonce_multiplier = nonce_multiplier
         self._sort_params = sort_params
         self._sort_body = sort_body
@@ -115,3 +116,10 @@ class AuthSigner:
     def _generate_nonce(self) -> str:
         alphabet = string.ascii_letters + string.digits
         return "".join(secrets.choice(alphabet) for _ in range(14))
+
+    def uses_default_time_provider(self) -> bool:
+        return self._uses_default_time_provider
+
+    def set_time_provider(self, time_provider: Callable[[], float]) -> None:
+        self._time_provider = time_provider
+        self._uses_default_time_provider = False
