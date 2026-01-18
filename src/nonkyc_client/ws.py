@@ -41,7 +41,7 @@ class WebSocketClient:
     ) -> Subscription:
         params: dict[str, Any] = {"symbol": symbol}
         if depth is not None:
-            params["depth"] = depth
+            params["limit"] = depth
         subscription = Subscription(channel="subscribeOrderbook", params=params)
         self.subscriptions.append(subscription)
         return subscription

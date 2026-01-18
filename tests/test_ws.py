@@ -31,7 +31,7 @@ def test_ws_login_payload_and_subscriptions() -> None:
 
     payloads = client.subscription_payloads()
     assert payloads == [
-        {"method": "subscribeOrderbook", "params": {"symbol": "BTC/USD", "depth": 10}},
+        {"method": "subscribeOrderbook", "params": {"symbol": "BTC/USD", "limit": 10}},
         {"method": "subscribeTrades", "params": {"symbol": "BTC/USD"}},
         {"method": "subscribeReports", "params": {}},
         {"method": "subscribeBalances", "params": {}},

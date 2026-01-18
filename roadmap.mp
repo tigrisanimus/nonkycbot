@@ -17,6 +17,7 @@
 - [x] Expose signed JSON payloads in debug auth output for REST signing checks.
 - [x] Use RestRequest for cancel-all orders in all bot runners.
 - [x] Align cancel-order payload with NonKYC docs and support userProvidedId.
+- [x] Use documented limit field for order book subscriptions.
 
 ## Next
 - [ ] Define API client interfaces and error handling.
