@@ -1,0 +1,17 @@
+exchange: "nonkyc"
+api_key: "your_api_key_here"
+api_secret: "your_api_secret_here"
+
+# Triangle: COSA → BTC → PIRATE → COSA
+asset_a: "COSA"
+asset_b: "BTC"
+asset_c: "PIRATE"
+pair_ab: "COSA/BTC"        # COSA → BTC
+pair_bc: "PIRATE/BTC"      # BTC → PIRATE
+pair_ac: "COSA/PIRATE"     # PIRATE → COSA
+
+trade_amount_a: "1000"           # Start with 1000 COSA per cycle
+min_profitability: "0.005"       # 0.5% minimum profit (after fees)
+fee_rate: "0.0015"               # 0.15% per trade (adjust based on your tier)
+order_type: "market"             # Use market orders for instant execution
+refresh_time: 30                 # Check every 30 seconds
