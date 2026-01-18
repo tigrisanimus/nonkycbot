@@ -35,6 +35,8 @@
 - [x] Skip grid levels that do not clear fees before order placement.
 - [x] Recompute triangular arb cycles with fee-adjusted min quantities before execution.
 - [x] Add pricing helper tests for fee-adjusted notionals and grid edge checks.
+- [x] Auto-size orders using live price to meet $1 min notional.
+- [x] Fee-aware profitability checks in grid/arbitrage bots.
 
 ## Next
 - [ ] Define API client interfaces and error handling.
