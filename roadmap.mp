@@ -33,6 +33,7 @@
 - [x] Allow cancel-all requests without a symbol and verify request body handling in tests.
 - [x] Align cancel-all REST/bot schema with slash symbols and side-aware payloads.
 - [x] Treat cancel-side "all" as omit-side for cancel-all payloads.
+- [x] Retry cancel-all across all symbol formats before giving up.
 
 ## Next
 - [ ] Define API client interfaces and error handling.

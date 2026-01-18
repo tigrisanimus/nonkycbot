@@ -242,8 +242,16 @@ def cancel_all_orders(client, config):
         cancel_side = config.get("cancel_side", "all")
         side_arg = None if cancel_side == "all" else cancel_side
         symbol_base = config["trading_pair"]
-        attempt_formats = [symbol_format]
-        attempted_retry = False
+        known_formats = ["dash", "slash", "underscore"]
+        if symbol_format in known_formats:
+            start_index = known_formats.index(symbol_format)
+            attempt_formats = (
+                known_formats[start_index:] + known_formats[:start_index]
+            )
+        else:
+            attempt_formats = [symbol_format] + [
+                fmt for fmt in known_formats if fmt != symbol_format
+            ]
         for attempt_index, attempt_format in enumerate(attempt_formats, start=1):
             symbol = _format_cancel_symbol(symbol_base, attempt_format)
             print(
@@ -261,15 +269,13 @@ def cancel_all_orders(client, config):
                     "Stopping cycle to avoid placing orders."
                 )
                 return False, True
-            if not attempted_retry and _missing_required_input_response(response):
-                fallback_format = _next_cancel_symbol_format(attempt_format)
-                if fallback_format != attempt_format:
-                    attempted_retry = True
+            if _missing_required_input_response(response):
+                if attempt_index < len(attempt_formats):
+                    fallback_format = attempt_formats[attempt_index]
                     print(
                         "  ⚠️ Cancel all orders failed with missing required input. "
                         f"Retrying with format={fallback_format}."
                     )
-                    attempt_formats.append(fallback_format)
                     continue
             print(f"  ✗ Cancel all orders failed. Response: {response}")
             return False, False
