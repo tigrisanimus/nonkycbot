@@ -2,13 +2,13 @@ exchange: "nonkyc"
 api_key: "your_api_key_here"
 api_secret: "your_api_secret_here"
 
-# Triangle: PIRATE → BTC → COSA → PIRATE
+# Triangle: PIRATE → USDT → BTC → PIRATE (using only order book pairs)
 asset_a: "PIRATE"
-asset_b: "BTC"
-asset_c: "COSA"
-pair_ab: "PIRATE-BTC"     # PIRATE → BTC (NOTE: use hyphen, not slash!)
-pair_bc: "COSA-BTC"       # BTC → COSA
-pair_ac: "COSA-PIRATE"    # COSA → PIRATE
+asset_b: "USDT"
+asset_c: "BTC"
+pair_ab: "PIRATE-USDT"    # PIRATE → USDT (order book)
+pair_bc: "BTC-USDT"       # USDT → BTC (order book)
+pair_ac: "PIRATE-BTC"     # BTC → PIRATE (order book)
 
 trade_amount_a: "10000"          # Start with 10000 PIRATE per cycle
 min_profitability: "0.005"       # 0.5% minimum profit (after fees)

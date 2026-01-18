@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""PIRATE/BTC/COSA Triangular Arbitrage Bot - Starting with PIRATE"""
+"""PIRATE/USDT/BTC Triangular Arbitrage Bot - Starting with PIRATE (order book pairs only)"""
 
 import sys
 import os
@@ -37,29 +37,30 @@ def get_price(client, pair):
 
 def calculate_conversion_rates(config, prices):
     """Calculate conversion rates for the triangular cycle."""
-    # PIRATE → BTC → COSA → PIRATE
-    pair_ab = config['pair_ab']  # PIRATE/BTC
-    pair_bc = config['pair_bc']  # COSA/BTC
-    pair_ac = config['pair_ac']  # COSA/PIRATE
+    # PIRATE → USDT → BTC → PIRATE
+    pair_ab = config['pair_ab']  # PIRATE-USDT
+    pair_bc = config['pair_bc']  # BTC-USDT
+    pair_ac = config['pair_ac']  # PIRATE-BTC
 
     # For each step, calculate how much we get
-    # Step 1: PIRATE → BTC (sell PIRATE for BTC)
-    # PIRATE/BTC means price in BTC, so that's how much BTC per PIRATE
-    pirate_btc_rate = prices[pair_ab]  # How much BTC per PIRATE
+    # Step 1: PIRATE → USDT (sell PIRATE for USDT)
+    # PIRATE-USDT means price in USDT, so that's USDT per PIRATE
+    pirate_usdt_rate = prices[pair_ab]  # How much USDT per PIRATE
 
-    # Step 2: BTC → COSA (buy COSA with BTC)
-    # COSA/BTC means price in BTC, so we need to invert
-    cosa_btc_price = prices[pair_bc]  # BTC per COSA
-    btc_cosa_rate = Decimal("1") / cosa_btc_price  # COSA per BTC
+    # Step 2: USDT → BTC (buy BTC with USDT)
+    # BTC-USDT means price in USDT (how much USDT for 1 BTC), so we need to invert
+    btc_usdt_price = prices[pair_bc]  # USDT per BTC
+    usdt_btc_rate = Decimal("1") / btc_usdt_price  # BTC per USDT
 
-    # Step 3: COSA → PIRATE (sell COSA for PIRATE)
-    # COSA/PIRATE means price in PIRATE, so that's PIRATE per COSA
-    cosa_pirate_rate = prices[pair_ac]  # PIRATE per COSA
+    # Step 3: BTC → PIRATE (buy PIRATE with BTC)
+    # PIRATE-BTC means price in BTC (how much BTC for 1 PIRATE), so we need to invert
+    pirate_btc_price = prices[pair_ac]  # BTC per PIRATE
+    btc_pirate_rate = Decimal("1") / pirate_btc_price  # PIRATE per BTC
 
     return {
-        'step1': pirate_btc_rate,    # PIRATE → BTC
-        'step2': btc_cosa_rate,      # BTC → COSA
-        'step3': cosa_pirate_rate,   # COSA → PIRATE
+        'step1': pirate_usdt_rate,   # PIRATE → USDT
+        'step2': usdt_btc_rate,      # USDT → BTC
+        'step3': btc_pirate_rate,    # BTC → PIRATE
     }
 
 
@@ -71,8 +72,8 @@ def execute_arbitrage(client, config, prices):
     print(f"Starting amount: {start_amount} PIRATE")
 
     try:
-        # Step 1: Sell PIRATE for BTC
-        print(f"\nStep 1: Selling PIRATE for BTC...")
+        # Step 1: Sell PIRATE for USDT
+        print(f"\nStep 1: Selling PIRATE for USDT...")
         order1 = OrderRequest(
             symbol=config['pair_ab'],
             side="sell",
@@ -82,43 +83,43 @@ def execute_arbitrage(client, config, prices):
         response1 = client.place_order(order1)
         print(f"  Order ID: {response1.order_id}, Status: {response1.status}")
 
-        # TODO: Wait for order to fill and get actual BTC amount received
+        # TODO: Wait for order to fill and get actual USDT amount received
         # For now, estimate based on price
-        btc_amount = start_amount * prices[config['pair_ab']]
-        btc_amount = btc_amount * (Decimal("1") - Decimal(str(config['fee_rate'])))
-        print(f"  Received: ~{btc_amount} BTC")
+        usdt_amount = start_amount * prices[config['pair_ab']]
+        usdt_amount = usdt_amount * (Decimal("1") - Decimal(str(config['fee_rate'])))
+        print(f"  Received: ~{usdt_amount} USDT")
 
         time.sleep(2)  # Brief pause between orders
 
-        # Step 2: Buy COSA with BTC
-        print(f"\nStep 2: Buying COSA with BTC...")
-        cosa_amount = btc_amount / prices[config['pair_bc']]
+        # Step 2: Buy BTC with USDT
+        print(f"\nStep 2: Buying BTC with USDT...")
+        btc_amount = usdt_amount / prices[config['pair_bc']]
         order2 = OrderRequest(
             symbol=config['pair_bc'],
             side="buy",
             order_type=config['order_type'],
-            quantity=str(cosa_amount)
+            quantity=str(btc_amount)
         )
         response2 = client.place_order(order2)
         print(f"  Order ID: {response2.order_id}, Status: {response2.status}")
 
-        cosa_amount = cosa_amount * (Decimal("1") - Decimal(str(config['fee_rate'])))
-        print(f"  Received: ~{cosa_amount} COSA")
+        btc_amount = btc_amount * (Decimal("1") - Decimal(str(config['fee_rate'])))
+        print(f"  Received: ~{btc_amount} BTC")
 
         time.sleep(2)
 
-        # Step 3: Sell COSA for PIRATE
-        print(f"\nStep 3: Selling COSA for PIRATE...")
+        # Step 3: Buy PIRATE with BTC
+        print(f"\nStep 3: Buying PIRATE with BTC...")
+        final_pirate = btc_amount / prices[config['pair_ac']]
         order3 = OrderRequest(
             symbol=config['pair_ac'],
-            side="sell",
+            side="buy",
             order_type=config['order_type'],
-            quantity=str(cosa_amount)
+            quantity=str(final_pirate)
         )
         response3 = client.place_order(order3)
         print(f"  Order ID: {response3.order_id}, Status: {response3.status}")
 
-        final_pirate = cosa_amount * prices[config['pair_ac']]
         final_pirate = final_pirate * (Decimal("1") - Decimal(str(config['fee_rate'])))
         print(f"  Received: ~{final_pirate} PIRATE")
 
@@ -140,7 +141,7 @@ def execute_arbitrage(client, config, prices):
 def run_arbitrage_bot(config_file):
     """Main bot loop."""
     print("=" * 80)
-    print("PIRATE/BTC/COSA Triangular Arbitrage Bot")
+    print("PIRATE/USDT/BTC Triangular Arbitrage Bot")
     print("=" * 80)
 
     # Load config
@@ -194,13 +195,13 @@ def run_arbitrage_bot(config_file):
 
             # Simulate the cycle
             amount = start_amount
-            amount = amount * rates['step1']  # COSA → BTC
+            amount = amount * rates['step1']  # PIRATE → USDT
             amount = amount * (Decimal("1") - fee_rate)  # Fee
 
-            amount = amount * rates['step2']  # BTC → PIRATE
+            amount = amount * rates['step2']  # USDT → BTC
             amount = amount * (Decimal("1") - fee_rate)  # Fee
 
-            amount = amount * rates['step3']  # PIRATE → COSA
+            amount = amount * rates['step3']  # BTC → PIRATE
             amount = amount * (Decimal("1") - fee_rate)  # Fee
 
             profit = amount - start_amount
