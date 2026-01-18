@@ -18,8 +18,10 @@
 - [x] Use RestRequest for cancel-all orders in all bot runners.
 - [x] Align cancel-order payload with NonKYC docs and support userProvidedId.
 - [x] Use documented limit field for order book subscriptions.
-- [x] Drop balances subscription from account updates in WS client.
-- [x] Canonicalize REST signing to use request paths and sorted query/body data.
+- [x] Re-enable balances subscription for account updates in WS client.
+- [x] Align REST signing defaults with NonKYC/Hummingbot nonce precision and payload ordering.
+- [x] Honor absolute URL signing configuration in REST client.
+- [x] Standardize cancel-all orders handling with response validation and symbol formatting.
 
 ## Next
 - [ ] Define API client interfaces and error handling.

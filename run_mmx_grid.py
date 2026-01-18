@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 from nonkyc_client.auth import ApiCredentials
 from nonkyc_client.models import OrderRequest
-from nonkyc_client.rest import RestClient, RestRequest
+from nonkyc_client.rest import RestClient
 
 
 def load_config(config_file):
@@ -138,15 +138,18 @@ def cancel_all_orders(client, config):
     """Cancel all open orders for the trading pair."""
     print(f"\n🗑️  Cancelling all open orders...")
     try:
-        response = client.send(
-            RestRequest(
-                method="POST",
-                path="/api/v2/cancelallorders",
-                body={"symbol": config["trading_pair"]},
-            )
+        symbol_format = config.get("cancel_symbol_format", "underscore")
+        symbol = config["trading_pair"]
+        if symbol_format == "underscore":
+            symbol = symbol.replace("/", "_")
+        success = client.cancel_all_orders(symbol)
+        if success:
+            print(f"  ✓ Cancelled all orders")
+            return True
+        print(
+            f"  ✗ Cancel all orders failed. Response: {client.last_cancel_all_response}"
         )
-        print(f"  ✓ Cancelled all orders")
-        return True
+        return False
     except Exception as e:
         print(f"  ✗ Error cancelling orders: {e}")
         return False

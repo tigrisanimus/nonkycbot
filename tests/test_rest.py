@@ -58,7 +58,7 @@ def test_rest_get_signing_and_request_formation() -> None:
     assert request.full_url == "https://api.example/balances?limit=1"
     assert request.data is None
 
-    nonce = str(int(1700000000.0 * 1e3))
+    nonce = str(int(1700000000.0 * 1e4))
     data_to_sign = "/balances?limit=1"
     message = f"{credentials.api_key}{data_to_sign}{nonce}"
     expected_signature = _expected_signature(message, credentials.api_secret)
@@ -112,10 +112,8 @@ def test_rest_post_signing_and_body_payload() -> None:
         "strictValidate": True,
     }
 
-    nonce = str(int(1700000100.0 * 1e3))
-    data_to_sign = "/api/v2/createorder" + json.dumps(
-        body, separators=(",", ":"), sort_keys=True
-    )
+    nonce = str(int(1700000100.0 * 1e4))
+    data_to_sign = "/api/v2/createorder" + json.dumps(body, separators=(",", ":"))
     message = f"{credentials.api_key}{data_to_sign}{nonce}"
     expected_signature = _expected_signature(message, credentials.api_secret)
 
@@ -149,7 +147,7 @@ def test_rest_debug_auth_includes_json_str(capsys, monkeypatch) -> None:
 
     captured = capsys.readouterr().out
     body = order.to_payload()
-    expected_json_str = json.dumps(body, separators=(",", ":"), sort_keys=True)
+    expected_json_str = json.dumps(body, separators=(",", ":"))
 
     assert "NONKYC_DEBUG_AUTH=1" in captured
     assert f"json_str={expected_json_str}" in captured
@@ -186,7 +184,7 @@ def test_rest_signing_can_use_absolute_url() -> None:
     assert request.full_url == "https://api.example/balances?limit=1"
     assert request.data is None
 
-    nonce = str(int(1700000200.0 * 1e3))
+    nonce = str(int(1700000200.0 * 1e4))
     data_to_sign = "https://api.example/balances?limit=1"
     message = f"{credentials.api_key}{data_to_sign}{nonce}"
     expected_signature = _expected_signature(message, credentials.api_secret)
@@ -195,3 +193,37 @@ def test_rest_signing_can_use_absolute_url() -> None:
     assert request.headers["X-api-nonce"] == nonce
     assert request.headers["X-api-sign"] == expected_signature
     assert response["data"][0]["asset"] == "USD"
+
+
+def test_cancel_all_orders_success_sets_last_response() -> None:
+    credentials = ApiCredentials(api_key="cancel-key", api_secret="cancel-secret")
+    signer = AuthSigner(time_provider=lambda: 1700000300.0)
+    client = RestClient(
+        base_url="https://api.example", credentials=credentials, signer=signer
+    )
+
+    def fake_urlopen(request, timeout=10.0):
+        return FakeResponse({"data": {"success": True, "status": "Cancelled"}})
+
+    with patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen):
+        success = client.cancel_all_orders("BTC_USDT")
+
+    assert success is True
+    assert client.last_cancel_all_response == {"success": True, "status": "Cancelled"}
+
+
+def test_cancel_all_orders_failure_sets_last_response() -> None:
+    credentials = ApiCredentials(api_key="cancel-key", api_secret="cancel-secret")
+    signer = AuthSigner(time_provider=lambda: 1700000400.0)
+    client = RestClient(
+        base_url="https://api.example", credentials=credentials, signer=signer
+    )
+
+    def fake_urlopen(request, timeout=10.0):
+        return FakeResponse({"data": {"success": False, "error": "Denied"}})
+
+    with patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen):
+        success = client.cancel_all_orders("BTC_USDT")
+
+    assert success is False
+    assert client.last_cancel_all_response == {"success": False, "error": "Denied"}

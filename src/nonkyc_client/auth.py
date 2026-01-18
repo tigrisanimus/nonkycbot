@@ -31,8 +31,18 @@ class SignedHeaders:
 class AuthSigner:
     """Signer for authenticated NonKYC REST and WebSocket requests."""
 
-    def __init__(self, time_provider: Callable[[], float] | None = None) -> None:
+    def __init__(
+        self,
+        time_provider: Callable[[], float] | None = None,
+        *,
+        nonce_multiplier: float = 1e4,
+        sort_params: bool = False,
+        sort_body: bool = False,
+    ) -> None:
         self._time_provider = time_provider or time.time
+        self._nonce_multiplier = nonce_multiplier
+        self._sort_params = sort_params
+        self._sort_body = sort_body
 
     def sign(self, message: str, credentials: ApiCredentials) -> str:
         return hmac.new(
@@ -40,6 +50,17 @@ class AuthSigner:
             message.encode("utf8"),
             hashlib.sha256,
         ).hexdigest()
+
+    def serialize_body(self, body: Mapping[str, Any]) -> str:
+        return json.dumps(
+            body,
+            separators=(",", ":"),
+            sort_keys=self._sort_body,
+        )
+
+    def serialize_query(self, params: Mapping[str, Any]) -> str:
+        query_items = sorted(params.items()) if self._sort_params else params.items()
+        return urlencode(list(query_items), doseq=True)
 
     def build_rest_headers(
         self,
@@ -53,7 +74,7 @@ class AuthSigner:
         json_str = None
         if method_upper == "GET":
             if params:
-                query = urlencode(sorted(params.items()), doseq=True)
+                query = self.serialize_query(params)
                 data_to_sign = f"{url}?{query}"
             else:
                 data_to_sign = url
@@ -61,9 +82,9 @@ class AuthSigner:
             if body is None:
                 data_to_sign = url
             else:
-                json_str = json.dumps(body, separators=(",", ":"), sort_keys=True)
+                json_str = self.serialize_body(body)
                 data_to_sign = f"{url}{json_str}"
-        nonce = int(self._time_provider() * 1e3)
+        nonce = int(self._time_provider() * self._nonce_multiplier)
         message = f"{credentials.api_key}{data_to_sign}{nonce}"
         signature = self.sign(message, credentials)
         headers = {

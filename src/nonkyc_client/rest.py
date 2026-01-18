@@ -75,6 +75,11 @@ class RestClient:
             if sign_absolute_url is not None
             else env_sign_full_url == "1"
         )
+        self._last_cancel_all_response: dict[str, Any] | None = None
+
+    @property
+    def last_cancel_all_response(self) -> dict[str, Any] | None:
+        return self._last_cancel_all_response
 
     def build_url(self, path: str) -> str:
         return f"{self.base_url}/{path.lstrip('/')}"
@@ -104,11 +109,11 @@ class RestClient:
         headers = {"Accept": "application/json"}
 
         if request.method.upper() == "GET" and params:
-            url = f"{url}?{urlencode(sorted(params.items()), doseq=True)}"
+            url = f"{url}?{self.signer.serialize_query(params)}"
 
         data_bytes = None
         if request.method.upper() != "GET" and body:
-            body_str = json.dumps(body, separators=(",", ":"), sort_keys=True)
+            body_str = self.signer.serialize_body(body)
             data_bytes = body_str.encode("utf8")
             headers["Content-Type"] = "application/json"
 
@@ -117,7 +122,7 @@ class RestClient:
             signed = self.signer.build_rest_headers(
                 credentials=self.credentials,
                 method=request.method,
-                url=request.path,
+                url=url_to_sign,
                 params=params if request.method.upper() == "GET" else None,
                 body=(body if request.method.upper() != "GET" and body else None),
             )
@@ -252,6 +257,25 @@ class RestClient:
         return OrderCancelResult(
             order_id=resolved_id, success=success, raw_payload=payload
         )
+
+    def cancel_all_orders(self, symbol: str) -> bool:
+        response = self.send(
+            RestRequest(
+                method="POST", path="/api/v2/cancelallorders", body={"symbol": symbol}
+            )
+        )
+        payload = self._extract_payload(response) or {}
+        if isinstance(payload, list):
+            resolved_payload: dict[str, Any] = {"orders": payload}
+        else:
+            resolved_payload = dict(payload)
+        self._last_cancel_all_response = resolved_payload
+        success = bool(
+            resolved_payload.get("success")
+            or resolved_payload.get("status") == "Cancelled"
+            or resolved_payload.get("ok") is True
+        )
+        return success
 
     def get_order_status(self, order_id: str) -> OrderStatus:
         response = self.send(
