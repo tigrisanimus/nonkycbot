@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import random
 import time
 from dataclasses import dataclass
@@ -50,6 +51,7 @@ class RestClient:
         timeout: float = 10.0,
         max_retries: int = 3,
         backoff_factor: float = 0.5,
+        debug_auth: bool | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.credentials = credentials
@@ -57,6 +59,8 @@ class RestClient:
         self.timeout = timeout
         self.max_retries = max_retries
         self.backoff_factor = backoff_factor
+        env_debug = os.getenv("NONKYC_DEBUG_AUTH")
+        self.debug_auth = debug_auth if debug_auth is not None else env_debug == "1"
 
     def build_url(self, path: str) -> str:
         return f"{self.base_url}/{path.lstrip('/')}"
@@ -102,6 +106,21 @@ class RestClient:
                 body=body if request.method.upper() != "GET" else None,
             )
             headers.update(signed.headers)
+            if self.debug_auth:
+                print(
+                    "\n".join(
+                        [
+                            "NONKYC_DEBUG_AUTH=1",
+                            f"method={request.method.upper()}",
+                            f"url={url}",
+                            f"nonce={signed.nonce}",
+                            f"data_to_sign={signed.data_to_sign}",
+                            f"signature={signed.signature}",
+                            f"headers={signed.headers}",
+                            f"body={body if body else ''}",
+                        ]
+                    )
+                )
 
         http_request = Request(url=url, method=request.method.upper(), headers=headers, data=data_bytes)
         try:
@@ -111,6 +130,9 @@ class RestClient:
             if exc.code == 429:
                 retry_after = self._parse_retry_after(exc.headers.get("Retry-After"))
                 raise RateLimitError("Rate limit exceeded", retry_after=retry_after) from exc
+            if exc.code == 401:
+                payload = exc.read().decode("utf8") if exc.fp else ""
+                raise RestError(self._build_unauthorized_message(payload, request.path)) from exc
             if exc.code in {500, 502, 503, 504}:
                 raise TransientApiError(f"Transient HTTP error {exc.code}") from exc
             payload = exc.read().decode("utf8") if exc.fp else ""
@@ -133,6 +155,20 @@ class RestClient:
             return float(header_value)
         except ValueError:
             return None
+
+    def _build_unauthorized_message(self, payload: str, path: str) -> str:
+        guidance = (
+            "HTTP error 401: Not Authorized. Verify API key/secret, ensure the key has trading permissions, "
+            "confirm any IP whitelist includes your current egress IP (VPN/static IP changes included), "
+            "and check for clock skew on this machine. If balance queries succeed but order endpoints fail, "
+            "double-check that the API key has trade permissions enabled for private endpoints. If the key "
+            "has full access and the IP is correct, regenerate the API key/secret to rule out a stale or "
+            "revoked credential."
+        )
+        guidance = f"{guidance} Endpoint: {path}"
+        if payload:
+            return f"{guidance} Response payload: {payload}"
+        return guidance
 
     def _extract_payload(self, response: dict[str, Any]) -> Any:
         if isinstance(response, dict):

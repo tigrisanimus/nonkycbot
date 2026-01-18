@@ -24,6 +24,7 @@ class SignedHeaders:
     headers: dict[str, str]
     signature: str
     nonce: int
+    data_to_sign: str
 
 
 class AuthSigner:
@@ -61,7 +62,7 @@ class AuthSigner:
             "X-API-NONCE": str(nonce),
             "X-API-SIGN": signature,
         }
-        return SignedHeaders(headers=headers, signature=signature, nonce=nonce)
+        return SignedHeaders(headers=headers, signature=signature, nonce=nonce, data_to_sign=data_to_sign)
 
     def build_ws_login_payload(self, credentials: ApiCredentials, nonce: str | None = None) -> dict[str, Any]:
         token = nonce or self._generate_nonce()

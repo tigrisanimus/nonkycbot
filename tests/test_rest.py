@@ -51,7 +51,7 @@ def test_rest_get_signing_and_request_formation() -> None:
     assert request.full_url == "https://api.example/balances?limit=1"
     assert request.data is None
 
-    nonce = str(int(1700000000.0 * 1e4))
+    nonce = str(int(1700000000.0 * 1e3))
     data_to_sign = "https://api.example/balances?limit=1"
     message = f"{credentials.api_key}{data_to_sign}{nonce}"
     expected_signature = _expected_signature(message, credentials.api_secret)
@@ -86,7 +86,7 @@ def test_rest_post_signing_and_body_payload() -> None:
         response = client.place_order(order)
 
     request = captured["request"]
-    assert request.full_url == "https://api.example/createorder"
+    assert request.full_url == "https://api.example/api/v2/createorder"
     assert request.headers["Content-type"] == "application/json"
 
     body = json.loads(request.data.decode("utf8"))
@@ -99,8 +99,8 @@ def test_rest_post_signing_and_body_payload() -> None:
         "clientOrderId": "client-1",
     }
 
-    nonce = str(int(1700000100.0 * 1e4))
-    data_to_sign = "https://api.example/createorder" + json.dumps(body, separators=(",", ":"))
+    nonce = str(int(1700000100.0 * 1e3))
+    data_to_sign = "https://api.example/api/v2/createorder" + json.dumps(body, separators=(",", ":"))
     message = f"{credentials.api_key}{data_to_sign}{nonce}"
     expected_signature = _expected_signature(message, credentials.api_secret)
 
