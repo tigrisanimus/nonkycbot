@@ -39,6 +39,44 @@ def _round_quantity(value, step_size, precision):
     return value.quantize(quantizer, rounding=ROUND_UP)
 
 
+def _min_quantities_for_cycle(config, prices, step_size, precision):
+    min_notional = Decimal(str(config.get("min_notional_usd", "1.0")))
+    fee_rate = Decimal(str(config.get("fee_rate", "0")))
+    min_quantities = {}
+    for pair in (config["pair_ab"], config["pair_bc"], config["pair_ac"]):
+        min_qty = min_quantity_for_notional(
+            price=prices[pair],
+            min_notional=min_notional,
+            fee_rate=fee_rate,
+        )
+        min_quantities[pair] = _round_quantity(min_qty, step_size, precision)
+    return min_quantities
+
+
+def _simulate_fee_adjusted_cycle(config, prices, start_amount, min_quantities):
+    fee_rate = Decimal(str(config.get("fee_rate", "0")))
+    pair_ab = config["pair_ab"]
+    pair_bc = config["pair_bc"]
+    pair_ac = config["pair_ac"]
+
+    adjusted_start = max(start_amount, min_quantities[pair_ab])
+
+    usdt_amount = adjusted_start * prices[pair_ab]
+    usdt_amount = usdt_amount * (Decimal("1") - fee_rate)
+
+    btc_amount = usdt_amount / prices[pair_bc]
+    btc_amount = max(btc_amount, min_quantities[pair_bc])
+    btc_amount = btc_amount * (Decimal("1") - fee_rate)
+
+    final_pirate = btc_amount / prices[pair_ac]
+    final_pirate = max(final_pirate, min_quantities[pair_ac])
+    final_pirate = final_pirate * (Decimal("1") - fee_rate)
+
+    profit = final_pirate - adjusted_start
+    profit_ratio = profit / adjusted_start
+    return adjusted_start, final_pirate, profit_ratio
+
+
 def _should_skip_notional(config, symbol, side, quantity, price, order_type):
     min_notional = Decimal(str(config.get("min_notional_usd", "1.0")))
     fee_rate = Decimal(str(config.get("fee_rate", "0")))
@@ -140,9 +178,14 @@ def execute_arbitrage(client, config, prices):
         if "strictValidate" in config
         else config.get("strict_validate")
     )
-    min_notional = Decimal(str(config.get("min_notional_usd", "1.0")))
     fee_rate = Decimal(str(config.get("fee_rate", "0")))
     step_size, precision = resolve_quantity_rounding(config)
+    min_quantities = _min_quantities_for_cycle(
+        config,
+        prices,
+        step_size,
+        precision,
+    )
 
     print(f"\n🔄 EXECUTING ARBITRAGE CYCLE")
     print(f"Starting amount: {start_amount} PIRATE")
@@ -151,13 +194,7 @@ def execute_arbitrage(client, config, prices):
         order_type = config.get("order_type", "limit")
         # Step 1: Sell PIRATE for USDT
         print(f"\nStep 1: Selling PIRATE for USDT...")
-        min_qty = min_quantity_for_notional(
-            price=prices[config["pair_ab"]],
-            min_notional=min_notional,
-            fee_rate=fee_rate,
-        )
-        min_qty = _round_quantity(min_qty, step_size, precision)
-        start_amount = max(start_amount, min_qty)
+        start_amount = max(start_amount, min_quantities[config["pair_ab"]])
         if _should_skip_notional(
             config,
             config["pair_ab"],
@@ -189,13 +226,7 @@ def execute_arbitrage(client, config, prices):
         # Step 2: Buy BTC with USDT
         print(f"\nStep 2: Buying BTC with USDT...")
         btc_amount = usdt_amount / prices[config["pair_bc"]]
-        min_qty = min_quantity_for_notional(
-            price=prices[config["pair_bc"]],
-            min_notional=min_notional,
-            fee_rate=fee_rate,
-        )
-        min_qty = _round_quantity(min_qty, step_size, precision)
-        btc_amount = max(btc_amount, min_qty)
+        btc_amount = max(btc_amount, min_quantities[config["pair_bc"]])
         if _should_skip_notional(
             config,
             config["pair_bc"],
@@ -224,13 +255,7 @@ def execute_arbitrage(client, config, prices):
         # Step 3: Buy PIRATE with BTC
         print(f"\nStep 3: Buying PIRATE with BTC...")
         final_pirate = btc_amount / prices[config["pair_ac"]]
-        min_qty = min_quantity_for_notional(
-            price=prices[config["pair_ac"]],
-            min_notional=min_notional,
-            fee_rate=fee_rate,
-        )
-        min_qty = _round_quantity(min_qty, step_size, precision)
-        final_pirate = max(final_pirate, min_qty)
+        final_pirate = max(final_pirate, min_quantities[config["pair_ac"]])
         if _should_skip_notional(
             config,
             config["pair_ac"],
@@ -323,6 +348,7 @@ def run_arbitrage_bot(config_file):
             # Calculate expected profit
             start_amount = Decimal(str(config["trade_amount_a"]))
             fee_rate = Decimal(str(config["fee_rate"]))
+            step_size, precision = resolve_quantity_rounding(config)
 
             # Simulate the cycle
             amount = start_amount
@@ -350,6 +376,39 @@ def run_arbitrage_bot(config_file):
 
             if profit_ratio >= min_profit:
                 print(f"\n🚀 OPPORTUNITY FOUND! Profit: {profit_pct:.4f}%")
+                min_quantities = _min_quantities_for_cycle(
+                    config,
+                    prices,
+                    step_size,
+                    precision,
+                )
+                (
+                    adjusted_start,
+                    adjusted_final,
+                    adjusted_profit_ratio,
+                ) = _simulate_fee_adjusted_cycle(
+                    config,
+                    prices,
+                    start_amount,
+                    min_quantities,
+                )
+                adjusted_profit_pct = adjusted_profit_ratio * 100
+                print("\n🔎 Fee-Adjusted Cycle Check:")
+                print(f"  Start (adjusted): {adjusted_start} PIRATE")
+                print(f"  End (adjusted): {adjusted_final:.8f} PIRATE")
+                print(
+                    "  Profit (adjusted): "
+                    f"{adjusted_final - adjusted_start:.8f} PIRATE "
+                    f"({adjusted_profit_pct:.4f}%)"
+                )
+
+                if adjusted_profit_ratio < min_profit:
+                    print(
+                        "\n⏸️  Fee-adjusted profit below threshold. "
+                        "Skipping execution."
+                    )
+                    print(f"  Threshold: {float(config['min_profitability'])*100}%")
+                    continue
 
                 # Ask for confirmation
                 response = input("\nExecute arbitrage? (yes/no): ")
