@@ -21,6 +21,7 @@ from nonkyc_client.models import (
     OrderResponse,
     OrderStatus,
 )
+from nonkyc_client.time_sync import TimeSynchronizer
 
 
 @dataclass
@@ -55,6 +56,8 @@ class RestClient:
         base_url: str,
         credentials: ApiCredentials | None = None,
         signer: AuthSigner | None = None,
+        time_synchronizer: TimeSynchronizer | None = None,
+        use_server_time: bool | None = None,
         timeout: float = 10.0,
         max_retries: int = 3,
         backoff_factor: float = 0.5,
@@ -63,7 +66,26 @@ class RestClient:
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.credentials = credentials
-        self.signer = signer or AuthSigner()
+        env_use_server_time = os.getenv("NONKYC_USE_SERVER_TIME")
+        if use_server_time is None:
+            use_server_time = env_use_server_time == "1"
+        self._time_synchronizer = (
+            time_synchronizer
+            if time_synchronizer is not None
+            else (TimeSynchronizer() if use_server_time else None)
+        )
+        resolved_time_provider = (
+            self._time_synchronizer.time if self._time_synchronizer else None
+        )
+        if signer is None:
+            self.signer = AuthSigner(time_provider=resolved_time_provider)
+        else:
+            self.signer = signer
+            if (
+                resolved_time_provider is not None
+                and self.signer.uses_default_time_provider()
+            ):
+                self.signer.set_time_provider(resolved_time_provider)
         self.timeout = timeout
         self.max_retries = max_retries
         self.backoff_factor = backoff_factor
