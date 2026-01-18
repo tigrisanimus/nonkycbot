@@ -14,12 +14,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 from nonkyc_client.auth import ApiCredentials, AuthSigner
 from nonkyc_client.models import OrderRequest
-from nonkyc_client.pricing import (
-    effective_notional,
-    min_quantity_for_notional,
-    round_up_to_step,
-    should_skip_fee_edge,
-)
+from nonkyc_client.pricing import (effective_notional,
+                                   min_quantity_for_notional, round_up_to_step,
+                                   should_skip_fee_edge)
 from nonkyc_client.rest import RestClient
 from utils.notional import resolve_quantity_rounding
 
@@ -65,7 +62,9 @@ def _resolve_signing_enabled(config):
 
 def _looks_like_auth_error_message(message: str) -> bool:
     lowered = message.lower()
-    return "401" in lowered and ("not authorized" in lowered or "unauthorized" in lowered)
+    return "401" in lowered and (
+        "not authorized" in lowered or "unauthorized" in lowered
+    )
 
 
 def _is_auth_failure_response(response: dict | None) -> bool:
@@ -260,10 +259,15 @@ def cancel_all_orders(client, config):
     """Cancel all open orders for the trading pair."""
     print(f"\n🗑️  Cancelling all open orders...")
     try:
-        symbol_format = config.get("cancel_symbol_format", "underscore")
+        symbol_format = config.get("cancel_symbol_format", "dash")
         symbol = config["trading_pair"]
-        if symbol_format == "underscore":
+        if symbol_format == "dash":
+            symbol = symbol.replace("/", "-")
+        elif symbol_format == "underscore":
             symbol = symbol.replace("/", "_")
+        elif symbol_format == "slash":
+            symbol = symbol
+        print(f"  ℹ️ Resolved cancel symbol: {symbol}")
         success = client.cancel_all_orders(symbol)
         if success:
             print(f"  ✓ Cancelled all orders")
