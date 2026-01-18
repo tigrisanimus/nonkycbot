@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 from nonkyc_client.auth import ApiCredentials
 from nonkyc_client.models import OrderRequest
-from nonkyc_client.rest import RestClient
+from nonkyc_client.rest import RestClient, RestRequest
 
 
 def load_config(config_file):
@@ -139,11 +139,11 @@ def cancel_all_orders(client, config):
     print(f"\n🗑️  Cancelling all open orders...")
     try:
         response = client.send(
-            {
-                "method": "POST",
-                "path": "/api/v2/cancelallorders",
-                "body": {"symbol": config["trading_pair"]},
-            }
+            RestRequest(
+                method="POST",
+                path="/api/v2/cancelallorders",
+                body={"symbol": config["trading_pair"]},
+            )
         )
         print(f"  ✓ Cancelled all orders")
         return True
