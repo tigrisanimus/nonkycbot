@@ -31,6 +31,8 @@
 - [x] Default cancel-all symbol format to dash and log resolved cancel symbols.
 - [x] Retry cancel-all with alternate symbol formats when required input is missing.
 - [x] Allow cancel-all requests without a symbol and verify request body handling in tests.
+- [x] Align cancel-all REST/bot schema with slash symbols and side-aware payloads.
+- [x] Treat cancel-side "all" as omit-side for cancel-all payloads.
 
 ## Next
 - [ ] Define API client interfaces and error handling.
