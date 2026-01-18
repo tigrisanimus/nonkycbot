@@ -16,7 +16,11 @@ from nonkyc_client.auth import ApiCredentials, AuthSigner
 from nonkyc_client.models import OrderRequest
 from nonkyc_client.rest import RestClient, RestRequest
 from strategies.infinity_grid import generate_symmetric_grid, summarize_grid
-from utils.notional import should_skip_notional
+from utils.notional import (
+    min_quantity_from_notional,
+    resolve_quantity_rounding,
+    should_skip_notional,
+)
 
 
 def load_config(config_file):
@@ -81,6 +85,9 @@ def create_grid_orders(client, config, mid_price):
     levels = int(config["grid_levels"])
     spread = Decimal(str(config["grid_spread"]))
     order_size = Decimal(str(config["order_amount"]))
+    fee_rate = Decimal(str(config.get("fee_rate", "0")))
+    min_notional = Decimal(str(config.get("min_notional_usd", "1.0")))
+    step_size, precision = resolve_quantity_rounding(config)
 
     # Generate grid levels
     grid = generate_symmetric_grid(
@@ -105,14 +112,22 @@ def create_grid_orders(client, config, mid_price):
     order_type = config.get("order_type", "limit")
     for level in grid:
         try:
-            print(f"\n  Placing {level.side} order: {level.amount} @ {level.price}")
+            min_qty = min_quantity_from_notional(
+                price=mid_price,
+                min_notional=min_notional,
+                fee_rate=fee_rate,
+                step_size=step_size,
+                precision=precision,
+            )
+            quantity = max(level.amount, min_qty)
+            print(f"\n  Placing {level.side} order: {quantity} @ {level.price}")
 
             price_for_notional = level.price if order_type == "limit" else mid_price
             if should_skip_notional(
                 config=config,
                 symbol=config["trading_pair"],
                 side=level.side,
-                quantity=level.amount,
+                quantity=quantity,
                 price=price_for_notional,
                 order_type=order_type,
             ):
@@ -122,7 +137,7 @@ def create_grid_orders(client, config, mid_price):
                 symbol=config["trading_pair"],
                 side=level.side,
                 order_type=order_type,
-                quantity=str(level.amount),
+                quantity=str(quantity),
                 price=str(level.price),
                 user_provided_id=user_provided_id,
                 strict_validate=strict_validate,
@@ -135,7 +150,7 @@ def create_grid_orders(client, config, mid_price):
                     "id": response.order_id,
                     "side": level.side,
                     "price": level.price,
-                    "amount": level.amount,
+                    "amount": quantity,
                 }
             )
 

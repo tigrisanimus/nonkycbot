@@ -30,6 +30,7 @@
 - [x] Add minimum notional checks before bot order placement.
 - [x] Improve REST error parsing for min-notional violations.
 - [x] Note bots enforce minimum $1 notional rule before placing orders.
+- [x] Add min-quantity helper with fee-aware rounding and apply to bots.
 
 ## Next
 - [ ] Define API client interfaces and error handling.

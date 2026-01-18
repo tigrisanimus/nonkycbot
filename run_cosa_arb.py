@@ -16,7 +16,11 @@ from nonkyc_client.auth import ApiCredentials, AuthSigner
 from nonkyc_client.models import OrderRequest
 from nonkyc_client.rest import RestClient
 from strategies.triangular_arb import evaluate_cycle, find_profitable_cycle
-from utils.notional import should_skip_notional
+from utils.notional import (
+    min_quantity_from_notional,
+    resolve_quantity_rounding,
+    should_skip_notional,
+)
 
 
 def load_config(config_file):
@@ -112,6 +116,9 @@ def execute_arbitrage(client, config, prices):
         if "strictValidate" in config
         else config.get("strict_validate")
     )
+    min_notional = Decimal(str(config.get("min_notional_usd", "1.0")))
+    fee_rate = Decimal(str(config.get("fee_rate", "0")))
+    step_size, precision = resolve_quantity_rounding(config)
 
     print(f"\n🔄 EXECUTING ARBITRAGE CYCLE")
     print(f"Starting amount: {start_amount} PIRATE")
@@ -120,6 +127,14 @@ def execute_arbitrage(client, config, prices):
         order_type = config.get("order_type", "limit")
         # Step 1: Sell PIRATE for USDT
         print(f"\nStep 1: Selling PIRATE for USDT...")
+        min_qty = min_quantity_from_notional(
+            price=prices[config["pair_ab"]],
+            min_notional=min_notional,
+            fee_rate=fee_rate,
+            step_size=step_size,
+            precision=precision,
+        )
+        start_amount = max(start_amount, min_qty)
         if should_skip_notional(
             config=config,
             symbol=config["pair_ab"],
@@ -143,7 +158,7 @@ def execute_arbitrage(client, config, prices):
         # TODO: Wait for order to fill and get actual USDT amount received
         # For now, estimate based on price
         usdt_amount = start_amount * prices[config["pair_ab"]]
-        usdt_amount = usdt_amount * (Decimal("1") - Decimal(str(config["fee_rate"])))
+        usdt_amount = usdt_amount * (Decimal("1") - fee_rate)
         print(f"  Received: ~{usdt_amount} USDT")
 
         time.sleep(2)  # Brief pause between orders
@@ -151,6 +166,14 @@ def execute_arbitrage(client, config, prices):
         # Step 2: Buy BTC with USDT
         print(f"\nStep 2: Buying BTC with USDT...")
         btc_amount = usdt_amount / prices[config["pair_bc"]]
+        min_qty = min_quantity_from_notional(
+            price=prices[config["pair_bc"]],
+            min_notional=min_notional,
+            fee_rate=fee_rate,
+            step_size=step_size,
+            precision=precision,
+        )
+        btc_amount = max(btc_amount, min_qty)
         if should_skip_notional(
             config=config,
             symbol=config["pair_bc"],
@@ -171,7 +194,7 @@ def execute_arbitrage(client, config, prices):
         response2 = client.place_order(order2)
         print(f"  Order ID: {response2.order_id}, Status: {response2.status}")
 
-        btc_amount = btc_amount * (Decimal("1") - Decimal(str(config["fee_rate"])))
+        btc_amount = btc_amount * (Decimal("1") - fee_rate)
         print(f"  Received: ~{btc_amount} BTC")
 
         time.sleep(2)
@@ -179,6 +202,14 @@ def execute_arbitrage(client, config, prices):
         # Step 3: Buy PIRATE with BTC
         print(f"\nStep 3: Buying PIRATE with BTC...")
         final_pirate = btc_amount / prices[config["pair_ac"]]
+        min_qty = min_quantity_from_notional(
+            price=prices[config["pair_ac"]],
+            min_notional=min_notional,
+            fee_rate=fee_rate,
+            step_size=step_size,
+            precision=precision,
+        )
+        final_pirate = max(final_pirate, min_qty)
         if should_skip_notional(
             config=config,
             symbol=config["pair_ac"],
@@ -199,7 +230,7 @@ def execute_arbitrage(client, config, prices):
         response3 = client.place_order(order3)
         print(f"  Order ID: {response3.order_id}, Status: {response3.status}")
 
-        final_pirate = final_pirate * (Decimal("1") - Decimal(str(config["fee_rate"])))
+        final_pirate = final_pirate * (Decimal("1") - fee_rate)
         print(f"  Received: ~{final_pirate} PIRATE")
 
         profit = final_pirate - start_amount

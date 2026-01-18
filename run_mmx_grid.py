@@ -15,7 +15,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 from nonkyc_client.auth import ApiCredentials, AuthSigner
 from nonkyc_client.models import OrderRequest
 from nonkyc_client.rest import RestClient, RestRequest
-from utils.notional import should_skip_notional
+from utils.notional import (
+    min_quantity_from_notional,
+    resolve_quantity_rounding,
+    should_skip_notional,
+)
 
 
 def load_config(config_file):
@@ -113,6 +117,9 @@ def place_grid_orders(client, config, mid_price):
     spread = Decimal(str(config["grid_spread"]))
     order_amount = Decimal(str(config["order_amount_mmx"]))
     grid_type = config.get("grid_type", "balanced")
+    fee_rate = Decimal(str(config.get("fee_rate", "0")))
+    min_notional = Decimal(str(config.get("min_notional_usd", "1.0")))
+    step_size, precision = resolve_quantity_rounding(config)
 
     # Generate grid
     if grid_type == "sell_only":
@@ -140,8 +147,16 @@ def place_grid_orders(client, config, mid_price):
     order_type = config.get("order_type", "limit")
     for order_data in grid:
         try:
+            min_qty = min_quantity_from_notional(
+                price=mid_price,
+                min_notional=min_notional,
+                fee_rate=fee_rate,
+                step_size=step_size,
+                precision=precision,
+            )
+            quantity = max(order_data["amount"], min_qty)
             print(
-                f"\n  Placing {order_data['side']} order: {order_data['amount']} MMX @ {order_data['price']:.8f} USDT"
+                f"\n  Placing {order_data['side']} order: {quantity} MMX @ {order_data['price']:.8f} USDT"
             )
 
             price_for_notional = (
@@ -151,7 +166,7 @@ def place_grid_orders(client, config, mid_price):
                 config=config,
                 symbol=config["trading_pair"],
                 side=order_data["side"],
-                quantity=order_data["amount"],
+                quantity=quantity,
                 price=price_for_notional,
                 order_type=order_type,
             ):
@@ -161,7 +176,7 @@ def place_grid_orders(client, config, mid_price):
                 symbol=config["trading_pair"],
                 side=order_data["side"],
                 order_type=order_type,
-                quantity=str(order_data["amount"]),
+                quantity=str(quantity),
                 price=str(order_data["price"]),
                 user_provided_id=user_provided_id,
                 strict_validate=strict_validate,
@@ -174,7 +189,7 @@ def place_grid_orders(client, config, mid_price):
                     "id": response.order_id,
                     "side": order_data["side"],
                     "price": order_data["price"],
-                    "amount": order_data["amount"],
+                    "amount": quantity,
                 }
             )
 
