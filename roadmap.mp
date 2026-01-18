@@ -22,6 +22,7 @@
 - [x] Align REST signing defaults with NonKYC/Hummingbot nonce precision and payload ordering.
 - [x] Honor absolute URL signing configuration in REST client.
 - [x] Add signer configuration overrides to bot runner configs.
+- [x] Add signer override reporting to test_connection helper script.
 
 ## Next
 - [ ] Define API client interfaces and error handling.
