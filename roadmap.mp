@@ -29,6 +29,7 @@
 - [x] Allow bot runners to override signer settings and disable signing via config.
 - [x] Add minimum notional checks before bot order placement.
 - [x] Improve REST error parsing for min-notional violations.
+- [x] Note bots enforce minimum $1 notional rule before placing orders.
 
 ## Next
 - [ ] Define API client interfaces and error handling.
