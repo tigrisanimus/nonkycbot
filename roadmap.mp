@@ -23,6 +23,7 @@
 - [x] Honor absolute URL signing configuration in REST client.
 - [x] Add signer configuration overrides to bot runner configs.
 - [x] Add signer override reporting to test_connection helper script.
+- [x] Ensure all bots/scripts expose signer configuration and absolute-URL signing toggles.
 
 ## Next
 - [ ] Define API client interfaces and error handling.
