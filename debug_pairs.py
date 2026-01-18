@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Debug script to check COSA/PIRATE pair data"""
+"""Debug script to check trading pair formats and API responses"""
 
 import sys
 import os
@@ -61,15 +61,14 @@ if __name__ == "__main__":
         print("\n⚠️  Please edit this file and add your API credentials!")
         sys.exit(1)
 
-    # Test all three pairs
+    # Test MMX-USDT with different formats
     pairs_to_test = [
-        "PIRATE/BTC",
-        "COSA/BTC",
-        "COSA/PIRATE",
-        # Try alternative formats
-        "PIRATE-BTC",
-        "COSA-BTC",
-        "COSA-PIRATE",
+        "MMX-USDT",      # Hyphen format
+        "MMX/USDT",      # Slash format
+        "USDT-MMX",      # Reversed with hyphen
+        "USDT/MMX",      # Reversed with slash
+        "MMX_USDT",      # Underscore format
+        "MMXUSDT",       # No separator
     ]
 
     for pair in pairs_to_test:
