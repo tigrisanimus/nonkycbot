@@ -1,0 +1,24 @@
+exchange: "nonkyc"
+api_key: "your_api_key_here"
+api_secret: "your_api_secret_here"
+
+# Grid Trading Settings for MMX-USDT
+trading_pair: "MMX-USDT"
+
+# Balanced Grid Settings (requires both MMX and USDT)
+grid_levels: 10                 # 10 buy orders + 10 sell orders
+grid_spread: "0.02"             # 2% spread between levels
+order_amount_mmx: "25"          # 25 MMX per order (550/2 = 275, 275/10 = 27.5)
+
+# Advanced Settings
+price_source: "mid"             # Use mid price
+refresh_time: 120               # Refresh grid every 2 minutes
+order_type: "limit"             # Use limit orders
+
+# Grid boundaries (optional - adjust based on your price expectations)
+# lower_bound: "0.80"           # 80% of current price
+# upper_bound: "1.20"           # 120% of current price
+
+# Instructions:
+# 1. First, manually sell ~275 MMX for USDT (to get 50/50 balance)
+# 2. Then run this bot with: python run_mmx_grid.py mmx_usdt_grid.yml
