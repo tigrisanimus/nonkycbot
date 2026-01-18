@@ -21,7 +21,22 @@
 - [x] Re-enable balances subscription for account updates in WS client.
 - [x] Align REST signing defaults with NonKYC/Hummingbot nonce precision and payload ordering.
 - [x] Honor absolute URL signing configuration in REST client.
-- [x] Standardize cancel-all orders handling with response validation and symbol formatting.
+- [x] Add signer configuration overrides to bot runner configs.
+- [x] Add signer override reporting to test_connection helper script.
+- [x] Ensure all bots/scripts expose signer configuration and absolute-URL signing toggles.
+- [x] Default REST signing to full URLs with explicit opt-out coverage.
+- [x] Add optional server-time synchronization for REST nonce signing.
+- [x] Allow bot runners to override signer settings and disable signing via config.
+- [x] Add minimum notional checks before bot order placement.
+- [x] Improve REST error parsing for min-notional violations.
+- [x] Note bots enforce minimum $1 notional rule before placing orders.
+- [x] Add min-quantity helper with fee-aware rounding and apply to bots.
+- [x] Add pricing helpers for notional math and use them in bot scripts.
+- [x] Skip grid levels that do not clear fees before order placement.
+- [x] Recompute triangular arb cycles with fee-adjusted min quantities before execution.
+- [x] Add pricing helper tests for fee-adjusted notionals and grid edge checks.
+- [x] Auto-size orders using live price to meet $1 min notional.
+- [x] Fee-aware profitability checks in grid/arbitrage bots.
 
 ## Next
 - [ ] Define API client interfaces and error handling.

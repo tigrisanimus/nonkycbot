@@ -5,23 +5,90 @@ import os
 import sys
 import time
 from datetime import datetime
-from decimal import Decimal
+from decimal import ROUND_UP, Decimal
 
 import yaml
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
-from nonkyc_client.auth import ApiCredentials
+from nonkyc_client.auth import ApiCredentials, AuthSigner
 from nonkyc_client.models import OrderRequest
-from nonkyc_client.rest import RestClient
+from nonkyc_client.pricing import (
+    effective_notional,
+    min_quantity_for_notional,
+    round_up_to_step,
+    should_skip_fee_edge,
+)
+from nonkyc_client.rest import RestClient, RestRequest
 from strategies.infinity_grid import generate_symmetric_grid, summarize_grid
+from utils.notional import resolve_quantity_rounding
 
 
 def load_config(config_file):
     """Load configuration from YAML file."""
     with open(config_file, "r") as f:
         return yaml.safe_load(f)
+
+
+def _round_quantity(value, step_size, precision):
+    if step_size is not None:
+        return round_up_to_step(value, Decimal(str(step_size)))
+    if precision is None:
+        return value
+    quantizer = Decimal("1").scaleb(-precision)
+    return value.quantize(quantizer, rounding=ROUND_UP)
+
+
+def _should_skip_notional(config, symbol, side, quantity, price, order_type):
+    min_notional = Decimal(str(config.get("min_notional_usd", "1.0")))
+    fee_rate = Decimal(str(config.get("fee_rate", "0.001")))
+    notional = effective_notional(quantity, price, fee_rate)
+    if notional < min_notional:
+        print(
+            "⚠️  Skipping order below min notional: "
+            f"symbol={symbol} side={side} order_type={order_type} "
+            f"price={price} quantity={quantity} notional={notional}"
+        )
+        return True
+    return False
+
+
+def _resolve_signing_enabled(config):
+    if "enable_signing" in config:
+        return config["enable_signing"]
+    if "use_signing" in config:
+        return config["use_signing"]
+    if "sign_requests" in config:
+        return config["sign_requests"]
+    return True
+
+
+def build_rest_client(config):
+    """Create a REST client with optional signer configuration overrides."""
+    signing_enabled = _resolve_signing_enabled(config)
+    creds = (
+        ApiCredentials(api_key=config["api_key"], api_secret=config["api_secret"])
+        if signing_enabled
+        else None
+    )
+    sign_absolute_url = config.get("sign_absolute_url")
+    signer = (
+        AuthSigner(
+            nonce_multiplier=config.get("nonce_multiplier", 1e4),
+            sort_params=config.get("sort_params", False),
+            sort_body=config.get("sort_body", False),
+        )
+        if signing_enabled
+        else None
+    )
+    return RestClient(
+        base_url="https://api.nonkyc.io",
+        credentials=creds,
+        signer=signer,
+        use_server_time=config.get("use_server_time"),
+        sign_absolute_url=sign_absolute_url,
+    )
 
 
 def get_current_price(client, pair):
@@ -43,6 +110,9 @@ def create_grid_orders(client, config, mid_price):
     levels = int(config["grid_levels"])
     spread = Decimal(str(config["grid_spread"]))
     order_size = Decimal(str(config["order_amount"]))
+    fee_rate = Decimal(str(config.get("fee_rate", "0.001")))
+    min_notional = Decimal(str(config.get("min_notional_usd", "1.0")))
+    step_size, precision = resolve_quantity_rounding(config)
 
     # Generate grid levels
     grid = generate_symmetric_grid(
@@ -64,15 +134,37 @@ def create_grid_orders(client, config, mid_price):
         if "strictValidate" in config
         else config.get("strict_validate")
     )
+    order_type = config.get("order_type", "limit")
     for level in grid:
         try:
-            print(f"\n  Placing {level.side} order: {level.amount} @ {level.price}")
+            min_qty = min_quantity_for_notional(
+                price=mid_price,
+                min_notional=min_notional,
+                fee_rate=fee_rate,
+            )
+            min_qty = _round_quantity(min_qty, step_size, precision)
+            quantity = max(level.amount, min_qty)
+            print(f"\n  Placing {level.side} order: {quantity} @ {level.price}")
+
+            if should_skip_fee_edge(level.side, level.price, mid_price, fee_rate):
+                continue
+
+            price_for_notional = level.price if order_type == "limit" else mid_price
+            if _should_skip_notional(
+                config,
+                config["trading_pair"],
+                level.side,
+                quantity,
+                price_for_notional,
+                order_type,
+            ):
+                continue
 
             order = OrderRequest(
                 symbol=config["trading_pair"],
                 side=level.side,
-                order_type=config.get("order_type", "limit"),
-                quantity=str(level.amount),
+                order_type=order_type,
+                quantity=str(quantity),
                 price=str(level.price),
                 user_provided_id=user_provided_id,
                 strict_validate=strict_validate,
@@ -85,7 +177,7 @@ def create_grid_orders(client, config, mid_price):
                     "id": response.order_id,
                     "side": level.side,
                     "price": level.price,
-                    "amount": level.amount,
+                    "amount": quantity,
                 }
             )
 
@@ -134,8 +226,7 @@ def run_grid_bot(config_file):
     print(f"  Refresh Time: {config['refresh_time']}s")
 
     # Setup client
-    creds = ApiCredentials(api_key=config["api_key"], api_secret=config["api_secret"])
-    client = RestClient(base_url="https://api.nonkyc.io", credentials=creds)
+    client = build_rest_client(config)
 
     print("\n✅ Connected to NonKYC API")
 

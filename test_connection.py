@@ -8,11 +8,101 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 from nonkyc_client.rest import RestClient
-from nonkyc_client.auth import ApiCredentials
+from nonkyc_client.auth import ApiCredentials, AuthSigner
 
 # Replace with your actual API credentials
 API_KEY = "your_api_key_here"
 API_SECRET = "your_api_secret_here"
+
+# Optional signer overrides (set to None to use environment or defaults)
+SIGNER_NONCE_MULTIPLIER = None
+SIGNER_SORT_PARAMS = None
+SIGNER_SORT_BODY = None
+SIGN_ABSOLUTE_URL = None
+
+DEFAULT_NONCE_MULTIPLIER = 1e4
+DEFAULT_SORT_PARAMS = False
+DEFAULT_SORT_BODY = False
+
+
+def _parse_bool(value: str) -> bool | None:
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "y", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "n", "off"}:
+        return False
+    return None
+
+
+def _resolve_float(
+    env_name: str,
+    default: float,
+    override: float | None,
+    warnings: list[str],
+) -> float:
+    if override is not None:
+        return override
+    raw = os.getenv(env_name)
+    if raw is None:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        warnings.append(f"{env_name}={raw!r} (invalid float, using {default})")
+        return default
+
+
+def _resolve_bool(
+    env_name: str,
+    default: bool,
+    override: bool | None,
+    warnings: list[str],
+) -> bool:
+    if override is not None:
+        return override
+    raw = os.getenv(env_name)
+    if raw is None:
+        return default
+    parsed = _parse_bool(raw)
+    if parsed is None:
+        warnings.append(f"{env_name}={raw!r} (invalid bool, using {default})")
+        return default
+    return parsed
+
+
+def _resolve_signer_settings() -> tuple[AuthSigner, float, bool, bool, bool, list[str]]:
+    warnings: list[str] = []
+    nonce_multiplier = _resolve_float(
+        "NONKYC_NONCE_MULTIPLIER",
+        DEFAULT_NONCE_MULTIPLIER,
+        SIGNER_NONCE_MULTIPLIER,
+        warnings,
+    )
+    sort_params = _resolve_bool(
+        "NONKYC_SORT_PARAMS",
+        DEFAULT_SORT_PARAMS,
+        SIGNER_SORT_PARAMS,
+        warnings,
+    )
+    sort_body = _resolve_bool(
+        "NONKYC_SORT_BODY",
+        DEFAULT_SORT_BODY,
+        SIGNER_SORT_BODY,
+        warnings,
+    )
+    sign_absolute_url = _resolve_bool(
+        "NONKYC_SIGN_FULL_URL",
+        False,
+        SIGN_ABSOLUTE_URL,
+        warnings,
+    )
+    signer = AuthSigner(
+        nonce_multiplier=nonce_multiplier,
+        sort_params=sort_params,
+        sort_body=sort_body,
+    )
+    return signer, nonce_multiplier, sort_params, sort_body, sign_absolute_url, warnings
+
 
 def test_connection():
     """Test the NonKYC API connection."""
@@ -23,17 +113,37 @@ def test_connection():
     # Create credentials
     creds = ApiCredentials(api_key=API_KEY, api_secret=API_SECRET)
 
+    (
+        signer,
+        nonce_multiplier,
+        sort_params,
+        sort_body,
+        sign_absolute_url,
+        warnings,
+    ) = _resolve_signer_settings()
+
     # Create REST client
     client = RestClient(
         base_url="https://api.nonkyc.io",
         credentials=creds,
-        timeout=10.0
+        signer=signer,
+        timeout=10.0,
+        sign_absolute_url=sign_absolute_url,
     )
 
     print(f"\n✓ Client initialized")
     print(f"  Base URL: {client.base_url}")
     print(f"  Timeout: {client.timeout}s")
     print(f"  Max retries: {client.max_retries}")
+    print("  Signer settings:")
+    print(f"    NONKYC_NONCE_MULTIPLIER: {nonce_multiplier}")
+    print(f"    NONKYC_SORT_PARAMS: {sort_params}")
+    print(f"    NONKYC_SORT_BODY: {sort_body}")
+    print(f"    NONKYC_SIGN_FULL_URL: {sign_absolute_url}")
+    if warnings:
+        print("  Signer warnings:")
+        for warning in warnings:
+            print(f"    - {warning}")
 
     # Test 1: Get balances
     print("\n" + "-" * 60)
@@ -70,6 +180,7 @@ def test_connection():
     print("\n" + "=" * 60)
     print("Test complete!")
     print("=" * 60)
+
 
 if __name__ == "__main__":
     if API_KEY == "your_api_key_here" or API_SECRET == "your_api_secret_here":

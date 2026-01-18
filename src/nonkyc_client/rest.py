@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import random
+import re
 import time
 from dataclasses import dataclass
 from typing import Any, Mapping
@@ -21,6 +22,7 @@ from nonkyc_client.models import (
     OrderResponse,
     OrderStatus,
 )
+from nonkyc_client.time_sync import TimeSynchronizer
 
 
 @dataclass
@@ -55,6 +57,8 @@ class RestClient:
         base_url: str,
         credentials: ApiCredentials | None = None,
         signer: AuthSigner | None = None,
+        time_synchronizer: TimeSynchronizer | None = None,
+        use_server_time: bool | None = None,
         timeout: float = 10.0,
         max_retries: int = 3,
         backoff_factor: float = 0.5,
@@ -63,23 +67,38 @@ class RestClient:
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.credentials = credentials
-        self.signer = signer or AuthSigner()
+        env_use_server_time = os.getenv("NONKYC_USE_SERVER_TIME")
+        if use_server_time is None:
+            use_server_time = env_use_server_time == "1"
+        self._time_synchronizer = (
+            time_synchronizer
+            if time_synchronizer is not None
+            else (TimeSynchronizer() if use_server_time else None)
+        )
+        resolved_time_provider = (
+            self._time_synchronizer.time if self._time_synchronizer else None
+        )
+        if signer is None:
+            self.signer = AuthSigner(time_provider=resolved_time_provider)
+        else:
+            self.signer = signer
+            if (
+                resolved_time_provider is not None
+                and self.signer.uses_default_time_provider()
+            ):
+                self.signer.set_time_provider(resolved_time_provider)
         self.timeout = timeout
         self.max_retries = max_retries
         self.backoff_factor = backoff_factor
         env_debug = os.getenv("NONKYC_DEBUG_AUTH")
         self.debug_auth = debug_auth if debug_auth is not None else env_debug == "1"
         env_sign_full_url = os.getenv("NONKYC_SIGN_FULL_URL")
-        self.sign_absolute_url = (
-            sign_absolute_url
-            if sign_absolute_url is not None
-            else env_sign_full_url == "1"
-        )
-        self._last_cancel_all_response: dict[str, Any] | None = None
-
-    @property
-    def last_cancel_all_response(self) -> dict[str, Any] | None:
-        return self._last_cancel_all_response
+        if sign_absolute_url is not None:
+            self.sign_absolute_url = sign_absolute_url
+        elif env_sign_full_url is None:
+            self.sign_absolute_url = True
+        else:
+            self.sign_absolute_url = env_sign_full_url == "1"
 
     def build_url(self, path: str) -> str:
         return f"{self.base_url}/{path.lstrip('/')}"
@@ -164,7 +183,7 @@ class RestClient:
             if exc.code in {500, 502, 503, 504}:
                 raise TransientApiError(f"Transient HTTP error {exc.code}") from exc
             payload = exc.read().decode("utf8") if exc.fp else ""
-            raise RestError(f"HTTP error {exc.code}: {payload}") from exc
+            raise RestError(self._build_http_error_message(exc.code, payload)) from exc
         except URLError as exc:
             raise TransientApiError("Network error while contacting API") from exc
 
@@ -197,6 +216,82 @@ class RestClient:
         if payload:
             return f"{guidance} Response payload: {payload}"
         return guidance
+
+    def _build_http_error_message(self, status_code: int, payload: str) -> str:
+        min_notional_message = self._detect_min_notional_error(payload)
+        if min_notional_message:
+            return (
+                f"HTTP error {status_code}: {min_notional_message} "
+                f"Response payload: {payload}"
+            )
+        if payload:
+            return f"HTTP error {status_code}: {payload}"
+        return f"HTTP error {status_code}"
+
+    def _detect_min_notional_error(self, payload: str) -> str | None:
+        if not payload:
+            return None
+
+        parsed_payload = None
+        try:
+            parsed_payload = json.loads(payload)
+        except json.JSONDecodeError:
+            parsed_payload = None
+
+        if parsed_payload is not None:
+            error_code = self._extract_error_code(parsed_payload)
+            if error_code:
+                mapped = self._min_notional_error_codes().get(error_code.lower())
+                if mapped:
+                    return mapped
+
+            error_message = self._extract_error_message(parsed_payload)
+            if error_message and self._mentions_min_notional(error_message.lower()):
+                return self._min_notional_default_message()
+
+        if self._mentions_min_notional(payload.lower()):
+            return self._min_notional_default_message()
+        return None
+
+    def _extract_error_code(self, payload: Any) -> str | None:
+        if isinstance(payload, dict):
+            for key in ("code", "error_code", "errorCode"):
+                if key in payload:
+                    return str(payload[key])
+            for key in ("error", "errors"):
+                nested = payload.get(key)
+                if isinstance(nested, dict):
+                    for nested_key in ("code", "error_code", "errorCode"):
+                        if nested_key in nested:
+                            return str(nested[nested_key])
+        return None
+
+    def _extract_error_message(self, payload: Any) -> str | None:
+        if isinstance(payload, dict):
+            for key in ("message", "error", "detail", "details"):
+                value = payload.get(key)
+                if isinstance(value, str):
+                    return value
+                if isinstance(value, dict):
+                    nested_message = value.get("message")
+                    if isinstance(nested_message, str):
+                        return nested_message
+        return None
+
+    def _mentions_min_notional(self, message: str) -> bool:
+        keywords = ("notional", "minimum", "amount")
+        if any(keyword in message for keyword in keywords):
+            return True
+        return re.search(r"\bmin\b", message) is not None
+
+    def _min_notional_default_message(self) -> str:
+        return "Minimum order notional requirement not met."
+
+    def _min_notional_error_codes(self) -> dict[str, str]:
+        return {
+            "min_notional": self._min_notional_default_message(),
+            "min_notional_not_met": self._min_notional_default_message(),
+        }
 
     def _extract_payload(self, response: dict[str, Any]) -> Any:
         if isinstance(response, dict):
