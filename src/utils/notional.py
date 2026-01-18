@@ -1,6 +1,6 @@
 """Helpers for checking minimum order notional."""
 
-from decimal import Decimal, ROUND_UP
+from decimal import ROUND_UP, Decimal
 
 
 def _round_up_to_step(value, step):

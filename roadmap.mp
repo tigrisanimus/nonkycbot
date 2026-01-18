@@ -34,6 +34,7 @@
 - [x] Add pricing helpers for notional math and use them in bot scripts.
 - [x] Skip grid levels that do not clear fees before order placement.
 - [x] Recompute triangular arb cycles with fee-adjusted min quantities before execution.
+- [x] Add pricing helper tests for fee-adjusted notionals and grid edge checks.
 
 ## Next
 - [ ] Define API client interfaces and error handling.

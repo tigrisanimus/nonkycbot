@@ -5,7 +5,7 @@ import os
 import sys
 import time
 from datetime import datetime
-from decimal import Decimal, ROUND_UP
+from decimal import ROUND_UP, Decimal
 
 import yaml
 
@@ -18,6 +18,7 @@ from nonkyc_client.pricing import (
     effective_notional,
     min_quantity_for_notional,
     round_up_to_step,
+    should_skip_fee_edge,
 )
 from nonkyc_client.rest import RestClient, RestRequest
 from utils.notional import resolve_quantity_rounding
@@ -47,36 +48,6 @@ def _should_skip_notional(config, symbol, side, quantity, price, order_type):
             "⚠️  Skipping order below min notional: "
             f"symbol={symbol} side={side} order_type={order_type} "
             f"price={price} quantity={quantity} notional={notional}"
-        )
-        return True
-    return False
-
-
-def _should_skip_fee_edge(config, side, price, mid_price):
-    fee_rate = Decimal(str(config.get("fee_rate", "0.001")))
-    fee_cost = Decimal("2") * fee_rate
-    offset = abs(price - mid_price)
-    if offset == 0:
-        print("⚠️  Skipping order with zero price offset from mid.")
-        return True
-    if side == "buy":
-        buy_price = price
-        sell_price = mid_price + offset
-    else:
-        sell_price = price
-        buy_price = mid_price - offset
-    if buy_price <= 0 or sell_price <= 0:
-        print(
-            "⚠️  Skipping order with invalid pricing for fee edge check: "
-            f"side={side} buy_price={buy_price} sell_price={sell_price}"
-        )
-        return True
-    gross_edge = (sell_price - buy_price) / buy_price
-    if gross_edge <= fee_cost:
-        print(
-            "⚠️  Skipping order due to insufficient edge after fees: "
-            f"side={side} buy_price={buy_price} sell_price={sell_price} "
-            f"gross_edge={gross_edge} fee_cost={fee_cost}"
         )
         return True
     return False
@@ -212,8 +183,8 @@ def place_grid_orders(client, config, mid_price):
                 f"\n  Placing {order_data['side']} order: {quantity} MMX @ {order_data['price']:.8f} USDT"
             )
 
-            if _should_skip_fee_edge(
-                config, order_data["side"], order_data["price"], mid_price
+            if should_skip_fee_edge(
+                order_data["side"], order_data["price"], mid_price, fee_rate
             ):
                 continue
 
