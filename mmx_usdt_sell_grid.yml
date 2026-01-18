@@ -2,8 +2,8 @@ exchange: "nonkyc"
 api_key: "your_api_key_here"
 api_secret: "your_api_secret_here"
 
-# Sell-Only Grid for MMX-USDT (start with 100% MMX)
-trading_pair: "MMX-USDT"
+# Sell-Only Grid for MMX/USDT (start with 100% MMX)
+trading_pair: "MMX/USDT"  # Use slash, not hyphen!
 grid_type: "sell_only"          # Only place sell orders above current price
 
 # Sell Grid Settings

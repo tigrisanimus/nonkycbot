@@ -2,8 +2,8 @@ exchange: "nonkyc"
 api_key: "your_api_key_here"
 api_secret: "your_api_secret_here"
 
-# Grid Trading Settings for MMX-USDT
-trading_pair: "MMX-USDT"
+# Grid Trading Settings for MMX/USDT
+trading_pair: "MMX/USDT"  # Use slash, not hyphen!
 
 # Balanced Grid Settings (requires both MMX and USDT)
 grid_levels: 10                 # 10 buy orders + 10 sell orders
