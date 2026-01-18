@@ -40,13 +40,43 @@ def _round_quantity(value, step_size, precision):
 
 def _should_skip_notional(config, symbol, side, quantity, price, order_type):
     min_notional = Decimal(str(config.get("min_notional_usd", "1.0")))
-    fee_rate = Decimal(str(config.get("fee_rate", "0")))
+    fee_rate = Decimal(str(config.get("fee_rate", "0.001")))
     notional = effective_notional(quantity, price, fee_rate)
     if notional < min_notional:
         print(
             "⚠️  Skipping order below min notional: "
             f"symbol={symbol} side={side} order_type={order_type} "
             f"price={price} quantity={quantity} notional={notional}"
+        )
+        return True
+    return False
+
+
+def _should_skip_fee_edge(config, side, price, mid_price):
+    fee_rate = Decimal(str(config.get("fee_rate", "0.001")))
+    fee_cost = Decimal("2") * fee_rate
+    offset = abs(price - mid_price)
+    if offset == 0:
+        print("⚠️  Skipping order with zero price offset from mid.")
+        return True
+    if side == "buy":
+        buy_price = price
+        sell_price = mid_price + offset
+    else:
+        sell_price = price
+        buy_price = mid_price - offset
+    if buy_price <= 0 or sell_price <= 0:
+        print(
+            "⚠️  Skipping order with invalid pricing for fee edge check: "
+            f"side={side} buy_price={buy_price} sell_price={sell_price}"
+        )
+        return True
+    gross_edge = (sell_price - buy_price) / buy_price
+    if gross_edge <= fee_cost:
+        print(
+            "⚠️  Skipping order due to insufficient edge after fees: "
+            f"side={side} buy_price={buy_price} sell_price={sell_price} "
+            f"gross_edge={gross_edge} fee_cost={fee_cost}"
         )
         return True
     return False
@@ -141,7 +171,7 @@ def place_grid_orders(client, config, mid_price):
     spread = Decimal(str(config["grid_spread"]))
     order_amount = Decimal(str(config["order_amount_mmx"]))
     grid_type = config.get("grid_type", "balanced")
-    fee_rate = Decimal(str(config.get("fee_rate", "0")))
+    fee_rate = Decimal(str(config.get("fee_rate", "0.001")))
     min_notional = Decimal(str(config.get("min_notional_usd", "1.0")))
     step_size, precision = resolve_quantity_rounding(config)
 
@@ -181,6 +211,11 @@ def place_grid_orders(client, config, mid_price):
             print(
                 f"\n  Placing {order_data['side']} order: {quantity} MMX @ {order_data['price']:.8f} USDT"
             )
+
+            if _should_skip_fee_edge(
+                config, order_data["side"], order_data["price"], mid_price
+            ):
+                continue
 
             price_for_notional = (
                 order_data["price"] if order_type == "limit" else mid_price
