@@ -96,11 +96,11 @@ class RestClient:
         headers = {"Accept": "application/json"}
 
         if request.method.upper() == "GET" and params:
-            url = f"{url}?{urlencode(params)}"
+            url = f"{url}?{urlencode(sorted(params.items()), doseq=True)}"
 
         data_bytes = None
         if request.method.upper() != "GET" and body:
-            body_str = json.dumps(body, separators=(",", ":"))
+            body_str = json.dumps(body, separators=(",", ":"), sort_keys=True)
             data_bytes = body_str.encode("utf8")
             headers["Content-Type"] = "application/json"
 
@@ -108,9 +108,9 @@ class RestClient:
             signed = self.signer.build_rest_headers(
                 credentials=self.credentials,
                 method=request.method,
-                url=self.build_url(request.path),
+                url=request.path,
                 params=params if request.method.upper() == "GET" else None,
-                body=body if request.method.upper() != "GET" else None,
+                body=(body if request.method.upper() != "GET" and body else None),
             )
             headers.update(signed.headers)
             if self.debug_auth:
