@@ -15,7 +15,7 @@
 - [x] Thread userProvidedId/strictValidate order payload support through bots and tests.
 - [x] Pass optional userProvidedId/strictValidate through triangular arbitrage bot orders.
 - [x] Expose signed JSON payloads in debug auth output for REST signing checks.
-- [x] Use RestRequest for grid bot cancel-all orders request.
+- [x] Use RestRequest for cancel-all orders in all bot runners.
 
 ## Next
 - [ ] Define API client interfaces and error handling.
