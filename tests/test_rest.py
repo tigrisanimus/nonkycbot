@@ -125,6 +125,36 @@ def test_rest_post_signing_and_body_payload() -> None:
     assert response.order_id == "order-1"
 
 
+def test_rest_debug_auth_includes_json_str(capsys, monkeypatch) -> None:
+    monkeypatch.setenv("NONKYC_DEBUG_AUTH", "1")
+    credentials = ApiCredentials(api_key="post-key", api_secret="post-secret")
+    signer = AuthSigner(time_provider=lambda: 1700000100.0)
+    client = RestClient(
+        base_url="https://api.example", credentials=credentials, signer=signer
+    )
+
+    order = OrderRequest(
+        symbol="ETH/USD",
+        side="sell",
+        order_type="limit",
+        quantity="1.2",
+        price="2500",
+    )
+
+    def fake_urlopen(request, timeout=10.0):
+        return FakeResponse({"data": {"id": "order-2", "status": "open"}})
+
+    with patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen):
+        client.place_order(order)
+
+    captured = capsys.readouterr().out
+    body = order.to_payload()
+    expected_json_str = json.dumps(body, separators=(",", ":"))
+
+    assert "NONKYC_DEBUG_AUTH=1" in captured
+    assert f"json_str={expected_json_str}" in captured
+
+
 @pytest.mark.parametrize("value", ["", None])
 def test_rest_parse_retry_after_returns_none(value: str | None) -> None:
     client = RestClient(base_url="https://api.example")

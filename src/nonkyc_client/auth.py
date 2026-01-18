@@ -25,6 +25,7 @@ class SignedHeaders:
     signature: str
     nonce: int
     data_to_sign: str
+    json_str: str | None
 
 
 class AuthSigner:
@@ -49,6 +50,7 @@ class AuthSigner:
         body: Mapping[str, Any] | None = None,
     ) -> SignedHeaders:
         method_upper = method.upper()
+        json_str = None
         if method_upper == "GET":
             data_to_sign = f"{url}?{urlencode(params)}" if params else url
         else:
@@ -63,7 +65,11 @@ class AuthSigner:
             "X-API-SIGN": signature,
         }
         return SignedHeaders(
-            headers=headers, signature=signature, nonce=nonce, data_to_sign=data_to_sign
+            headers=headers,
+            signature=signature,
+            nonce=nonce,
+            data_to_sign=data_to_sign,
+            json_str=json_str,
         )
 
     def build_ws_login_payload(

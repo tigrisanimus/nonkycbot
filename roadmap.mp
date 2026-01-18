@@ -14,6 +14,7 @@
 - [x] Add remediation step for regenerating API credentials when 401 persists.
 - [x] Thread userProvidedId/strictValidate order payload support through bots and tests.
 - [x] Pass optional userProvidedId/strictValidate through triangular arbitrage bot orders.
+- [x] Expose signed JSON payloads in debug auth output for REST signing checks.
 
 ## Next
 - [ ] Define API client interfaces and error handling.

@@ -121,6 +121,7 @@ class RestClient:
                             f"method={request.method.upper()}",
                             f"url={url}",
                             f"nonce={signed.nonce}",
+                            f"json_str={signed.json_str or ''}",
                             f"data_to_sign={signed.data_to_sign}",
                             f"signature={signed.signature}",
                             f"headers={signed.headers}",
