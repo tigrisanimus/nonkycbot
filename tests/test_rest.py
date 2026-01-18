@@ -165,6 +165,44 @@ def test_rest_createorder_signature_string_matches_known_good_format() -> None:
     assert data_to_sign == "https://api.example/api/v2/createorder" + json_str
 
 
+def test_rest_createorder_signature_matches_request_payload() -> None:
+    credentials = ApiCredentials(api_key="payload-key", api_secret="payload-secret")
+    signer = AuthSigner(time_provider=lambda: 1700000250.0)
+    client = RestClient(
+        base_url="https://api.example", credentials=credentials, signer=signer
+    )
+
+    order = OrderRequest(
+        symbol="SOL/USD",
+        side="buy",
+        order_type="limit",
+        quantity="2.5",
+        price="95",
+    )
+
+    captured: dict[str, Any] = {}
+
+    def fake_urlopen(request, timeout=10.0):
+        captured["request"] = request
+        return FakeResponse({"data": {"id": "order-3", "status": "open"}})
+
+    with patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen):
+        client.place_order(order)
+
+    request = captured["request"]
+    request_payload = request.data.decode("utf8")
+    expected_payload = json.dumps(order.to_payload(), separators=(",", ":"))
+
+    assert request_payload == expected_payload
+
+    nonce = str(int(1700000250.0 * 1e3))
+    data_to_sign = f"https://api.example/api/v2/createorder{request_payload}"
+    message = f"{credentials.api_key}{data_to_sign}{nonce}"
+    expected_signature = _expected_signature(message, credentials.api_secret)
+
+    assert request.headers["X-api-sign"] == expected_signature
+
+
 def test_rest_debug_auth_includes_json_str(capsys, monkeypatch) -> None:
     monkeypatch.setenv("NONKYC_DEBUG_AUTH", "1")
     credentials = ApiCredentials(api_key="post-key", api_secret="post-secret")

@@ -26,6 +26,7 @@
 - [x] Add missing resolve_quantity_rounding import for MMX grid runner.
 - [x] Verify resolve_quantity_rounding import/reference in MMX grid runner.
 - [x] Restore known-good REST signer defaults and add createorder signature coverage.
+- [x] Assert createorder signing uses the exact JSON request payload.
 
 ## Next
 - [ ] Define API client interfaces and error handling.
