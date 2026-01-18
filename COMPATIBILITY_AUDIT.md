@@ -115,7 +115,8 @@ async with x.websocket_context() as ws:
     "type": self.order_type,
     "quantity": self.quantity,
     "price": self.price,  # optional
-    "clientOrderId": self.client_order_id  # optional
+    "userProvidedId": self.user_provided_id,  # optional
+    "strictValidate": self.strict_validate,  # optional
 }
 ```
 

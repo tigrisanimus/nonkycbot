@@ -1,4 +1,5 @@
 """Standard grid strategy placeholder."""
+
 from __future__ import annotations
 
 

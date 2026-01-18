@@ -12,6 +12,7 @@
 - [x] Document 401 Unauthorized troubleshooting and API auth guidance.
 - [x] Clarify 401 guidance for private endpoint permission checks.
 - [x] Add remediation step for regenerating API credentials when 401 persists.
+- [x] Thread userProvidedId/strictValidate order payload support through bots and tests.
 
 ## Next
 - [ ] Define API client interfaces and error handling.

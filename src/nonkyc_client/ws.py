@@ -20,7 +20,12 @@ class Subscription:
 class WebSocketClient:
     """Minimal WebSocket client for building NonKYC subscriptions."""
 
-    def __init__(self, url: str, credentials: ApiCredentials | None = None, signer: AuthSigner | None = None) -> None:
+    def __init__(
+        self,
+        url: str,
+        credentials: ApiCredentials | None = None,
+        signer: AuthSigner | None = None,
+    ) -> None:
         self.url = url
         self.credentials = credentials
         self.signer = signer or AuthSigner()
@@ -31,7 +36,9 @@ class WebSocketClient:
             return None
         return self.signer.build_ws_login_payload(self.credentials)
 
-    def subscribe_order_book(self, symbol: str, depth: int | None = None) -> Subscription:
+    def subscribe_order_book(
+        self, symbol: str, depth: int | None = None
+    ) -> Subscription:
         params: dict[str, Any] = {"symbol": symbol}
         if depth is not None:
             params["depth"] = depth
@@ -40,7 +47,9 @@ class WebSocketClient:
         return subscription
 
     def subscribe_trades(self, symbol: str) -> Subscription:
-        subscription = Subscription(channel="subscribeTrades", params={"symbol": symbol})
+        subscription = Subscription(
+            channel="subscribeTrades", params={"symbol": symbol}
+        )
         self.subscriptions.append(subscription)
         return subscription
 

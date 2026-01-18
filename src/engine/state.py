@@ -50,7 +50,9 @@ class EngineState:
         target = Path(path)
         target.parent.mkdir(parents=True, exist_ok=True)
         payload = self.to_payload()
-        target.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        target.write_text(
+            json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
+        )
 
     @classmethod
     def load(cls, path: str | Path) -> "EngineState":

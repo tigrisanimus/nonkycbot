@@ -30,7 +30,8 @@ class OrderRequest:
     order_type: str
     quantity: str
     price: str | None = None
-    client_order_id: str | None = None
+    user_provided_id: str | None = None
+    strict_validate: bool | None = None
 
     def to_payload(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -41,8 +42,10 @@ class OrderRequest:
         }
         if self.price is not None:
             payload["price"] = self.price
-        if self.client_order_id is not None:
-            payload["clientOrderId"] = self.client_order_id
+        if self.user_provided_id is not None:
+            payload["userProvidedId"] = self.user_provided_id
+        if self.strict_validate is not None:
+            payload["strictValidate"] = self.strict_validate
         return payload
 
 

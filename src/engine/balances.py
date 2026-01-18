@@ -24,13 +24,19 @@ class Balances:
     def apply_fill(self, deltas: Mapping[str, float]) -> None:
         for asset, delta in deltas.items():
             self.available[asset] = self.available.get(asset, 0.0) + delta
-            self.pending_adjustments[asset] = self.pending_adjustments.get(asset, 0.0) + delta
+            self.pending_adjustments[asset] = (
+                self.pending_adjustments.get(asset, 0.0) + delta
+            )
 
     def fetch(self, force: bool = False) -> dict[str, float]:
         if self.fetcher is None:
             raise RuntimeError("No balance fetcher configured.")
         now = monotonic()
-        if not force and self.last_fetch is not None and now - self.last_fetch < self.cache_ttl:
+        if (
+            not force
+            and self.last_fetch is not None
+            and now - self.last_fetch < self.cache_ttl
+        ):
             return dict(self.available)
         fetched = dict(self.fetcher())
         self._reconcile(fetched)

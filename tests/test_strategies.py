@@ -6,7 +6,14 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 
 import pytest
-from strategies import infinity_grid, profit_reinvest, rebalance, standard_grid, triangular_arb
+
+from strategies import (
+    infinity_grid,
+    profit_reinvest,
+    rebalance,
+    standard_grid,
+    triangular_arb,
+)
 
 
 def test_infinity_grid_generation_and_refresh() -> None:
@@ -37,7 +44,9 @@ def test_infinity_grid_generation_and_refresh() -> None:
 
 def test_infinity_grid_requires_positive_inputs() -> None:
     with pytest.raises(ValueError):
-        infinity_grid.generate_symmetric_grid(mid_price=100, levels=0, step_pct=0.1, order_size=1)
+        infinity_grid.generate_symmetric_grid(
+            mid_price=100, levels=0, step_pct=0.1, order_size=1
+        )
 
     with pytest.raises(ValueError):
         infinity_grid.should_refresh(last_refresh=None, now=0, interval_seconds=0)

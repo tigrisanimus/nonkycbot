@@ -13,7 +13,14 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from nonkyc_client.auth import ApiCredentials, AuthSigner
-from nonkyc_client.models import Balance, MarketTicker, OrderCancelResult, OrderRequest, OrderResponse, OrderStatus
+from nonkyc_client.models import (
+    Balance,
+    MarketTicker,
+    OrderCancelResult,
+    OrderRequest,
+    OrderResponse,
+    OrderStatus,
+)
 
 
 @dataclass
@@ -122,17 +129,23 @@ class RestClient:
                     )
                 )
 
-        http_request = Request(url=url, method=request.method.upper(), headers=headers, data=data_bytes)
+        http_request = Request(
+            url=url, method=request.method.upper(), headers=headers, data=data_bytes
+        )
         try:
             with urlopen(http_request, timeout=self.timeout) as response:
                 payload = response.read().decode("utf8")
         except HTTPError as exc:
             if exc.code == 429:
                 retry_after = self._parse_retry_after(exc.headers.get("Retry-After"))
-                raise RateLimitError("Rate limit exceeded", retry_after=retry_after) from exc
+                raise RateLimitError(
+                    "Rate limit exceeded", retry_after=retry_after
+                ) from exc
             if exc.code == 401:
                 payload = exc.read().decode("utf8") if exc.fp else ""
-                raise RestError(self._build_unauthorized_message(payload, request.path)) from exc
+                raise RestError(
+                    self._build_unauthorized_message(payload, request.path)
+                ) from exc
             if exc.code in {500, 502, 503, 504}:
                 raise TransientApiError(f"Transient HTTP error {exc.code}") from exc
             payload = exc.read().decode("utf8") if exc.fp else ""
@@ -190,22 +203,36 @@ class RestClient:
         ]
 
     def place_order(self, order: OrderRequest) -> OrderResponse:
-        response = self.send(RestRequest(method="POST", path="/api/v2/createorder", body=order.to_payload()))
+        response = self.send(
+            RestRequest(
+                method="POST", path="/api/v2/createorder", body=order.to_payload()
+            )
+        )
         payload = self._extract_payload(response) or {}
         order_id = str(payload.get("id", payload.get("orderId", "")))
         status = str(payload.get("status", ""))
         symbol = str(payload.get("symbol", order.symbol))
-        return OrderResponse(order_id=order_id, symbol=symbol, status=status, raw_payload=payload)
+        return OrderResponse(
+            order_id=order_id, symbol=symbol, status=status, raw_payload=payload
+        )
 
     def cancel_order(self, order_id: str) -> OrderCancelResult:
-        response = self.send(RestRequest(method="POST", path="/api/v2/cancelorder", body={"orderId": order_id}))
+        response = self.send(
+            RestRequest(
+                method="POST", path="/api/v2/cancelorder", body={"orderId": order_id}
+            )
+        )
         payload = self._extract_payload(response) or {}
         success = bool(payload.get("success", payload.get("status") == "Cancelled"))
         resolved_id = str(payload.get("id", payload.get("orderId", order_id)))
-        return OrderCancelResult(order_id=resolved_id, success=success, raw_payload=payload)
+        return OrderCancelResult(
+            order_id=resolved_id, success=success, raw_payload=payload
+        )
 
     def get_order_status(self, order_id: str) -> OrderStatus:
-        response = self.send(RestRequest(method="GET", path=f"/api/v2/getorder/{order_id}"))
+        response = self.send(
+            RestRequest(method="GET", path=f"/api/v2/getorder/{order_id}")
+        )
         payload = self._extract_payload(response) or {}
         status = str(payload.get("status", ""))
         symbol = str(payload.get("symbol", ""))

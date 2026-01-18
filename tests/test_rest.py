@@ -9,6 +9,7 @@ from typing import Any
 from unittest.mock import patch
 
 import pytest
+
 from nonkyc_client.auth import ApiCredentials, AuthSigner
 from nonkyc_client.models import OrderRequest
 from nonkyc_client.rest import RestClient, RestRequest
@@ -29,13 +30,17 @@ class FakeResponse:
 
 
 def _expected_signature(message: str, secret: str) -> str:
-    return hmac.new(secret.encode("utf8"), message.encode("utf8"), hashlib.sha256).hexdigest()
+    return hmac.new(
+        secret.encode("utf8"), message.encode("utf8"), hashlib.sha256
+    ).hexdigest()
 
 
 def test_rest_get_signing_and_request_formation() -> None:
     credentials = ApiCredentials(api_key="test-key", api_secret="test-secret")
     signer = AuthSigner(time_provider=lambda: 1700000000.0)
-    client = RestClient(base_url="https://api.example", credentials=credentials, signer=signer)
+    client = RestClient(
+        base_url="https://api.example", credentials=credentials, signer=signer
+    )
 
     captured: dict[str, Any] = {}
 
@@ -45,7 +50,9 @@ def test_rest_get_signing_and_request_formation() -> None:
         return FakeResponse({"data": [{"asset": "USD", "available": "5", "held": "1"}]})
 
     with patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen):
-        response = client.send(RestRequest(method="GET", path="/balances", params={"limit": 1}))
+        response = client.send(
+            RestRequest(method="GET", path="/balances", params={"limit": 1})
+        )
 
     request = captured["request"]
     assert request.full_url == "https://api.example/balances?limit=1"
@@ -65,7 +72,9 @@ def test_rest_get_signing_and_request_formation() -> None:
 def test_rest_post_signing_and_body_payload() -> None:
     credentials = ApiCredentials(api_key="post-key", api_secret="post-secret")
     signer = AuthSigner(time_provider=lambda: 1700000100.0)
-    client = RestClient(base_url="https://api.example", credentials=credentials, signer=signer)
+    client = RestClient(
+        base_url="https://api.example", credentials=credentials, signer=signer
+    )
 
     order = OrderRequest(
         symbol="BTC/USD",
@@ -73,14 +82,17 @@ def test_rest_post_signing_and_body_payload() -> None:
         order_type="limit",
         quantity="0.5",
         price="30000",
-        client_order_id="client-1",
+        user_provided_id="client-1",
+        strict_validate=True,
     )
 
     captured: dict[str, Any] = {}
 
     def fake_urlopen(request, timeout=10.0):
         captured["request"] = request
-        return FakeResponse({"data": {"id": "order-1", "status": "open", "symbol": "BTC/USD"}})
+        return FakeResponse(
+            {"data": {"id": "order-1", "status": "open", "symbol": "BTC/USD"}}
+        )
 
     with patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen):
         response = client.place_order(order)
@@ -96,11 +108,14 @@ def test_rest_post_signing_and_body_payload() -> None:
         "type": "limit",
         "quantity": "0.5",
         "price": "30000",
-        "clientOrderId": "client-1",
+        "userProvidedId": "client-1",
+        "strictValidate": True,
     }
 
     nonce = str(int(1700000100.0 * 1e3))
-    data_to_sign = "https://api.example/api/v2/createorder" + json.dumps(body, separators=(",", ":"))
+    data_to_sign = "https://api.example/api/v2/createorder" + json.dumps(
+        body, separators=(",", ":")
+    )
     message = f"{credentials.api_key}{data_to_sign}{nonce}"
     expected_signature = _expected_signature(message, credentials.api_secret)
 

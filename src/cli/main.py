@@ -38,9 +38,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version="nonkyc-bot 0.1.0")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    start_parser = subparsers.add_parser("start", help="Start a strategy with a config file.")
-    start_parser.add_argument("--strategy", required=True, help="Strategy name to start.")
-    start_parser.add_argument("--config", required=True, help="Path to JSON/TOML/YAML config file.")
+    start_parser = subparsers.add_parser(
+        "start", help="Start a strategy with a config file."
+    )
+    start_parser.add_argument(
+        "--strategy", required=True, help="Strategy name to start."
+    )
+    start_parser.add_argument(
+        "--config", required=True, help="Path to JSON/TOML/YAML config file."
+    )
     start_parser.add_argument(
         "--config-dir",
         help="Directory to store instance state/config overrides (defaults to config file directory).",
@@ -126,16 +132,22 @@ def validate_strategy(strategy_name: str) -> None:
         raise ValueError("Strategy name is required.")
     if strategy_name not in STRATEGY_DESCRIPTIONS:
         available = ", ".join(sorted(STRATEGY_DESCRIPTIONS))
-        raise ValueError(f"Unknown strategy '{strategy_name}'. Available strategies: {available}.")
+        raise ValueError(
+            f"Unknown strategy '{strategy_name}'. Available strategies: {available}."
+        )
 
 
 def load_config(config_path: Path) -> dict[str, Any]:
     if not config_path.exists():
-        raise FileNotFoundError(f"Config file not found: {config_path}. Ensure the path is correct and readable.")
+        raise FileNotFoundError(
+            f"Config file not found: {config_path}. Ensure the path is correct and readable."
+        )
     suffix = config_path.suffix.lower()
     if suffix not in SUPPORTED_FORMATS:
         supported = ", ".join(SUPPORTED_FORMATS)
-        raise ValueError(f"Unsupported config format '{suffix}'. Supported formats: {supported}.")
+        raise ValueError(
+            f"Unsupported config format '{suffix}'. Supported formats: {supported}."
+        )
     try:
         if suffix == ".json":
             data = json.loads(config_path.read_text(encoding="utf-8"))
@@ -144,13 +156,19 @@ def load_config(config_path: Path) -> dict[str, Any]:
         else:
             data = load_yaml(config_path)
     except json.JSONDecodeError as exc:
-        raise ValueError(f"Invalid JSON in config file {config_path}: {exc}. Validate the file format.") from exc
+        raise ValueError(
+            f"Invalid JSON in config file {config_path}: {exc}. Validate the file format."
+        ) from exc
     except (RuntimeError, ValueError):
         raise
     except Exception as exc:
-        raise RuntimeError(f"Failed to parse config file {config_path}: {exc}.") from exc
+        raise RuntimeError(
+            f"Failed to parse config file {config_path}: {exc}."
+        ) from exc
     if not isinstance(data, dict):
-        raise ValueError(f"Config file {config_path} must contain a JSON/TOML/YAML object mapping.")
+        raise ValueError(
+            f"Config file {config_path} must contain a JSON/TOML/YAML object mapping."
+        )
     return data
 
 
@@ -179,7 +197,9 @@ def load_yaml(config_path: Path) -> dict[str, Any]:
     if data is None:
         return {}
     if not isinstance(data, dict):
-        raise ValueError(f"YAML config file {config_path} must contain a mapping at the top level.")
+        raise ValueError(
+            f"YAML config file {config_path} must contain a mapping at the top level."
+        )
     return data
 
 
@@ -194,7 +214,9 @@ def normalize_instance_id(instance_id: str) -> str:
     if not cleaned:
         raise ValueError("Instance ID cannot be empty. Use --instance-id to set one.")
     if Path(cleaned).name != cleaned:
-        raise ValueError("Instance ID must be a simple name without path separators (e.g. 'bot-1').")
+        raise ValueError(
+            "Instance ID must be a simple name without path separators (e.g. 'bot-1')."
+        )
     return cleaned
 
 

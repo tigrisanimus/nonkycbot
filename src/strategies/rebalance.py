@@ -1,4 +1,5 @@
 """Rebalance strategy helpers."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -57,7 +58,9 @@ def calculate_rebalance_order(
     amount = abs(delta_base)
     if amount <= 0:
         return None
-    return RebalanceOrder(side=side, amount=amount, price=price, target_ratio=target_ratio)
+    return RebalanceOrder(
+        side=side, amount=amount, price=price, target_ratio=target_ratio
+    )
 
 
 def describe() -> str:

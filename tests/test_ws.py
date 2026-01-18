@@ -16,7 +16,9 @@ def test_ws_login_payload_and_subscriptions() -> None:
         "params": {"algo": "HS256", "pKey": "key", "nonce": "n", "signature": "sig"},
     }
 
-    client = WebSocketClient(url="wss://ws.example", credentials=credentials, signer=signer)
+    client = WebSocketClient(
+        url="wss://ws.example", credentials=credentials, signer=signer
+    )
 
     assert client.login_payload() == {
         "method": "login",

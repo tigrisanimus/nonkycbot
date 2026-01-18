@@ -1,25 +1,26 @@
 #!/usr/bin/env python
 """Grid Trading Bot for COSA/PIRATE or any trading pair"""
 
-import sys
 import os
+import sys
 import time
-import yaml
-from decimal import Decimal
 from datetime import datetime
+from decimal import Decimal
+
+import yaml
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
-from nonkyc_client.rest import RestClient
 from nonkyc_client.auth import ApiCredentials
 from nonkyc_client.models import OrderRequest
+from nonkyc_client.rest import RestClient
 from strategies.infinity_grid import generate_symmetric_grid, summarize_grid
 
 
 def load_config(config_file):
     """Load configuration from YAML file."""
-    with open(config_file, 'r') as f:
+    with open(config_file, "r") as f:
         return yaml.safe_load(f)
 
 
@@ -39,16 +40,13 @@ def create_grid_orders(client, config, mid_price):
     print(f"\n📊 Creating Grid Orders")
     print(f"Mid Price: {mid_price}")
 
-    levels = int(config['grid_levels'])
-    spread = Decimal(str(config['grid_spread']))
-    order_size = Decimal(str(config['order_amount']))
+    levels = int(config["grid_levels"])
+    spread = Decimal(str(config["grid_spread"]))
+    order_size = Decimal(str(config["order_amount"]))
 
     # Generate grid levels
     grid = generate_symmetric_grid(
-        mid_price=mid_price,
-        levels=levels,
-        step_pct=spread,
-        order_size=order_size
+        mid_price=mid_price, levels=levels, step_pct=spread, order_size=order_size
     )
 
     print(f"\nGrid Summary:")
@@ -60,26 +58,36 @@ def create_grid_orders(client, config, mid_price):
 
     # Place orders
     placed_orders = []
+    user_provided_id = config.get("userProvidedId") or config.get("user_provided_id")
+    strict_validate = (
+        config["strictValidate"]
+        if "strictValidate" in config
+        else config.get("strict_validate")
+    )
     for level in grid:
         try:
             print(f"\n  Placing {level.side} order: {level.amount} @ {level.price}")
 
             order = OrderRequest(
-                symbol=config['trading_pair'],
+                symbol=config["trading_pair"],
                 side=level.side,
-                order_type=config.get('order_type', 'limit'),
+                order_type=config.get("order_type", "limit"),
                 quantity=str(level.amount),
-                price=str(level.price)
+                price=str(level.price),
+                user_provided_id=user_provided_id,
+                strict_validate=strict_validate,
             )
 
             response = client.place_order(order)
             print(f"    ✓ Order ID: {response.order_id}, Status: {response.status}")
-            placed_orders.append({
-                'id': response.order_id,
-                'side': level.side,
-                'price': level.price,
-                'amount': level.amount
-            })
+            placed_orders.append(
+                {
+                    "id": response.order_id,
+                    "side": level.side,
+                    "price": level.price,
+                    "amount": level.amount,
+                }
+            )
 
             time.sleep(0.5)  # Brief pause between orders
 
@@ -94,11 +102,13 @@ def cancel_all_orders(client, config):
     print(f"\n🗑️  Cancelling all open orders...")
     try:
         # This uses the cancelallorders endpoint
-        response = client.send({
-            "method": "POST",
-            "path": "/api/v2/cancelallorders",
-            "body": {"symbol": config['trading_pair']}
-        })
+        response = client.send(
+            {
+                "method": "POST",
+                "path": "/api/v2/cancelallorders",
+                "body": {"symbol": config["trading_pair"]},
+            }
+        )
         print(f"  ✓ Cancelled all orders")
         return True
     except Exception as e:
@@ -122,10 +132,7 @@ def run_grid_bot(config_file):
     print(f"  Refresh Time: {config['refresh_time']}s")
 
     # Setup client
-    creds = ApiCredentials(
-        api_key=config['api_key'],
-        api_secret=config['api_secret']
-    )
+    creds = ApiCredentials(api_key=config["api_key"], api_secret=config["api_secret"])
     client = RestClient(base_url="https://api.nonkyc.io", credentials=creds)
 
     print("\n✅ Connected to NonKYC API")
@@ -136,16 +143,18 @@ def run_grid_bot(config_file):
         while True:
             cycle_count += 1
             print(f"\n{'=' * 80}")
-            print(f"Cycle #{cycle_count} - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            print(
+                f"Cycle #{cycle_count} - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            )
             print(f"{'=' * 80}")
 
             # Get current price
             print(f"\n📈 Fetching current price for {config['trading_pair']}...")
-            mid_price = get_current_price(client, config['trading_pair'])
+            mid_price = get_current_price(client, config["trading_pair"])
 
             if mid_price is None:
                 print("⚠️  Failed to fetch price, skipping cycle")
-                time.sleep(config['refresh_time'])
+                time.sleep(config["refresh_time"])
                 continue
 
             # Cancel existing orders
@@ -158,7 +167,7 @@ def run_grid_bot(config_file):
             print(f"\n✅ Grid active with {len(orders)} orders")
             print(f"⏰ Waiting {config['refresh_time']} seconds before refresh...")
 
-            time.sleep(config['refresh_time'])
+            time.sleep(config["refresh_time"])
 
     except KeyboardInterrupt:
         print("\n\n🛑 Bot stopped by user")
@@ -171,6 +180,7 @@ def run_grid_bot(config_file):
     except Exception as e:
         print(f"\n❌ Fatal error: {e}")
         import traceback
+
         traceback.print_exc()
 
 
