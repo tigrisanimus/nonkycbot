@@ -14,9 +14,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 from nonkyc_client.auth import ApiCredentials, AuthSigner
 from nonkyc_client.models import OrderRequest
-from nonkyc_client.pricing import (effective_notional,
-                                   min_quantity_for_notional, round_up_to_step,
-                                   should_skip_fee_edge)
+from nonkyc_client.pricing import (
+    effective_notional,
+    min_quantity_for_notional,
+    round_up_to_step,
+    should_skip_fee_edge,
+)
 from nonkyc_client.rest import RestClient
 from utils.notional import resolve_quantity_rounding
 
@@ -86,6 +89,27 @@ def _is_auth_failure_response(response: dict | None) -> bool:
         if isinstance(value, str) and _looks_like_auth_error_message(value):
             return True
     return False
+
+
+def _format_cancel_symbol(symbol: str, symbol_format: str) -> str:
+    if symbol_format == "dash":
+        return symbol.replace("/", "-")
+    if symbol_format == "underscore":
+        return symbol.replace("/", "_")
+    return symbol
+
+
+def _next_cancel_symbol_format(current_format: str) -> str:
+    formats = ["dash", "slash", "underscore"]
+    if current_format not in formats:
+        return "dash"
+    return formats[(formats.index(current_format) + 1) % len(formats)]
+
+
+def _missing_required_input_response(response: dict | str | None) -> bool:
+    if not response:
+        return False
+    return "missing required input" in str(response).lower()
 
 
 def build_rest_client(config):
@@ -260,26 +284,38 @@ def cancel_all_orders(client, config):
     print(f"\n🗑️  Cancelling all open orders...")
     try:
         symbol_format = config.get("cancel_symbol_format", "dash")
-        symbol = config["trading_pair"]
-        if symbol_format == "dash":
-            symbol = symbol.replace("/", "-")
-        elif symbol_format == "underscore":
-            symbol = symbol.replace("/", "_")
-        elif symbol_format == "slash":
-            symbol = symbol
-        print(f"  ℹ️ Resolved cancel symbol: {symbol}")
-        success = client.cancel_all_orders(symbol)
-        if success:
-            print(f"  ✓ Cancelled all orders")
-            return True, False
-        response = client.last_cancel_all_response
-        if _is_auth_failure_response(response):
+        symbol_base = config["trading_pair"]
+        attempt_formats = [symbol_format]
+        attempted_retry = False
+        for attempt_index, attempt_format in enumerate(attempt_formats, start=1):
+            symbol = _format_cancel_symbol(symbol_base, attempt_format)
             print(
-                "  🛑 Cancel all orders failed due to auth error (401 / Not Authorized). "
-                "Stopping cycle to avoid placing orders."
+                f"  ℹ️ Cancel attempt {attempt_index}: "
+                f"format={attempt_format} symbol={symbol}"
             )
-            return False, True
-        print(f"  ✗ Cancel all orders failed. Response: {response}")
+            success = client.cancel_all_orders(symbol)
+            if success:
+                print("  ✓ Cancelled all orders")
+                return True, False
+            response = client.last_cancel_all_response
+            if _is_auth_failure_response(response):
+                print(
+                    "  🛑 Cancel all orders failed due to auth error (401 / Not Authorized). "
+                    "Stopping cycle to avoid placing orders."
+                )
+                return False, True
+            if not attempted_retry and _missing_required_input_response(response):
+                fallback_format = _next_cancel_symbol_format(attempt_format)
+                if fallback_format != attempt_format:
+                    attempted_retry = True
+                    print(
+                        "  ⚠️ Cancel all orders failed with missing required input. "
+                        f"Retrying with format={fallback_format}."
+                    )
+                    attempt_formats.append(fallback_format)
+                    continue
+            print(f"  ✗ Cancel all orders failed. Response: {response}")
+            return False, False
         return False, False
     except Exception as e:
         if _looks_like_auth_error_message(str(e)):

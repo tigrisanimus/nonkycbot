@@ -29,6 +29,7 @@
 - [x] Assert createorder signing uses the exact JSON request payload.
 - [x] Stop grid cycles on cancel-all auth failures to avoid cascading order errors.
 - [x] Default cancel-all symbol format to dash and log resolved cancel symbols.
+- [x] Retry cancel-all with alternate symbol formats when required input is missing.
 
 ## Next
 - [ ] Define API client interfaces and error handling.
