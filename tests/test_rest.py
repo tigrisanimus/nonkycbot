@@ -59,7 +59,7 @@ def test_rest_get_signing_and_request_formation() -> None:
     assert request.data is None
 
     nonce = str(int(1700000000.0 * 1e3))
-    data_to_sign = "https://api.example/balances?limit=1"
+    data_to_sign = "/balances?limit=1"
     message = f"{credentials.api_key}{data_to_sign}{nonce}"
     expected_signature = _expected_signature(message, credentials.api_secret)
 
@@ -113,8 +113,8 @@ def test_rest_post_signing_and_body_payload() -> None:
     }
 
     nonce = str(int(1700000100.0 * 1e3))
-    data_to_sign = "https://api.example/api/v2/createorder" + json.dumps(
-        body, separators=(",", ":")
+    data_to_sign = "/api/v2/createorder" + json.dumps(
+        body, separators=(",", ":"), sort_keys=True
     )
     message = f"{credentials.api_key}{data_to_sign}{nonce}"
     expected_signature = _expected_signature(message, credentials.api_secret)
@@ -149,7 +149,7 @@ def test_rest_debug_auth_includes_json_str(capsys, monkeypatch) -> None:
 
     captured = capsys.readouterr().out
     body = order.to_payload()
-    expected_json_str = json.dumps(body, separators=(",", ":"))
+    expected_json_str = json.dumps(body, separators=(",", ":"), sort_keys=True)
 
     assert "NONKYC_DEBUG_AUTH=1" in captured
     assert f"json_str={expected_json_str}" in captured

@@ -52,10 +52,17 @@ class AuthSigner:
         method_upper = method.upper()
         json_str = None
         if method_upper == "GET":
-            data_to_sign = f"{url}?{urlencode(params)}" if params else url
+            if params:
+                query = urlencode(sorted(params.items()), doseq=True)
+                data_to_sign = f"{url}?{query}"
+            else:
+                data_to_sign = url
         else:
-            json_str = json.dumps(body or {}, separators=(",", ":"))
-            data_to_sign = f"{url}{json_str}"
+            if body is None:
+                data_to_sign = url
+            else:
+                json_str = json.dumps(body, separators=(",", ":"), sort_keys=True)
+                data_to_sign = f"{url}{json_str}"
         nonce = int(self._time_provider() * 1e3)
         message = f"{credentials.api_key}{data_to_sign}{nonce}"
         signature = self.sign(message, credentials)
