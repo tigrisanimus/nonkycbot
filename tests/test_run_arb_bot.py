@@ -44,7 +44,8 @@ def test_get_price_uses_bid_ask_mid_from_raw_payload() -> None:
 
 
 def test_get_price_uses_orderbook_fallback() -> None:
-    from nonkyc_client.rest import RestRequest, RestResponse
+    from typing import Any
+    from nonkyc_client.rest import RestRequest
 
     class _OrderbookStubClient:
         def __init__(self) -> None:
@@ -53,7 +54,7 @@ def test_get_price_uses_orderbook_fallback() -> None:
         def get_market_data(self, symbol: str) -> MarketTicker:
             return MarketTicker(symbol=symbol, last_price="", raw_payload={})
 
-        def send(self, request: RestRequest) -> RestResponse:
+        def send(self, request: RestRequest) -> dict[str, Any]:
             # Simulate orderbook response
             return {
                 "data": {

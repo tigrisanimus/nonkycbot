@@ -1,8 +1,20 @@
 # Core runtime dependencies
-tomli; python_version < "3.11"
-pyyaml
-aiohttp
-websockets
+# Pinned versions for security and stability (updated 2026-01)
+
+# TOML parsing for Python < 3.11
+tomli>=2.0.0,<3.0.0; python_version < "3.11"
+
+# YAML configuration parsing
+# CVE-2020-14343 fixed in 5.4+
+pyyaml>=6.0.1,<7.0.0
+
+# Async HTTP client and WebSocket support
+# Multiple CVEs fixed in recent versions
+aiohttp>=3.9.0,<4.0.0
+
+# WebSocket protocol implementation
+websockets>=12.0,<13.0
 
 # Test/development helpers
-pytest-asyncio
+pytest>=7.4.0,<8.0.0
+pytest-asyncio>=0.21.0,<1.0.0

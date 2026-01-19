@@ -47,7 +47,7 @@ def test_rest_get_signing_and_request_formation() -> None:
 
     captured: dict[str, Any] = {}
 
-    def fake_urlopen(request, timeout=10.0):
+    def fake_urlopen(request, timeout=10.0, context=None):
         captured["request"] = request
         captured["timeout"] = timeout
         return FakeResponse({"data": [{"asset": "USD", "available": "5", "held": "1"}]})
@@ -91,7 +91,7 @@ def test_rest_post_signing_and_body_payload() -> None:
 
     captured: dict[str, Any] = {}
 
-    def fake_urlopen(request, timeout=10.0):
+    def fake_urlopen(request, timeout=10.0, context=None):
         captured["request"] = request
         return FakeResponse(
             {"data": {"id": "order-1", "status": "open", "symbol": "BTC/USD"}}
@@ -146,7 +146,7 @@ def test_rest_createorder_signature_string_matches_known_good_format() -> None:
 
     captured: dict[str, Any] = {}
 
-    def fake_urlopen(request, timeout=10.0):
+    def fake_urlopen(request, timeout=10.0, context=None):
         captured["request"] = request
         return FakeResponse({"data": {"id": "order-2", "status": "open"}})
 
@@ -182,7 +182,7 @@ def test_rest_createorder_signature_matches_request_payload() -> None:
 
     captured: dict[str, Any] = {}
 
-    def fake_urlopen(request, timeout=10.0):
+    def fake_urlopen(request, timeout=10.0, context=None):
         captured["request"] = request
         return FakeResponse({"data": {"id": "order-3", "status": "open"}})
 
@@ -219,7 +219,7 @@ def test_rest_debug_auth_includes_json_str(capsys, monkeypatch) -> None:
         price="2500",
     )
 
-    def fake_urlopen(request, timeout=10.0):
+    def fake_urlopen(request, timeout=10.0, context=None):
         return FakeResponse({"data": {"id": "order-2", "status": "open"}})
 
     with patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen):
@@ -234,7 +234,10 @@ def test_rest_debug_auth_includes_json_str(capsys, monkeypatch) -> None:
 
     assert "NONKYC_DEBUG_AUTH=1" in captured
     assert f"json_str={expected_json_str}" in captured
-    assert f"signed_message={expected_message}" in captured
+    # signed_message is now redacted for security, check for redaction instead
+    assert "signature=[REDACTED" in captured
+    assert "api_key=[REDACTED" in captured
+    assert "DO NOT USE IN PRODUCTION" in captured
 
 
 @pytest.mark.parametrize("value", ["", None])
@@ -247,7 +250,7 @@ def test_rest_send_honors_configured_timeout() -> None:
     client = RestClient(base_url="https://api.example", timeout=2.5)
     captured: dict[str, Any] = {}
 
-    def fake_urlopen(request, timeout=10.0):
+    def fake_urlopen(request, timeout=10.0, context=None):
         captured["timeout"] = timeout
         return FakeResponse({"data": {"ok": True}})
 
@@ -265,7 +268,7 @@ def test_rest_send_retries_on_transient_url_error() -> None:
     call_count = {"count": 0}
     sleep_calls: list[float] = []
 
-    def fake_urlopen(request, timeout=10.0):
+    def fake_urlopen(request, timeout=10.0, context=None):
         call_count["count"] += 1
         if call_count["count"] == 1:
             raise URLError("temporary failure")
@@ -295,7 +298,7 @@ def test_rest_signing_defaults_to_absolute_url() -> None:
 
     captured: dict[str, Any] = {}
 
-    def fake_urlopen(request, timeout=10.0):
+    def fake_urlopen(request, timeout=10.0, context=None):
         captured["request"] = request
         return FakeResponse({"data": [{"asset": "USD", "available": "5", "held": "1"}]})
 
@@ -331,7 +334,7 @@ def test_rest_signing_can_opt_out_of_absolute_url() -> None:
 
     captured: dict[str, Any] = {}
 
-    def fake_urlopen(request, timeout=10.0):
+    def fake_urlopen(request, timeout=10.0, context=None):
         captured["request"] = request
         return FakeResponse({"data": [{"asset": "USD", "available": "5", "held": "1"}]})
 
@@ -362,7 +365,7 @@ def test_cancel_all_orders_success_sets_last_response() -> None:
         base_url="https://api.example", credentials=credentials, signer=signer
     )
 
-    def fake_urlopen(request, timeout=10.0):
+    def fake_urlopen(request, timeout=10.0, context=None):
         return FakeResponse({"data": {"success": True, "status": "Cancelled"}})
 
     with patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen):
@@ -383,7 +386,7 @@ def test_cancel_all_orders_includes_symbol_in_body() -> None:
 
     captured: dict[str, Any] = {}
 
-    def fake_urlopen(request, timeout=10.0):
+    def fake_urlopen(request, timeout=10.0, context=None):
         captured["request"] = request
         return FakeResponse({"data": {"success": True}})
 
@@ -406,7 +409,7 @@ def test_cancel_all_orders_omits_side_when_none() -> None:
 
     captured: dict[str, Any] = {}
 
-    def fake_urlopen(request, timeout=10.0):
+    def fake_urlopen(request, timeout=10.0, context=None):
         captured["request"] = request
         return FakeResponse({"data": {"success": True}})
 
@@ -427,7 +430,7 @@ def test_cancel_all_orders_v1_signs_full_url_with_query() -> None:
 
     captured: dict[str, Any] = {}
 
-    def fake_urlopen(request, timeout=10.0):
+    def fake_urlopen(request, timeout=10.0, context=None):
         captured["request"] = request
         return FakeResponse({"data": {"success": True}})
 
@@ -460,7 +463,7 @@ def test_cancel_all_orders_allows_missing_symbol() -> None:
 
     captured: dict[str, Any] = {}
 
-    def fake_urlopen(request, timeout=10.0):
+    def fake_urlopen(request, timeout=10.0, context=None):
         captured["request"] = request
         return FakeResponse({"data": {"success": True}})
 
@@ -479,7 +482,7 @@ def test_cancel_all_orders_failure_sets_last_response() -> None:
         base_url="https://api.example", credentials=credentials, signer=signer
     )
 
-    def fake_urlopen(request, timeout=10.0):
+    def fake_urlopen(request, timeout=10.0, context=None):
         return FakeResponse({"data": {"success": False, "error": "Denied"}})
 
     with patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen):
@@ -492,7 +495,7 @@ def test_cancel_all_orders_failure_sets_last_response() -> None:
 def test_rest_market_data_accepts_last_price_variants() -> None:
     client = RestClient(base_url="https://api.example")
 
-    def fake_urlopen(request, timeout=10.0):
+    def fake_urlopen(request, timeout=10.0, context=None):
         return FakeResponse({"data": {"symbol": "BTC/USD", "lastPrice": "123.45"}})
 
     with patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen):
@@ -504,7 +507,7 @@ def test_rest_market_data_accepts_last_price_variants() -> None:
 def test_rest_market_data_uses_bid_ask_mid_when_last_missing() -> None:
     client = RestClient(base_url="https://api.example")
 
-    def fake_urlopen(request, timeout=10.0):
+    def fake_urlopen(request, timeout=10.0, context=None):
         return FakeResponse({"data": {"symbol": "BTC/USD", "bid": "100", "ask": "110"}})
 
     with patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen):

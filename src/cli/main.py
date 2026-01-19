@@ -22,6 +22,7 @@ from strategies import (
     triangular_arb_describe,
 )
 from utils.config_validator import ConfigValidationError, validate_config
+from utils.logging_config import setup_logging
 
 LOGGER = logging.getLogger("nonkyc_bot.cli")
 
@@ -170,10 +171,8 @@ def run_start_ladder_grid(args: argparse.Namespace) -> int:
 
 
 def configure_logging(level: str) -> None:
-    logging.basicConfig(
-        level=getattr(logging, level.upper(), logging.INFO),
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
+    """Configure logging with sanitization and proper formatting."""
+    setup_logging(level=level, sanitize=True, structured=False)
 
 
 def validate_strategy(strategy_name: str) -> None:
