@@ -7,13 +7,8 @@ from decimal import Decimal
 
 import pytest
 
-from strategies import (
-    infinity_grid,
-    profit_reinvest,
-    rebalance,
-    standard_grid,
-    triangular_arb,
-)
+from strategies import (infinity_grid, profit_reinvest, rebalance,
+                        standard_grid, triangular_arb)
 
 
 def test_infinity_grid_generation_and_refresh() -> None:

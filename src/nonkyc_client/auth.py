@@ -25,6 +25,7 @@ class SignedHeaders:
     signature: str
     nonce: int
     data_to_sign: str
+    signed_message: str
     json_str: str | None
 
 
@@ -57,6 +58,7 @@ class AuthSigner:
             body,
             separators=(",", ":"),
             sort_keys=self._sort_body,
+            ensure_ascii=False,
         )
 
     def serialize_query(self, params: Mapping[str, Any]) -> str:
@@ -82,7 +84,7 @@ class AuthSigner:
         else:
             json_str = self.serialize_body(body or {})
             data_to_sign = f"{url}{json_str}"
-        nonce = int(self._time_provider() * self._nonce_multiplier)
+        nonce = self.generate_nonce()
         message = f"{credentials.api_key}{data_to_sign}{nonce}"
         signature = self.sign(message, credentials)
         headers = {
@@ -95,8 +97,38 @@ class AuthSigner:
             signature=signature,
             nonce=nonce,
             data_to_sign=data_to_sign,
+            signed_message=message,
             json_str=json_str,
         )
+
+    def build_headers_for_message(
+        self,
+        credentials: ApiCredentials,
+        data_to_sign: str,
+        nonce: int,
+        json_str: str | None = None,
+    ) -> SignedHeaders:
+        message = f"{credentials.api_key}{data_to_sign}{nonce}"
+        signature = self.sign(message, credentials)
+        headers = {
+            "X-API-KEY": credentials.api_key,
+            "X-API-NONCE": str(nonce),
+            "X-API-SIGN": signature,
+        }
+        return SignedHeaders(
+            headers=headers,
+            signature=signature,
+            nonce=nonce,
+            data_to_sign=data_to_sign,
+            signed_message=message,
+            json_str=json_str,
+        )
+
+    def generate_nonce(self, multiplier: float | None = None) -> int:
+        resolved_multiplier = (
+            self._nonce_multiplier if multiplier is None else multiplier
+        )
+        return int(self._time_provider() * resolved_multiplier)
 
     def build_ws_login_payload(
         self, credentials: ApiCredentials, nonce: str | None = None

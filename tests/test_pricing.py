@@ -1,10 +1,8 @@
 from decimal import Decimal
 
-from nonkyc_client.pricing import (
-    effective_notional,
-    min_quantity_for_notional,
-    should_skip_fee_edge,
-)
+from nonkyc_client.pricing import (effective_notional,
+                                   min_quantity_for_notional,
+                                   should_skip_fee_edge)
 
 
 def test_min_quantity_for_notional_meets_min_after_fees():

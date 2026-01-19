@@ -263,6 +263,13 @@ Allocates profits between reserves and reinvestment.
 **Config**: `reserve_ratio`, `reinvest_ratio`
 **Module**: `strategies.profit_reinvest`
 
+### 6. Ladder Grid
+Fill-driven grid that replaces orders on fills without periodic refresh.
+
+**Use case**: KuCoin-style ladder that keeps a fixed number of buy/sell levels
+**Config**: `symbol`, `step_mode`, `step_pct`/`step_abs`, `n_buy_levels`, `n_sell_levels`
+**Module**: `strategies.ladder_grid`
+
 See [examples/](examples/) directory for configuration examples.
 
 ## Testing Your Connection
@@ -332,6 +339,7 @@ nonkycbot/
 │   │   ├── rebalance.py        # Portfolio rebalancing
 │   │   ├── infinity_grid.py    # Infinity grid trading
 │   │   ├── standard_grid.py    # Standard grid trading
+│   │   ├── ladder_grid.py      # Fill-driven ladder grid
 │   │   ├── triangular_arb.py   # Triangular arbitrage
 │   │   └── profit_reinvest.py  # Profit allocation
 │   └── cli/                    # Command-line interface

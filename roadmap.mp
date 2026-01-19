@@ -34,6 +34,12 @@
 - [x] Align cancel-all REST/bot schema with slash symbols and side-aware payloads.
 - [x] Treat cancel-side "all" as omit-side for cancel-all payloads.
 - [x] Retry cancel-all across all symbol formats before giving up.
+- [x] Retry cancel-all without a symbol when required input errors persist.
+- [x] Add ExchangeClient interface and NonKYC REST adapter.
+- [x] Implement fill-driven ladder grid strategy with add-only reconciliation.
+- [x] Add v1 cancel-all signing support and ladder grid tests.
+- [x] Attempt v1 cancel-all in MMX grid before v2 fallback when canceling orders.
+- [x] Normalize ladder grid configs to accept legacy MMX grid fields and add startup log.
 
 ## Next
 - [ ] Define API client interfaces and error handling.
