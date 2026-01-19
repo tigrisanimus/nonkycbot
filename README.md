@@ -273,6 +273,7 @@ Fill-driven grid that replaces orders on fills without periodic refresh.
 **Profitability rule**: spacing must exceed fees so that each buy/sell cycle clears costs.
 - `step_pct` mode requires `step_pct > total_fee_rate`.
 - `step_abs` mode checks the implied spacing around mid: `(sell_price / buy_price - 1) > total_fee_rate`.
+`total_fee_rate` is the round-trip fee rate (e.g., 0.002 for 0.2%).
 If `total_fee_rate` is omitted, the ladder grid uses `fee_buffer_pct` as the proxy fee rate; set
 `total_fee_rate` explicitly to the combined maker/taker fee you expect for a round trip.
 
