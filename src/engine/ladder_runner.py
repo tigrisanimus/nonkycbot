@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 import time
 from decimal import Decimal
 from pathlib import Path
@@ -118,7 +119,14 @@ def run_ladder_grid(config: dict, state_path: Path) -> None:
             market_id = derive_market_id(strategy.config.symbol)
             strategy.client.cancel_all(market_id, "all")
         if strategy.config.startup_rebalance:
-            strategy.rebalance_startup()
+            try:
+                strategy.rebalance_startup()
+            except Exception as exc:
+                print(
+                    "Startup rebalance failed. Manual balancing required. " f"{exc}",
+                    file=sys.stderr,
+                )
+                raise
         strategy.seed_ladder()
     print(
         "Ladder grid running. Press Ctrl+C to stop. "

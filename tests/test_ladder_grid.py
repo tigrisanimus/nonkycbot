@@ -3,9 +3,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 
+import pytest
+
+from engine import ladder_runner
 from engine.exchange_client import ExchangeClient, OrderStatusView
 from nonkyc_client.rest import RestError, TransientApiError
-from strategies.ladder_grid import LadderGridConfig, LadderGridStrategy, LiveOrder
+from strategies.ladder_grid import (
+    LadderGridConfig,
+    LadderGridState,
+    LadderGridStrategy,
+    LiveOrder,
+)
 
 
 @dataclass
@@ -341,3 +349,42 @@ def test_rebalance_failure_requires_manual_guidance() -> None:
         assert "required sell 10" in message
         assert "MMX available=20" in message
         assert "Manual action: sell 10 MMX for USDT" in message
+
+
+def test_failed_rebalance_prevents_seeding(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    class StubStrategy:
+        def __init__(self, config: LadderGridConfig) -> None:
+            self.config = config
+            self.state = LadderGridState()
+            self.seeded = False
+
+        def load_state(self) -> None:
+            return None
+
+        def rebalance_startup(self) -> None:
+            raise RuntimeError("Manual action: sell 1 MMX for USDT.")
+
+        def seed_ladder(self) -> None:
+            self.seeded = True
+            self.state.open_orders["order-1"] = LiveOrder(
+                side="buy",
+                price=Decimal("1"),
+                quantity=Decimal("1"),
+                client_id="cid",
+                created_at=0.0,
+            )
+
+    config = _build_config("abs")
+    config = LadderGridConfig(
+        **{**config.__dict__, "startup_rebalance": True, "poll_interval_sec": 0}
+    )
+    strategy = StubStrategy(config)
+    monkeypatch.setattr(ladder_runner, "build_strategy", lambda *_: strategy)
+
+    with pytest.raises(RuntimeError):
+        ladder_runner.run_ladder_grid({}, tmp_path / "state.json")
+
+    assert strategy.seeded is False
+    assert strategy.state.open_orders == {}
