@@ -487,3 +487,15 @@ def test_cancel_all_orders_failure_sets_last_response() -> None:
 
     assert success is False
     assert client.last_cancel_all_response == {"success": False, "error": "Denied"}
+
+
+def test_rest_market_data_accepts_last_price_variants() -> None:
+    client = RestClient(base_url="https://api.example")
+
+    def fake_urlopen(request, timeout=10.0):
+        return FakeResponse({"data": {"symbol": "BTC/USD", "lastPrice": "123.45"}})
+
+    with patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen):
+        ticker = client.get_market_data("BTC/USD")
+
+    assert ticker.last_price == "123.45"

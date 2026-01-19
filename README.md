@@ -335,7 +335,8 @@ nonkycbot/
 │   ├── nonkyc_client/          # Exchange API client
 │   │   ├── auth.py             # HMAC SHA256 authentication
 │   │   ├── rest.py             # REST API client
-│   │   ├── ws.py               # WebSocket client (scaffold)
+│   │   ├── async_rest.py       # Async REST API client
+│   │   ├── ws.py               # WebSocket client
 │   │   └── models.py           # Data models
 │   ├── engine/                 # Trading engine
 │   │   ├── order_manager.py    # Order lifecycle management
@@ -372,9 +373,10 @@ This bot is designed for **NonKYC.io** exchange. See [COMPATIBILITY_AUDIT.md](CO
 |-----------|--------|-------|
 | Authentication | ✅ Compatible | HMAC SHA256 correctly implemented |
 | REST Client | ✅ Production-ready | Synchronous, with retry logic |
+| Async REST Client | ✅ Available | aiohttp-based client with retry handling |
 | REST Endpoints | ✅ Compatible | All standard endpoints supported |
 | WebSocket Payloads | ✅ Compatible | Correct message formats |
-| WebSocket Connection | ⚠️ Scaffold Only | Requires implementation |
+| WebSocket Connection | ✅ Implemented | Reconnect, login, and handlers |
 | Data Models | ✅ Complete | All models implemented |
 | Strategies | ✅ Exchange-agnostic | Works with any exchange |
 
@@ -385,9 +387,14 @@ This bot is designed for **NonKYC.io** exchange. See [COMPATIBILITY_AUDIT.md](CO
 - Authentication and order placement work
 - Suitable for slower strategies (rebalancing, daily grid updates)
 
-**For WebSocket streaming** (requires implementation):
-- Install: `pip install websockets aiohttp`
-- Implement connection logic in `src/nonkyc_client/ws.py`
+**For async REST trading** (scalable execution):
+- ✅ Async client available in `src/nonkyc_client/async_rest.py`
+- Use `aiohttp` to avoid blocking event loops
+- Recommended for concurrent strategies
+
+**For WebSocket streaming** (implemented):
+- Requires: `pip install websockets aiohttp`
+- WebSocket client in `src/nonkyc_client/ws.py` supports login, subscriptions, and reconnects
 - Recommended for high-frequency strategies
 
 See [COMPATIBILITY_AUDIT.md](COMPATIBILITY_AUDIT.md) for full details and implementation guidance.
