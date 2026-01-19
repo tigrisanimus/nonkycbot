@@ -98,6 +98,7 @@ def build_strategy(config: dict, state_path: Path) -> LadderGridStrategy:
         tick_size=Decimal(str(normalized.get("tick_size", "0"))),
         step_size=Decimal(str(normalized.get("step_size", "0"))),
         poll_interval_sec=float(normalized.get("poll_interval_sec", 5)),
+        fetch_backoff_sec=float(normalized.get("fetch_backoff_sec", 15)),
         startup_cancel_all=bool(normalized.get("startup_cancel_all", False)),
         startup_rebalance=bool(normalized.get("startup_rebalance", False)),
         rebalance_target_base_pct=Decimal(

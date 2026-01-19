@@ -47,6 +47,7 @@
 - [x] Halt ladder seeding on startup rebalance failures and surface manual guidance.
 - [x] Validate ladder grid spacing against total fee rate and document configuration.
 - [x] Add ladder grid fee-rate spacing validation coverage for profitable vs. unprofitable steps.
+- [x] Add ladder grid fetch backoff for transient order status timeouts.
 
 ## Next
 - [ ] Define API client interfaces and error handling.

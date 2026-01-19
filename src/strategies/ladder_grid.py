@@ -31,6 +31,7 @@ class LadderGridConfig:
     tick_size: Decimal
     step_size: Decimal
     poll_interval_sec: float
+    fetch_backoff_sec: float = 15.0
     startup_cancel_all: bool = False
     startup_rebalance: bool = False
     rebalance_target_base_pct: Decimal = Decimal("0.5")
@@ -72,6 +73,7 @@ class LadderGridStrategy:
         self._last_balance_refresh = 0.0
         self._balances: dict[str, tuple[Decimal, Decimal]] = {}
         self._halt_placements = False
+        self._last_fetch_error_at: dict[str, float] = {}
 
     def load_state(self) -> None:
         if self.state_path is None or not self.state_path.exists():
@@ -193,9 +195,12 @@ class LadderGridStrategy:
             live_order = self.state.open_orders.get(order_id)
             if live_order is None:
                 continue
+            if self._is_fetch_backoff_active(order_id, now):
+                continue
             try:
                 status = self.client.get_order(order_id)
             except TransientApiError as exc:
+                self._last_fetch_error_at[order_id] = now
                 LOGGER.warning(
                     "Transient error fetching order %s; skipping update: %s",
                     order_id,
@@ -207,15 +212,30 @@ class LadderGridStrategy:
                     "Error fetching order %s; skipping update: %s", order_id, exc
                 )
                 continue
+            self._last_fetch_error_at.pop(order_id, None)
             normalized = status.status.lower()
             if normalized == "filled":
                 self._handle_filled(order_id, live_order, status)
+                self._last_fetch_error_at.pop(order_id, None)
             elif normalized in {"cancelled", "canceled", "rejected", "expired"}:
                 self.state.open_orders.pop(order_id, None)
+                self._last_fetch_error_at.pop(order_id, None)
         if now - self._last_reconcile >= self.config.reconcile_interval_sec:
             self._reconcile_missing_levels()
             self._last_reconcile = now
         self.save_state()
+
+    def _is_fetch_backoff_active(self, order_id: str, now: float) -> bool:
+        backoff = self.config.fetch_backoff_sec
+        if backoff <= 0:
+            return False
+        last_error = self._last_fetch_error_at.get(order_id)
+        if last_error is None:
+            return False
+        if now - last_error < backoff:
+            return True
+        self._last_fetch_error_at.pop(order_id, None)
+        return False
 
     def _handle_filled(
         self, order_id: str, order: LiveOrder, status: OrderStatusView

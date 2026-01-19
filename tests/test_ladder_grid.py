@@ -8,6 +8,7 @@ import pytest
 from engine import ladder_runner
 from engine.exchange_client import ExchangeClient, OrderStatusView
 from nonkyc_client.rest import RestError, TransientApiError
+from strategies import ladder_grid
 from strategies.ladder_grid import (LadderGridConfig, LadderGridState,
                                     LadderGridStrategy, LiveOrder)
 
@@ -226,6 +227,50 @@ def test_poll_once_skips_transient_get_order_error() -> None:
     strategy.poll_once()
 
     assert "order-1" in strategy.state.open_orders
+
+
+def test_poll_once_skips_fetch_until_backoff(monkeypatch: pytest.MonkeyPatch) -> None:
+    class BackoffExchange(FakeExchange):
+        def __init__(self, mid_price: Decimal) -> None:
+            super().__init__(mid_price)
+            self.calls = 0
+
+        def get_order(self, order_id: str) -> OrderStatusView:
+            self.calls += 1
+            if self.calls == 1:
+                raise TransientApiError("Timeout fetching order")
+            return OrderStatusView(status="open")
+
+    client = BackoffExchange(Decimal("100"))
+    config = _build_config("abs")
+    config = LadderGridConfig(
+        **{
+            **config.__dict__,
+            "fetch_backoff_sec": 10,
+            "reconcile_interval_sec": 999,
+        }
+    )
+    strategy = LadderGridStrategy(client, config)
+    strategy.state.open_orders["order-1"] = LiveOrder(
+        side="buy",
+        price=Decimal("100"),
+        quantity=Decimal("2"),
+        client_id="cid",
+        created_at=0.0,
+    )
+    current_time = 0.0
+    monkeypatch.setattr(ladder_grid.time, "time", lambda: current_time)
+
+    strategy.poll_once()
+    assert client.calls == 1
+
+    current_time = 5.0
+    strategy.poll_once()
+    assert client.calls == 1
+
+    current_time = 11.0
+    strategy.poll_once()
+    assert client.calls == 2
 
 
 def test_rebalance_market_success() -> None:
