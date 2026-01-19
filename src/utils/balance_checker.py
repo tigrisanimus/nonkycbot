@@ -51,9 +51,7 @@ def parse_symbol(symbol: str) -> tuple[str, str]:
     )
 
 
-def get_balance_for_asset(
-    balances: list[Balance], asset: str
-) -> Decimal:
+def get_balance_for_asset(balances: list[Balance], asset: str) -> Decimal:
     """
     Get available balance for a specific asset.
 

@@ -76,7 +76,9 @@ class AssetSchema(BaseModel):
     token_of: TokenOfSchema | None = Field(None, alias="tokenOf")
     token_details: dict[str, Any] | None = Field(None, alias="tokenDetails")
     use_parent_address: bool = Field(
-        False, alias="useParentAddress", description="Uses same deposit address as parent"
+        False,
+        alias="useParentAddress",
+        description="Uses same deposit address as parent",
     )
     usd_value: str | None = Field(None, alias="usdValue", description="Value in USD")
 

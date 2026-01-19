@@ -162,11 +162,13 @@ class WebSocketClient:
 
                 # Circuit breaker: stop if too many consecutive failures
                 if self._consecutive_failures >= self._max_consecutive_failures:
-                    await self._dispatch_error({
-                        "error": "circuit_breaker_tripped",
-                        "message": f"WebSocket connection failed {self._consecutive_failures} times consecutively. Circuit breaker tripped.",
-                        "consecutive_failures": self._consecutive_failures,
-                    })
+                    await self._dispatch_error(
+                        {
+                            "error": "circuit_breaker_tripped",
+                            "message": f"WebSocket connection failed {self._consecutive_failures} times consecutively. Circuit breaker tripped.",
+                            "consecutive_failures": self._consecutive_failures,
+                        }
+                    )
                     break
 
                 if not self._running or not self._reconnect:

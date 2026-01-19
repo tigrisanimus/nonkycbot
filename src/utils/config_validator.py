@@ -29,7 +29,9 @@ def validate_api_credentials(config: dict[str, Any]) -> None:
     if len(api_key) < 8:
         raise ConfigValidationError("api_key appears too short (minimum 8 characters)")
     if len(api_secret) < 16:
-        raise ConfigValidationError("api_secret appears too short (minimum 16 characters)")
+        raise ConfigValidationError(
+            "api_secret appears too short (minimum 16 characters)"
+        )
 
 
 def validate_symbol(config: dict[str, Any]) -> None:
@@ -103,7 +105,9 @@ def validate_positive_integer(
 
     value = config[field]
     if not isinstance(value, int) or isinstance(value, bool):
-        raise ConfigValidationError(f"{field} must be an integer, got: {type(value).__name__}")
+        raise ConfigValidationError(
+            f"{field} must be an integer, got: {type(value).__name__}"
+        )
 
     if value < minimum:
         raise ConfigValidationError(f"{field} must be >= {minimum}, got: {value}")

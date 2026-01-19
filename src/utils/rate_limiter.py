@@ -75,7 +75,9 @@ class RateLimiter:
             current_time = self._time_provider()
             self._cleanup_old_timestamps(current_time)
 
-            if len(self._timestamps) < (self.config.burst_size or self.config.max_requests):
+            if len(self._timestamps) < (
+                self.config.burst_size or self.config.max_requests
+            ):
                 self._timestamps.append(current_time)
                 return True
 
@@ -93,7 +95,9 @@ class RateLimiter:
                 current_time = self._time_provider()
                 self._cleanup_old_timestamps(current_time)
 
-                if len(self._timestamps) < (self.config.burst_size or self.config.max_requests):
+                if len(self._timestamps) < (
+                    self.config.burst_size or self.config.max_requests
+                ):
                     self._timestamps.append(current_time)
                     return True
 
@@ -113,7 +117,9 @@ class RateLimiter:
             return 0.0
 
         oldest_timestamp = self._timestamps[0]
-        time_until_slot_free = (oldest_timestamp + self.config.time_window) - current_time
+        time_until_slot_free = (
+            oldest_timestamp + self.config.time_window
+        ) - current_time
         return max(0.0, time_until_slot_free)
 
     def get_current_usage(self) -> tuple[int, int]:
@@ -175,7 +181,9 @@ class AsyncRateLimiter:
             current_time = self._time_provider()
             self._cleanup_old_timestamps(current_time)
 
-            if len(self._timestamps) < (self.config.burst_size or self.config.max_requests):
+            if len(self._timestamps) < (
+                self.config.burst_size or self.config.max_requests
+            ):
                 self._timestamps.append(current_time)
                 return True
 
@@ -193,7 +201,9 @@ class AsyncRateLimiter:
                 current_time = self._time_provider()
                 self._cleanup_old_timestamps(current_time)
 
-                if len(self._timestamps) < (self.config.burst_size or self.config.max_requests):
+                if len(self._timestamps) < (
+                    self.config.burst_size or self.config.max_requests
+                ):
                     self._timestamps.append(current_time)
                     return True
 
@@ -213,7 +223,9 @@ class AsyncRateLimiter:
             return 0.0
 
         oldest_timestamp = self._timestamps[0]
-        time_until_slot_free = (oldest_timestamp + self.config.time_window) - current_time
+        time_until_slot_free = (
+            oldest_timestamp + self.config.time_window
+        ) - current_time
         return max(0.0, time_until_slot_free)
 
     async def get_current_usage(self) -> tuple[int, int]:

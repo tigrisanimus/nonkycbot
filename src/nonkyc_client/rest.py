@@ -560,12 +560,34 @@ class RestClient:
                     # Normalize the response structure
                     return {
                         "symbol": str(payload.get("symbol", symbol)),
-                        "reserve_a": payload.get("reserveA", payload.get("reserve_a", payload.get("primaryReserve"))),
-                        "reserve_b": payload.get("reserveB", payload.get("reserve_b", payload.get("secondaryReserve"))),
-                        "token_a": payload.get("tokenA", payload.get("token_a", payload.get("primaryAsset", {}).get("ticker"))),
-                        "token_b": payload.get("tokenB", payload.get("token_b", payload.get("secondaryAsset", {}).get("ticker"))),
-                        "last_price": payload.get("lastPrice", payload.get("last_price", payload.get("last"))),
-                        "fee_rate": payload.get("feeRate", payload.get("fee_rate", payload.get("tradingFee"))),
+                        "reserve_a": payload.get(
+                            "reserveA",
+                            payload.get("reserve_a", payload.get("primaryReserve")),
+                        ),
+                        "reserve_b": payload.get(
+                            "reserveB",
+                            payload.get("reserve_b", payload.get("secondaryReserve")),
+                        ),
+                        "token_a": payload.get(
+                            "tokenA",
+                            payload.get(
+                                "token_a", payload.get("primaryAsset", {}).get("ticker")
+                            ),
+                        ),
+                        "token_b": payload.get(
+                            "tokenB",
+                            payload.get(
+                                "token_b",
+                                payload.get("secondaryAsset", {}).get("ticker"),
+                            ),
+                        ),
+                        "last_price": payload.get(
+                            "lastPrice", payload.get("last_price", payload.get("last"))
+                        ),
+                        "fee_rate": payload.get(
+                            "feeRate",
+                            payload.get("fee_rate", payload.get("tradingFee")),
+                        ),
                         "raw_payload": payload,
                     }
             except (RestError, HTTPError, URLError) as e:
@@ -580,9 +602,7 @@ class RestClient:
             )
         return {}
 
-    def get_pool_quote(
-        self, symbol: str, side: str, amount: str
-    ) -> dict[str, Any]:
+    def get_pool_quote(self, symbol: str, side: str, amount: str) -> dict[str, Any]:
         """
         Get a quote for swapping tokens in a liquidity pool.
 
@@ -614,15 +634,23 @@ class RestClient:
         last_error = None
         for endpoint in endpoints:
             try:
-                response = self.send(RestRequest(method="POST", path=endpoint, body=body))
+                response = self.send(
+                    RestRequest(method="POST", path=endpoint, body=body)
+                )
                 payload = self._extract_payload(response) or {}
 
                 if payload:
                     return {
-                        "amount_in": payload.get("amountIn", payload.get("amount_in", amount)),
-                        "amount_out": payload.get("amountOut", payload.get("amount_out")),
+                        "amount_in": payload.get(
+                            "amountIn", payload.get("amount_in", amount)
+                        ),
+                        "amount_out": payload.get(
+                            "amountOut", payload.get("amount_out")
+                        ),
                         "price": payload.get("price", payload.get("effectivePrice")),
-                        "price_impact": payload.get("priceImpact", payload.get("price_impact")),
+                        "price_impact": payload.get(
+                            "priceImpact", payload.get("price_impact")
+                        ),
                         "fee": payload.get("fee", payload.get("feeAmount")),
                         "raw_payload": payload,
                     }
@@ -678,14 +706,20 @@ class RestClient:
         last_error = None
         for endpoint in endpoints:
             try:
-                response = self.send(RestRequest(method="POST", path=endpoint, body=body))
+                response = self.send(
+                    RestRequest(method="POST", path=endpoint, body=body)
+                )
                 payload = self._extract_payload(response) or {}
 
                 if payload:
                     return {
-                        "swap_id": payload.get("id", payload.get("swapId", payload.get("tradeId"))),
+                        "swap_id": payload.get(
+                            "id", payload.get("swapId", payload.get("tradeId"))
+                        ),
                         "amount_in": payload.get("amountIn", payload.get("amount_in")),
-                        "amount_out": payload.get("amountOut", payload.get("amount_out")),
+                        "amount_out": payload.get(
+                            "amountOut", payload.get("amount_out")
+                        ),
                         "status": payload.get("status"),
                         "raw_payload": payload,
                     }

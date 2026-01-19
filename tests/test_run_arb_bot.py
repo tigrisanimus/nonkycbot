@@ -45,6 +45,7 @@ def test_get_price_uses_bid_ask_mid_from_raw_payload() -> None:
 
 def test_get_price_uses_orderbook_fallback() -> None:
     from typing import Any
+
     from nonkyc_client.rest import RestRequest
 
     class _OrderbookStubClient:
