@@ -185,6 +185,44 @@ def _fallback_price_from_ticker(ticker):
     return None
 
 
+def _get_orderbook_mid_price(client, pair):
+    """Fetch mid-price from orderbook as final fallback."""
+    try:
+        from nonkyc_client.rest import RestRequest
+        response = client.send(
+            RestRequest(method="GET", path=f"/api/v2/orderbook/{pair}")
+        )
+        payload = response.get("data", response.get("result", response))
+        if not isinstance(payload, dict):
+            return None
+
+        bids = payload.get("bids", [])
+        asks = payload.get("asks", [])
+
+        if not bids or not asks:
+            return None
+
+        # Extract best bid and ask prices
+        # Orderbook format can be [[price, size], ...] or [{"price": price, "size": size}, ...]
+        def extract_price(item):
+            if isinstance(item, (list, tuple)) and len(item) >= 2:
+                return _coerce_price_value(item[0])
+            elif isinstance(item, dict):
+                return _coerce_price_value(item.get("price"))
+            return None
+
+        best_bid = extract_price(bids[0])
+        best_ask = extract_price(asks[0])
+
+        if best_bid is not None and best_ask is not None:
+            return (best_bid + best_ask) / Decimal("2")
+
+        return None
+    except Exception as e:
+        print(f"    DEBUG: orderbook fallback failed: {e}")
+        return None
+
+
 def get_price(client, pair):
     """Fetch current market price for a trading pair."""
     try:
@@ -193,10 +231,16 @@ def get_price(client, pair):
         if price is None:
             fallback_result = _fallback_price_from_ticker(ticker)
             if fallback_result is None:
+                # Try orderbook as final fallback
                 print(
                     "  WARNING: invalid last_price for "
-                    f"{pair}: {ticker.last_price!r}"
+                    f"{pair}: {ticker.last_price!r}, trying orderbook..."
                 )
+                orderbook_price = _get_orderbook_mid_price(client, pair)
+                if orderbook_price is not None:
+                    print(f"  {pair}: {orderbook_price} (from orderbook)")
+                    return orderbook_price
+                print(f"⚠️  No price data available for {pair}")
                 return None
             fallback_price, fallback_source = fallback_result
             print(

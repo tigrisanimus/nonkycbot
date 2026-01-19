@@ -41,3 +41,28 @@ def test_get_price_uses_bid_ask_mid_from_raw_payload() -> None:
         )
     )
     assert get_price(client, "ETH-USDT") == Decimal("101")
+
+
+def test_get_price_uses_orderbook_fallback() -> None:
+    from nonkyc_client.rest import RestRequest, RestResponse
+
+    class _OrderbookStubClient:
+        def __init__(self) -> None:
+            pass
+
+        def get_market_data(self, symbol: str) -> MarketTicker:
+            return MarketTicker(symbol=symbol, last_price="", raw_payload={})
+
+        def send(self, request: RestRequest) -> RestResponse:
+            # Simulate orderbook response
+            return {
+                "data": {
+                    "bids": [["3000.50", "1.5"], ["3000.00", "2.0"]],
+                    "asks": [["3001.50", "1.0"], ["3002.00", "0.5"]],
+                }
+            }
+
+    client = _OrderbookStubClient()
+    # Mid-price should be (3000.50 + 3001.50) / 2 = 3001.00
+    result = get_price(client, "ETH-USDT")
+    assert result == Decimal("3001.00")
