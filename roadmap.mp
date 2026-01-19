@@ -58,6 +58,7 @@
 - [x] Add async REST client for scalable trading workflows.
 - [x] Expand ticker parsing to handle alternate last-price fields.
 - [x] Fallback to bid/ask mid-price when ticker last price is absent.
+- [x] Add lastPrice and bid/ask mid fallback parsing for arbitrage tickers.
 
 ## Next
 - [ ] Define API client interfaces and error handling.

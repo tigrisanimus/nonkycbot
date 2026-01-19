@@ -24,7 +24,6 @@ from nonkyc_client.rest import RestClient
 from strategies.triangular_arb import evaluate_cycle, find_profitable_cycle
 from utils.notional import resolve_quantity_rounding
 
-
 REQUIRED_FEE_RATE = Decimal("0.002")
 
 
@@ -170,11 +169,19 @@ def _coerce_price_value(value):
 
 def _fallback_price_from_ticker(ticker):
     payload = getattr(ticker, "raw_payload", None) or {}
-    for key in ("last", "price"):
+    for key in ("last", "price", "lastPrice"):
         candidate = payload.get(key)
         price = _coerce_price_value(candidate)
         if price is not None:
-            return price
+            return price, f"raw_payload.{key}"
+    bid = _coerce_price_value(getattr(ticker, "bid", None))
+    ask = _coerce_price_value(getattr(ticker, "ask", None))
+    if bid is not None and ask is not None:
+        return (bid + ask) / Decimal("2"), "ticker.bid_ask_mid"
+    bid = _coerce_price_value(payload.get("bid"))
+    ask = _coerce_price_value(payload.get("ask"))
+    if bid is not None and ask is not None:
+        return (bid + ask) / Decimal("2"), "raw_payload.bid_ask_mid"
     return None
 
 
@@ -184,17 +191,18 @@ def get_price(client, pair):
         ticker = client.get_market_data(pair)
         price = _coerce_price_value(ticker.last_price)
         if price is None:
-            fallback_price = _fallback_price_from_ticker(ticker)
-            if fallback_price is None:
+            fallback_result = _fallback_price_from_ticker(ticker)
+            if fallback_result is None:
                 print(
                     "  WARNING: invalid last_price for "
                     f"{pair}: {ticker.last_price!r}"
                 )
                 return None
+            fallback_price, fallback_source = fallback_result
             print(
                 "  WARNING: invalid last_price for "
                 f"{pair}: {ticker.last_price!r} "
-                f"using fallback {fallback_price}"
+                f"using fallback {fallback_price} from {fallback_source}"
             )
             price = fallback_price
         print(f"  {pair}: {price}")
