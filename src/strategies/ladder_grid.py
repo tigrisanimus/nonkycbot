@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 from dataclasses import dataclass, field
 from decimal import ROUND_DOWN, Decimal
@@ -10,7 +11,9 @@ from pathlib import Path
 from typing import Iterable
 
 from engine.exchange_client import ExchangeClient, OrderStatusView
-from nonkyc_client.rest import RestError
+from nonkyc_client.rest import RestError, TransientApiError
+
+LOGGER = logging.getLogger("nonkyc_bot.strategy.ladder_grid")
 
 
 @dataclass(frozen=True)
@@ -127,7 +130,20 @@ class LadderGridStrategy:
             live_order = self.state.open_orders.get(order_id)
             if live_order is None:
                 continue
-            status = self.client.get_order(order_id)
+            try:
+                status = self.client.get_order(order_id)
+            except TransientApiError as exc:
+                LOGGER.warning(
+                    "Transient error fetching order %s; skipping update: %s",
+                    order_id,
+                    exc,
+                )
+                continue
+            except Exception as exc:
+                LOGGER.warning(
+                    "Error fetching order %s; skipping update: %s", order_id, exc
+                )
+                continue
             normalized = status.status.lower()
             if normalized == "filled":
                 self._handle_filled(order_id, live_order, status)
