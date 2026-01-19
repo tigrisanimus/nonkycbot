@@ -45,6 +45,7 @@
 - [x] Support ladder REST timeout/retry config and test transient REST retry behavior.
 - [x] Add ladder grid startup rebalance with market/limit fallback and tests.
 - [x] Halt ladder seeding on startup rebalance failures and surface manual guidance.
+- [x] Validate ladder grid spacing against total fee rate and document configuration.
 
 ## Next
 - [ ] Define API client interfaces and error handling.

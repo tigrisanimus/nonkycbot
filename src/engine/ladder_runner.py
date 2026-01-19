@@ -10,11 +10,8 @@ from pathlib import Path
 from nonkyc_client.auth import ApiCredentials, AuthSigner
 from nonkyc_client.rest import RestClient
 from nonkyc_client.rest_exchange import NonkycRestExchangeClient
-from strategies.ladder_grid import (
-    LadderGridConfig,
-    LadderGridStrategy,
-    derive_market_id,
-)
+from strategies.ladder_grid import (LadderGridConfig, LadderGridStrategy,
+                                    derive_market_id)
 
 
 def build_rest_client(config: dict) -> RestClient:
@@ -91,6 +88,13 @@ def build_strategy(config: dict, state_path: Path) -> LadderGridStrategy:
         base_order_size=Decimal(str(normalized.get("base_order_size", "1"))),
         min_notional_quote=Decimal(str(normalized.get("min_notional_quote", "1.05"))),
         fee_buffer_pct=Decimal(str(normalized.get("fee_buffer_pct", "0.002"))),
+        total_fee_rate=Decimal(
+            str(
+                normalized.get(
+                    "total_fee_rate", normalized.get("fee_buffer_pct", "0.002")
+                )
+            )
+        ),
         tick_size=Decimal(str(normalized.get("tick_size", "0"))),
         step_size=Decimal(str(normalized.get("step_size", "0"))),
         poll_interval_sec=float(normalized.get("poll_interval_sec", 5)),

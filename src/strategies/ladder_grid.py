@@ -27,6 +27,7 @@ class LadderGridConfig:
     base_order_size: Decimal
     min_notional_quote: Decimal
     fee_buffer_pct: Decimal
+    total_fee_rate: Decimal
     tick_size: Decimal
     step_size: Decimal
     poll_interval_sec: float
@@ -119,6 +120,7 @@ class LadderGridStrategy:
         self._halt_placements = False
         self._refresh_balances(time.time())
         mid_price = self.client.get_mid_price(self.config.symbol)
+        self._validate_spacing(mid_price)
         self.state.last_mid = mid_price
         buy_levels = self._build_levels(mid_price, "buy", self.config.n_buy_levels)
         sell_levels = self._build_levels(mid_price, "sell", self.config.n_sell_levels)
@@ -304,6 +306,33 @@ class LadderGridStrategy:
                 raise ValueError("step_abs is required for abs step mode.")
             delta = self.config.step_abs * Decimal(level)
         return price + delta if upward else price - delta
+
+    def _validate_spacing(self, mid_price: Decimal) -> None:
+        total_fee_rate = self.config.total_fee_rate
+        if self.config.step_mode == "pct":
+            if self.config.step_pct is None:
+                raise ValueError("step_pct is required for pct step mode.")
+            spacing_pct = self.config.step_pct
+            if spacing_pct <= total_fee_rate:
+                raise ValueError(
+                    "Ladder spacing too small for fees: "
+                    f"spacing_pct={spacing_pct} total_fee_rate={total_fee_rate} "
+                    f"min_spacing_pct={total_fee_rate}"
+                )
+            return
+        if self.config.step_abs is None:
+            raise ValueError("step_abs is required for abs step mode.")
+        buy_price = mid_price - self.config.step_abs
+        sell_price = mid_price + self.config.step_abs
+        if buy_price <= 0:
+            raise ValueError("Mid price must exceed step_abs for abs step mode.")
+        spacing_pct = sell_price / buy_price - Decimal("1")
+        if spacing_pct <= total_fee_rate:
+            raise ValueError(
+                "Ladder spacing too small for fees: "
+                f"step_abs={self.config.step_abs} spacing_pct={spacing_pct} "
+                f"total_fee_rate={total_fee_rate} min_spacing_pct={total_fee_rate}"
+            )
 
     def _place_rebalance_limit(
         self, side: str, quantity: Decimal, client_id: str

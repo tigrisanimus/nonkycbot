@@ -8,12 +8,8 @@ import pytest
 from engine import ladder_runner
 from engine.exchange_client import ExchangeClient, OrderStatusView
 from nonkyc_client.rest import RestError, TransientApiError
-from strategies.ladder_grid import (
-    LadderGridConfig,
-    LadderGridState,
-    LadderGridStrategy,
-    LiveOrder,
-)
+from strategies.ladder_grid import (LadderGridConfig, LadderGridState,
+                                    LadderGridStrategy, LiveOrder)
 
 
 @dataclass
@@ -94,6 +90,7 @@ def _build_config(step_mode: str) -> LadderGridConfig:
         base_order_size=Decimal("1"),
         min_notional_quote=Decimal("1.05"),
         fee_buffer_pct=Decimal("0"),
+        total_fee_rate=Decimal("0"),
         tick_size=Decimal("0"),
         step_size=Decimal("1"),
         poll_interval_sec=1,
@@ -113,6 +110,22 @@ def test_min_notional_enforcement() -> None:
     strategy = LadderGridStrategy(client, config)
     quantity = strategy._resolve_order_quantity(Decimal("0.035"), Decimal("1"))
     assert quantity >= Decimal("30")
+
+
+def test_step_pct_must_exceed_fee_rate() -> None:
+    client = FakeExchange(Decimal("100"))
+    base_config = _build_config("pct")
+    config = LadderGridConfig(
+        **{
+            **base_config.__dict__,
+            "step_pct": Decimal("0.001"),
+            "total_fee_rate": Decimal("0.002"),
+        }
+    )
+    strategy = LadderGridStrategy(client, config)
+
+    with pytest.raises(ValueError, match="spacing_pct"):
+        strategy.seed_ladder()
 
 
 def test_ladder_replacement_on_filled_buy() -> None:
