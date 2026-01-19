@@ -128,6 +128,23 @@ def test_step_pct_must_exceed_fee_rate() -> None:
         strategy.seed_ladder()
 
 
+def test_step_pct_accepts_profitable_spacing() -> None:
+    client = FakeExchange(Decimal("100"))
+    base_config = _build_config("pct")
+    config = LadderGridConfig(
+        **{
+            **base_config.__dict__,
+            "step_pct": Decimal("0.003"),
+            "total_fee_rate": Decimal("0.002"),
+        }
+    )
+    strategy = LadderGridStrategy(client, config)
+
+    strategy.seed_ladder()
+
+    assert len(client.placed_orders) == 2
+
+
 def test_ladder_replacement_on_filled_buy() -> None:
     client = FakeExchange(Decimal("100"))
     config = _build_config("abs")

@@ -309,6 +309,8 @@ class LadderGridStrategy:
 
     def _validate_spacing(self, mid_price: Decimal) -> None:
         total_fee_rate = self.config.total_fee_rate
+        if total_fee_rate < 0:
+            raise ValueError("total_fee_rate must be non-negative.")
         if self.config.step_mode == "pct":
             if self.config.step_pct is None:
                 raise ValueError("step_pct is required for pct step mode.")
