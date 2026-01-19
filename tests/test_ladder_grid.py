@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from engine.exchange_client import ExchangeClient, OrderStatusView
-from nonkyc_client.rest import RestError
+from nonkyc_client.rest import RestError, TransientApiError
 from strategies.ladder_grid import LadderGridConfig, LadderGridStrategy, LiveOrder
 
 
@@ -147,3 +147,24 @@ def test_insufficient_funds_marks_rebalance_and_halts_cycle() -> None:
     assert strategy.state.needs_rebalance is True
     assert strategy.state.open_orders == {}
     assert client.place_limit_calls == 1
+
+
+def test_poll_once_skips_transient_get_order_error() -> None:
+    class TransientOrderExchange(FakeExchange):
+        def get_order(self, order_id: str) -> OrderStatusView:
+            raise TransientApiError("Timeout fetching order")
+
+    client = TransientOrderExchange(Decimal("100"))
+    config = _build_config("abs")
+    strategy = LadderGridStrategy(client, config)
+    strategy.state.open_orders["order-1"] = LiveOrder(
+        side="buy",
+        price=Decimal("100"),
+        quantity=Decimal("2"),
+        client_id="cid",
+        created_at=0.0,
+    )
+
+    strategy.poll_once()
+
+    assert "order-1" in strategy.state.open_orders
