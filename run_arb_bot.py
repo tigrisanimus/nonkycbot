@@ -284,9 +284,18 @@ def calculate_conversion_rates(config, prices):
     }
 
 
-def execute_arbitrage(client, config, prices):
-    """Execute the arbitrage cycle."""
-    start_amount = Decimal(str(config["trade_amount_a"]))
+def execute_arbitrage(client, config, prices, start_amount):
+    """Execute the arbitrage cycle.
+
+    Args:
+        client: REST client
+        config: Configuration dictionary
+        prices: Price dictionary
+        start_amount: Starting USDT amount for the cycle
+
+    Returns:
+        Decimal: Final USDT amount if successful, None if failed
+    """
     user_provided_id = config.get("userProvidedId") or config.get("user_provided_id")
     strict_validate = (
         config["strictValidate"]
@@ -322,7 +331,7 @@ def execute_arbitrage(client, config, prices):
             prices[config["pair_ab"]],
             order_type,
         ):
-            return False
+            return None
         order1 = OrderRequest(
             symbol=config["pair_ab"],
             side="buy",
@@ -352,7 +361,7 @@ def execute_arbitrage(client, config, prices):
             prices[config["pair_bc"]],
             order_type,
         ):
-            return False
+            return None
         order2 = OrderRequest(
             symbol=config["pair_bc"],
             side="sell",
@@ -381,7 +390,7 @@ def execute_arbitrage(client, config, prices):
             prices[config["pair_ac"]],
             order_type,
         ):
-            return False
+            return None
         order3 = OrderRequest(
             symbol=config["pair_ac"],
             side="sell",
@@ -405,20 +414,30 @@ def execute_arbitrage(client, config, prices):
         print(f"Ended with: {final_usdt} {config['asset_a']}")
         print(f"Profit: {profit} {config['asset_a']} ({profit_pct:.2f}%)")
 
-        return True
+        return final_usdt
 
     except Exception as e:
         print(f"\n❌ ERROR during execution: {e}")
-        return False
+        return None
 
 
-def evaluate_profitability_and_execute(client, config, prices) -> bool:
-    """Evaluate profit and execute arbitrage when thresholds are met."""
+def evaluate_profitability_and_execute(client, config, prices, current_balance):
+    """Evaluate profit and execute arbitrage when thresholds are met.
+
+    Args:
+        client: REST client
+        config: Configuration dictionary
+        prices: Price dictionary
+        current_balance: Current USDT balance to trade with
+
+    Returns:
+        Decimal: New balance if successful profitable trade, None otherwise
+    """
     # Calculate conversion rates
     rates = calculate_conversion_rates(config, prices)
 
     # Calculate expected profit
-    start_amount = Decimal(str(config["trade_amount_a"]))
+    start_amount = current_balance
     fee_rate = _resolve_fee_rate(config)
     step_size, precision = resolve_quantity_rounding(config)
 
@@ -477,13 +496,13 @@ def evaluate_profitability_and_execute(client, config, prices) -> bool:
         if adjusted_profit_ratio < min_profit:
             print("\n⏸️  Fee-adjusted profit below threshold. " "Skipping execution.")
             print(f"  Threshold: {float(config['min_profitability'])*100}%")
-            return False
+            return None
 
-        execute_arbitrage(client, config, prices)
-        return True
+        final_balance = execute_arbitrage(client, config, prices, start_amount)
+        return final_balance
 
     print(f"\n⏸️  No opportunity - profit {profit_pct:.4f}% below threshold")
-    return False
+    return None
 
 
 def run_arbitrage_bot(config_file):
@@ -510,7 +529,13 @@ def run_arbitrage_bot(config_file):
 
     print("\n✅ Connected to NonKYC API")
 
+    # Initialize current balance (will be updated after successful profitable trades)
+    current_balance = Decimal(str(config["trade_amount_a"]))
+    initial_balance = current_balance
+    print(f"\n💰 Starting balance: {current_balance} {config['asset_a']}")
+
     cycle_count = 0
+    successful_profit_cycles = 0
 
     try:
         while True:
@@ -520,6 +545,7 @@ def run_arbitrage_bot(config_file):
                 f"Cycle #{cycle_count} - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
             )
             print(f"{'=' * 80}")
+            print(f"💼 Current balance: {current_balance} {config['asset_a']}")
 
             # Fetch current prices
             print("\n📊 Fetching prices...")
@@ -536,7 +562,25 @@ def run_arbitrage_bot(config_file):
             if len(prices) != 3:
                 continue
 
-            evaluate_profitability_and_execute(client, config, prices)
+            new_balance = evaluate_profitability_and_execute(
+                client, config, prices, current_balance
+            )
+
+            # Update balance if the cycle was successful and profitable
+            if new_balance is not None and new_balance > current_balance:
+                previous_balance = current_balance
+                current_balance = new_balance
+                successful_profit_cycles += 1
+                profit = current_balance - previous_balance
+                total_profit = current_balance - initial_balance
+                profit_pct = ((current_balance - previous_balance) / previous_balance) * 100
+                total_profit_pct = ((current_balance - initial_balance) / initial_balance) * 100
+                print(f"\n🎉 PROFIT REINVESTED!")
+                print(f"  Previous balance: {previous_balance} {config['asset_a']}")
+                print(f"  New balance: {current_balance} {config['asset_a']}")
+                print(f"  Cycle profit: {profit} {config['asset_a']} ({profit_pct:.2f}%)")
+                print(f"  Total profit: {total_profit} {config['asset_a']} ({total_profit_pct:.2f}%)")
+                print(f"  Successful profit cycles: {successful_profit_cycles}")
 
             # Wait before next cycle
             print(f"\n⏰ Waiting {refresh_seconds} seconds...")
@@ -545,6 +589,14 @@ def run_arbitrage_bot(config_file):
     except KeyboardInterrupt:
         print("\n\n🛑 Bot stopped by user")
         print(f"Total cycles run: {cycle_count}")
+        print(f"Successful profit cycles: {successful_profit_cycles}")
+        print(f"\n📊 Final Statistics:")
+        print(f"  Initial balance: {initial_balance} {config['asset_a']}")
+        print(f"  Final balance: {current_balance} {config['asset_a']}")
+        total_profit = current_balance - initial_balance
+        if initial_balance > 0:
+            total_profit_pct = (total_profit / initial_balance) * 100
+            print(f"  Total profit: {total_profit} {config['asset_a']} ({total_profit_pct:.2f}%)")
     except Exception as e:
         print(f"\n❌ Fatal error: {e}")
         import traceback
