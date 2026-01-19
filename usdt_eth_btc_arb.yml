@@ -1,4 +1,6 @@
 exchange: "nonkyc"
+api_key: "your_api_key_here"
+api_secret: "your_api_secret_here"
 
 # Triangle: USDT → ETH → BTC → USDT (using only order book pairs)
 asset_a: "USDT"
