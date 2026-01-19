@@ -57,6 +57,7 @@
 - [x] Implement WebSocket streaming client with reconnect, login, and handlers.
 - [x] Add async REST client for scalable trading workflows.
 - [x] Expand ticker parsing to handle alternate last-price fields.
+- [x] Add lastPrice and bid/ask mid fallback parsing for arbitrage tickers.
 
 ## Next
 - [ ] Define API client interfaces and error handling.
