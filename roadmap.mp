@@ -42,6 +42,7 @@
 - [x] Normalize ladder grid configs to accept legacy MMX grid fields and add startup log.
 - [x] Refresh ladder grid balances before seeding and halt cycles on insufficient funds errors.
 - [x] Skip ladder grid updates on transient order fetch errors.
+- [x] Support ladder REST timeout/retry config and test transient REST retry behavior.
 
 ## Next
 - [ ] Define API client interfaces and error handling.

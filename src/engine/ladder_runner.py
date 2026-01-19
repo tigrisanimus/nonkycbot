@@ -18,6 +18,9 @@ from strategies.ladder_grid import (
 
 def build_rest_client(config: dict) -> RestClient:
     signing_enabled = config.get("sign_requests", True)
+    rest_timeout = config.get("rest_timeout_sec", 10.0)
+    rest_retries = config.get("rest_retries", 3)
+    rest_backoff = config.get("rest_backoff_factor", 0.5)
     creds = (
         ApiCredentials(api_key=config["api_key"], api_secret=config["api_secret"])
         if signing_enabled
@@ -37,6 +40,9 @@ def build_rest_client(config: dict) -> RestClient:
         credentials=creds,
         signer=signer,
         use_server_time=config.get("use_server_time"),
+        timeout=float(rest_timeout),
+        max_retries=int(rest_retries),
+        backoff_factor=float(rest_backoff),
         sign_absolute_url=True,
         debug_auth=config.get("debug_auth"),
     )
@@ -58,6 +64,12 @@ def normalize_ladder_config(config: dict) -> dict:
         normalized["n_sell_levels"] = normalized["grid_levels"]
     if "min_notional_quote" not in normalized and "min_notional_usd" in normalized:
         normalized["min_notional_quote"] = normalized["min_notional_usd"]
+    if "rest_timeout_sec" not in normalized and "rest_timeout" in normalized:
+        normalized["rest_timeout_sec"] = normalized["rest_timeout"]
+    if "rest_retries" not in normalized and "rest_max_retries" in normalized:
+        normalized["rest_retries"] = normalized["rest_max_retries"]
+    if "rest_backoff_factor" not in normalized and "rest_backoff" in normalized:
+        normalized["rest_backoff_factor"] = normalized["rest_backoff"]
     return normalized
 
 
@@ -85,7 +97,7 @@ def build_strategy(config: dict, state_path: Path) -> LadderGridStrategy:
         reconcile_interval_sec=float(normalized.get("reconcile_interval_sec", 60)),
         balance_refresh_sec=float(normalized.get("balance_refresh_sec", 60)),
     )
-    rest_client = build_rest_client(config)
+    rest_client = build_rest_client(normalized)
     exchange = NonkycRestExchangeClient(rest_client)
     return LadderGridStrategy(exchange, ladder_config, state_path=state_path)
 

@@ -8,7 +8,7 @@ import io
 import json
 from typing import Any
 from unittest.mock import patch
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 
 import pytest
 
@@ -241,6 +241,49 @@ def test_rest_debug_auth_includes_json_str(capsys, monkeypatch) -> None:
 def test_rest_parse_retry_after_returns_none(value: str | None) -> None:
     client = RestClient(base_url="https://api.example")
     assert client._parse_retry_after(value) is None
+
+
+def test_rest_send_honors_configured_timeout() -> None:
+    client = RestClient(base_url="https://api.example", timeout=2.5)
+    captured: dict[str, Any] = {}
+
+    def fake_urlopen(request, timeout=10.0):
+        captured["timeout"] = timeout
+        return FakeResponse({"data": {"ok": True}})
+
+    with patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen):
+        response = client.send(RestRequest(method="GET", path="/ping"))
+
+    assert response["data"]["ok"] is True
+    assert captured["timeout"] == 2.5
+
+
+def test_rest_send_retries_on_transient_url_error() -> None:
+    client = RestClient(
+        base_url="https://api.example", timeout=1.0, max_retries=2, backoff_factor=0.5
+    )
+    call_count = {"count": 0}
+    sleep_calls: list[float] = []
+
+    def fake_urlopen(request, timeout=10.0):
+        call_count["count"] += 1
+        if call_count["count"] == 1:
+            raise URLError("temporary failure")
+        return FakeResponse({"data": {"ok": True}})
+
+    def fake_sleep(duration: float) -> None:
+        sleep_calls.append(duration)
+
+    with (
+        patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen),
+        patch("nonkyc_client.rest.time.sleep", side_effect=fake_sleep),
+        patch("nonkyc_client.rest.random.uniform", return_value=0.0),
+    ):
+        response = client.send(RestRequest(method="GET", path="/ping"))
+
+    assert response["data"]["ok"] is True
+    assert call_count["count"] == 2
+    assert sleep_calls == [0.5]
 
 
 def test_rest_signing_defaults_to_absolute_url() -> None:
