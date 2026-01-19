@@ -28,6 +28,9 @@ class ExchangeClient(Protocol):
     def get_mid_price(self, symbol: str) -> Decimal:
         """Return the current mid price for a symbol."""
 
+    def get_orderbook_top(self, symbol: str) -> tuple[Decimal, Decimal]:
+        """Return the best bid and best ask for a symbol."""
+
     def place_limit(
         self,
         symbol: str,
@@ -37,6 +40,15 @@ class ExchangeClient(Protocol):
         client_id: str | None = None,
     ) -> str:
         """Place a limit order and return the order id."""
+
+    def place_market(
+        self,
+        symbol: str,
+        side: str,
+        quantity: Decimal,
+        client_id: str | None = None,
+    ) -> str:
+        """Place a market order and return the order id."""
 
     def cancel_order(self, order_id: str) -> bool:
         """Cancel a single order by id."""

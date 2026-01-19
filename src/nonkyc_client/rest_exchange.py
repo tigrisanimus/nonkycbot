@@ -7,7 +7,7 @@ from typing import Any
 
 from engine.exchange_client import ExchangeClient, OpenOrder, OrderStatusView
 from nonkyc_client.models import OrderRequest
-from nonkyc_client.rest import RestClient
+from nonkyc_client.rest import RestClient, RestError, RestRequest
 
 
 class NonkycRestExchangeClient(ExchangeClient):
@@ -19,6 +19,19 @@ class NonkycRestExchangeClient(ExchangeClient):
         if ticker.bid is not None and ticker.ask is not None:
             return (Decimal(ticker.bid) + Decimal(ticker.ask)) / Decimal("2")
         return Decimal(ticker.last_price)
+
+    def get_orderbook_top(self, symbol: str) -> tuple[Decimal, Decimal]:
+        response = self._rest.send(
+            RestRequest(method="GET", path=f"/api/v2/orderbook/{symbol}")
+        )
+        payload = response.get("data", response.get("result", response))
+        if not isinstance(payload, dict):
+            raise RestError(f"Unexpected orderbook payload for {symbol}: {payload}")
+        bids = self._extract_orderbook_prices(payload.get("bids", []))
+        asks = self._extract_orderbook_prices(payload.get("asks", []))
+        if not bids or not asks:
+            raise RestError(f"Orderbook data missing for {symbol}")
+        return max(bids), min(asks)
 
     def place_limit(
         self,
@@ -37,6 +50,32 @@ class NonkycRestExchangeClient(ExchangeClient):
             user_provided_id=client_id,
         )
         response = self._rest.place_order(order)
+        return response.order_id
+
+    def place_market(
+        self,
+        symbol: str,
+        side: str,
+        quantity: Decimal,
+        client_id: str | None = None,
+    ) -> str:
+        order = OrderRequest(
+            symbol=symbol,
+            side=side,
+            order_type="market",
+            price=None,
+            quantity=str(quantity),
+            user_provided_id=client_id,
+        )
+        try:
+            response = self._rest.place_order(order)
+        except RestError as exc:
+            message = str(exc).lower()
+            if "market" in message or "unsupported" in message:
+                raise NotImplementedError(
+                    "Market orders are not supported by the NonKYC REST API."
+                ) from exc
+            raise
         return response.order_id
 
     def cancel_order(self, order_id: str) -> bool:
@@ -74,6 +113,25 @@ class NonkycRestExchangeClient(ExchangeClient):
                 Decimal(balance.held),
             )
         return balances
+
+    @staticmethod
+    def _extract_orderbook_prices(levels: Any) -> list[Decimal]:
+        prices: list[Decimal] = []
+        if not isinstance(levels, list):
+            return prices
+        for level in levels:
+            price = None
+            if isinstance(level, dict):
+                price = level.get("price")
+            elif isinstance(level, (list, tuple)) and level:
+                price = level[0]
+            if price is None:
+                continue
+            try:
+                prices.append(Decimal(str(price)))
+            except Exception:
+                continue
+        return prices
 
     @staticmethod
     def _extract_decimal(payload: Any, keys: tuple[str, ...]) -> Decimal | None:

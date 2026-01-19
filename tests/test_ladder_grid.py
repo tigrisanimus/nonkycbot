@@ -22,9 +22,13 @@ class FakeExchange(ExchangeClient):
         self.order_statuses: dict[str, OrderStatusView] = {}
         self._next_order_id = 1
         self.cancel_all_calls: list[tuple[str, str]] = []
+        self.market_orders: list[tuple[str, str, Decimal, str | None]] = []
 
     def get_mid_price(self, symbol: str) -> Decimal:
         return self.mid_price
+
+    def get_orderbook_top(self, symbol: str) -> tuple[Decimal, Decimal]:
+        return self.mid_price, self.mid_price
 
     def place_limit(
         self,
@@ -37,6 +41,18 @@ class FakeExchange(ExchangeClient):
         order_id = f"order-{self._next_order_id}"
         self._next_order_id += 1
         self.placed_orders.append((symbol, side, price, quantity, client_id))
+        return order_id
+
+    def place_market(
+        self,
+        symbol: str,
+        side: str,
+        quantity: Decimal,
+        client_id: str | None = None,
+    ) -> str:
+        order_id = f"market-{self._next_order_id}"
+        self._next_order_id += 1
+        self.market_orders.append((symbol, side, quantity, client_id))
         return order_id
 
     def cancel_order(self, order_id: str) -> bool:
@@ -74,6 +90,10 @@ def _build_config(step_mode: str) -> LadderGridConfig:
         step_size=Decimal("1"),
         poll_interval_sec=1,
         startup_cancel_all=False,
+        startup_rebalance=False,
+        rebalance_target_base_pct=Decimal("0.5"),
+        rebalance_slippage_pct=Decimal("0.01"),
+        rebalance_max_attempts=1,
         reconcile_interval_sec=999,
         balance_refresh_sec=0,
     )
@@ -168,3 +188,156 @@ def test_poll_once_skips_transient_get_order_error() -> None:
     strategy.poll_once()
 
     assert "order-1" in strategy.state.open_orders
+
+
+def test_rebalance_market_success() -> None:
+    class MarketSuccessExchange(FakeExchange):
+        def __init__(self) -> None:
+            super().__init__(Decimal("10"))
+            self.balances = {
+                "MMX": (Decimal("0"), Decimal("0")),
+                "USDT": (Decimal("100"), Decimal("0")),
+            }
+
+        def get_balances(self) -> dict[str, tuple[Decimal, Decimal]]:
+            return self.balances
+
+        def place_market(
+            self,
+            symbol: str,
+            side: str,
+            quantity: Decimal,
+            client_id: str | None = None,
+        ) -> str:
+            order_id = super().place_market(symbol, side, quantity, client_id)
+            if side == "buy":
+                self.balances["MMX"] = (
+                    self.balances["MMX"][0] + quantity,
+                    Decimal("0"),
+                )
+                self.balances["USDT"] = (
+                    self.balances["USDT"][0] - quantity * self.mid_price,
+                    Decimal("0"),
+                )
+            return order_id
+
+    client = MarketSuccessExchange()
+    config = _build_config("abs")
+    strategy = LadderGridStrategy(client, config)
+
+    strategy.rebalance_startup()
+
+    assert client.market_orders
+    assert client.placed_orders == []
+
+
+def test_rebalance_market_fallback_limit_success() -> None:
+    class MarketFallbackExchange(FakeExchange):
+        def __init__(self) -> None:
+            super().__init__(Decimal("10"))
+            self.balances = {
+                "MMX": (Decimal("0"), Decimal("0")),
+                "USDT": (Decimal("100"), Decimal("0")),
+            }
+            self.orderbook_top = (Decimal("9"), Decimal("11"))
+
+        def get_balances(self) -> dict[str, tuple[Decimal, Decimal]]:
+            return self.balances
+
+        def get_orderbook_top(self, symbol: str) -> tuple[Decimal, Decimal]:
+            return self.orderbook_top
+
+        def place_market(
+            self,
+            symbol: str,
+            side: str,
+            quantity: Decimal,
+            client_id: str | None = None,
+        ) -> str:
+            raise RestError("Market orders not supported")
+
+        def place_limit(
+            self,
+            symbol: str,
+            side: str,
+            price: Decimal,
+            quantity: Decimal,
+            client_id: str | None = None,
+        ) -> str:
+            order_id = super().place_limit(symbol, side, price, quantity, client_id)
+            self.order_statuses[order_id] = OrderStatusView(status="filled")
+            self.balances["MMX"] = (
+                self.balances["MMX"][0] + quantity,
+                Decimal("0"),
+            )
+            self.balances["USDT"] = (
+                self.balances["USDT"][0] - quantity * self.mid_price,
+                Decimal("0"),
+            )
+            return order_id
+
+    client = MarketFallbackExchange()
+    config = _build_config("abs")
+    config = LadderGridConfig(
+        **{**config.__dict__, "poll_interval_sec": 0, "rebalance_max_attempts": 1}
+    )
+    strategy = LadderGridStrategy(client, config)
+
+    strategy.rebalance_startup()
+
+    assert client.market_orders == []
+    assert client.placed_orders
+    _, _, price, _, _ = client.placed_orders[0]
+    assert price == Decimal("11.11")
+
+
+def test_rebalance_failure_requires_manual_guidance() -> None:
+    class FailureExchange(FakeExchange):
+        def __init__(self) -> None:
+            super().__init__(Decimal("10"))
+            self.balances = {
+                "MMX": (Decimal("20"), Decimal("0")),
+                "USDT": (Decimal("0"), Decimal("0")),
+            }
+            self.orderbook_top = (Decimal("9"), Decimal("11"))
+
+        def get_balances(self) -> dict[str, tuple[Decimal, Decimal]]:
+            return self.balances
+
+        def get_orderbook_top(self, symbol: str) -> tuple[Decimal, Decimal]:
+            return self.orderbook_top
+
+        def place_market(
+            self,
+            symbol: str,
+            side: str,
+            quantity: Decimal,
+            client_id: str | None = None,
+        ) -> str:
+            raise RestError("Market orders not supported")
+
+        def place_limit(
+            self,
+            symbol: str,
+            side: str,
+            price: Decimal,
+            quantity: Decimal,
+            client_id: str | None = None,
+        ) -> str:
+            return super().place_limit(symbol, side, price, quantity, client_id)
+
+    client = FailureExchange()
+    config = _build_config("abs")
+    config = LadderGridConfig(
+        **{**config.__dict__, "poll_interval_sec": 0, "rebalance_max_attempts": 1}
+    )
+    strategy = LadderGridStrategy(client, config)
+
+    try:
+        strategy.rebalance_startup()
+        assert False, "Expected rebalance_startup to raise"
+    except RuntimeError as exc:
+        message = str(exc)
+        assert "required sell 10" in message
+        assert "MMX available=20" in message
+        assert "Manual action: sell 10 MMX for USDT" in message

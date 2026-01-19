@@ -31,6 +31,10 @@ class LadderGridConfig:
     step_size: Decimal
     poll_interval_sec: float
     startup_cancel_all: bool = False
+    startup_rebalance: bool = False
+    rebalance_target_base_pct: Decimal = Decimal("0.5")
+    rebalance_slippage_pct: Decimal = Decimal("0.002")
+    rebalance_max_attempts: int = 2
     reconcile_interval_sec: float = 60.0
     balance_refresh_sec: float = 60.0
 
@@ -122,6 +126,63 @@ class LadderGridStrategy:
             self._place_order(side, price, self.config.base_order_size)
         self.save_state()
 
+    def rebalance_startup(self) -> None:
+        base_asset, quote_asset = self._split_symbol(self.config.symbol)
+        attempts = max(1, int(self.config.rebalance_max_attempts))
+        last_balances: dict[str, tuple[Decimal, Decimal]] | None = None
+        last_requirement: tuple[str, Decimal] | None = None
+        for _ in range(attempts):
+            balances = self.client.get_balances()
+            last_balances = balances
+            mid_price = self.client.get_mid_price(self.config.symbol)
+            requirement = self._calculate_rebalance_need(balances, mid_price)
+            if requirement is None:
+                return
+            side, quantity = requirement
+            quantity = self._quantize_quantity(quantity)
+            if quantity <= 0:
+                return
+            last_requirement = (side, quantity)
+            client_id = f"ladder-rebalance-{int(time.time() * 1e6)}"
+            try:
+                self.client.place_market(self.config.symbol, side, quantity, client_id)
+            except Exception as exc:
+                LOGGER.warning(
+                    "Market rebalance failed; falling back to limit order: %s",
+                    exc,
+                )
+                try:
+                    self._place_rebalance_limit(side, quantity, client_id)
+                except Exception as limit_exc:
+                    LOGGER.warning(
+                        "Limit rebalance attempt failed: %s",
+                        limit_exc,
+                    )
+            balances = self.client.get_balances()
+            last_balances = balances
+            mid_price = self.client.get_mid_price(self.config.symbol)
+            requirement = self._calculate_rebalance_need(balances, mid_price)
+            if requirement is None:
+                return
+            last_requirement = (
+                requirement[0],
+                self._quantize_quantity(requirement[1]),
+            )
+        if last_requirement is None:
+            return
+        required_side, required_qty = last_requirement
+        balances = last_balances or {}
+        base_balance = balances.get(base_asset, (Decimal("0"), Decimal("0")))
+        quote_balance = balances.get(quote_asset, (Decimal("0"), Decimal("0")))
+        action = f"{required_side} {required_qty} {base_asset} for {quote_asset}"
+        raise RuntimeError(
+            "Startup rebalance failed after "
+            f"{attempts} attempts; required {required_side} {required_qty} "
+            f"{base_asset}; balances: {base_asset} available={base_balance[0]} "
+            f"held={base_balance[1]}, {quote_asset} available={quote_balance[0]} "
+            f"held={quote_balance[1]}. Manual action: {action}."
+        )
+
     def poll_once(self) -> None:
         now = time.time()
         self._halt_placements = False
@@ -208,6 +269,31 @@ class LadderGridStrategy:
             level += 1
         return results
 
+    def _calculate_rebalance_need(
+        self, balances: dict[str, tuple[Decimal, Decimal]], mid_price: Decimal
+    ) -> tuple[str, Decimal] | None:
+        if mid_price <= 0:
+            raise ValueError("Mid price must be positive for rebalance.")
+        target_ratio = self.config.rebalance_target_base_pct
+        if not (Decimal("0") < target_ratio < Decimal("1")):
+            raise ValueError("rebalance_target_base_pct must be between 0 and 1.")
+        base_asset, quote_asset = self._split_symbol(self.config.symbol)
+        base_balance = balances.get(base_asset, (Decimal("0"), Decimal("0")))[0]
+        quote_balance = balances.get(quote_asset, (Decimal("0"), Decimal("0")))[0]
+        base_value = base_balance * mid_price
+        total_value = base_value + quote_balance
+        if total_value <= 0:
+            return None
+        target_base_value = total_value * target_ratio
+        delta_base = (target_base_value - base_value) / mid_price
+        if delta_base == 0:
+            return None
+        side = "buy" if delta_base > 0 else "sell"
+        quantity = abs(delta_base)
+        if quantity <= 0:
+            return None
+        return side, quantity
+
     def _apply_step(self, price: Decimal, level: int, *, upward: bool) -> Decimal:
         if self.config.step_mode == "pct":
             if self.config.step_pct is None:
@@ -218,6 +304,34 @@ class LadderGridStrategy:
                 raise ValueError("step_abs is required for abs step mode.")
             delta = self.config.step_abs * Decimal(level)
         return price + delta if upward else price - delta
+
+    def _place_rebalance_limit(
+        self, side: str, quantity: Decimal, client_id: str
+    ) -> None:
+        best_bid, best_ask = self.client.get_orderbook_top(self.config.symbol)
+        slippage = self.config.rebalance_slippage_pct
+        if side.lower() == "buy":
+            price = best_ask * (Decimal("1") + slippage)
+        else:
+            price = best_bid * (Decimal("1") - slippage)
+        price = self._quantize_price(price)
+        quantity = self._quantize_quantity(quantity)
+        if quantity <= 0:
+            return
+        order_id = self.client.place_limit(
+            self.config.symbol, side, price, quantity, client_id
+        )
+        time.sleep(self.config.poll_interval_sec)
+        try:
+            status = self.client.get_order(order_id)
+        except Exception:
+            status = None
+        if status is None:
+            self.client.cancel_order(order_id)
+            return
+        normalized = status.status.lower()
+        if normalized != "filled":
+            self.client.cancel_order(order_id)
 
     def _place_order(self, side: str, price: Decimal, base_quantity: Decimal) -> None:
         if self._halt_placements:

@@ -94,6 +94,14 @@ def build_strategy(config: dict, state_path: Path) -> LadderGridStrategy:
         step_size=Decimal(str(normalized.get("step_size", "0"))),
         poll_interval_sec=float(normalized.get("poll_interval_sec", 5)),
         startup_cancel_all=bool(normalized.get("startup_cancel_all", False)),
+        startup_rebalance=bool(normalized.get("startup_rebalance", False)),
+        rebalance_target_base_pct=Decimal(
+            str(normalized.get("rebalance_target_base_pct", "0.5"))
+        ),
+        rebalance_slippage_pct=Decimal(
+            str(normalized.get("rebalance_slippage_pct", "0.002"))
+        ),
+        rebalance_max_attempts=int(normalized.get("rebalance_max_attempts", 2)),
         reconcile_interval_sec=float(normalized.get("reconcile_interval_sec", 60)),
         balance_refresh_sec=float(normalized.get("balance_refresh_sec", 60)),
     )
@@ -109,6 +117,8 @@ def run_ladder_grid(config: dict, state_path: Path) -> None:
         if strategy.config.startup_cancel_all:
             market_id = derive_market_id(strategy.config.symbol)
             strategy.client.cancel_all(market_id, "all")
+        if strategy.config.startup_rebalance:
+            strategy.rebalance_startup()
         strategy.seed_ladder()
     print(
         "Ladder grid running. Press Ctrl+C to stop. "
