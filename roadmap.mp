@@ -49,7 +49,8 @@
 - [x] Add ladder grid fee-rate spacing validation coverage for profitable vs. unprofitable steps.
 - [x] Add ladder grid fetch backoff for transient order status timeouts.
 - [x] Update the triangular arbitrage default triangle to USDT/ETH/BTC and refresh config docs.
-- [x] Remove manual arbitrage prompt in Cosa runner and add execution-path test coverage.
+- [x] Remove manual arbitrage prompt in arb runner and add execution-path test coverage.
+- [x] Guard arbitrage price parsing against invalid ticker values with test coverage.
 
 ## Next
 - [ ] Define API client interfaces and error handling.

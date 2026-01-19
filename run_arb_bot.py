@@ -2,6 +2,7 @@
 """USDT/ETH/BTC Triangular Arbitrage Bot - Starting with USDT (order book pairs only)"""
 
 import os
+import re
 import sys
 import time
 from datetime import datetime
@@ -136,11 +137,52 @@ def build_rest_client(config):
     )
 
 
+_NUMERIC_RE = re.compile(r"^[+-]?\d+(\.\d+)?([eE][+-]?\d+)?$")
+
+
+def _coerce_price_value(value):
+    if value is None:
+        return None
+    if isinstance(value, str):
+        candidate = value.strip()
+    else:
+        candidate = str(value).strip()
+    if not candidate:
+        return None
+    if not _NUMERIC_RE.match(candidate):
+        return None
+    return Decimal(candidate)
+
+
+def _fallback_price_from_ticker(ticker):
+    payload = getattr(ticker, "raw_payload", None) or {}
+    for key in ("last", "price"):
+        candidate = payload.get(key)
+        price = _coerce_price_value(candidate)
+        if price is not None:
+            return price
+    return None
+
+
 def get_price(client, pair):
     """Fetch current market price for a trading pair."""
     try:
         ticker = client.get_market_data(pair)
-        price = Decimal(ticker.last_price)
+        price = _coerce_price_value(ticker.last_price)
+        if price is None:
+            fallback_price = _fallback_price_from_ticker(ticker)
+            if fallback_price is None:
+                print(
+                    "  WARNING: invalid last_price for "
+                    f"{pair}: {ticker.last_price!r}"
+                )
+                return None
+            print(
+                "  WARNING: invalid last_price for "
+                f"{pair}: {ticker.last_price!r} "
+                f"using fallback {fallback_price}"
+            )
+            price = fallback_price
         print(f"  {pair}: {price}")
         return price
     except Exception as e:
@@ -515,8 +557,8 @@ def run_arbitrage_bot(config_file):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python run_cosa_arb.py <config_file>")
-        print("Example: python run_cosa_arb.py pirate_arb_config.yml")
+        print("Usage: python run_arb_bot.py <config_file>")
+        print("Example: python run_arb_bot.py arb_config.yml")
         sys.exit(1)
 
     config_file = sys.argv[1]

@@ -1,8 +1,8 @@
-"""Tests for the Cosa arbitrage runner."""
+"""Tests for the arbitrage runner."""
 
 from decimal import Decimal
 
-import run_cosa_arb
+import run_arb_bot
 
 
 def test_evaluate_profitability_executes_without_prompt(monkeypatch) -> None:
@@ -33,10 +33,10 @@ def test_evaluate_profitability_executes_without_prompt(monkeypatch) -> None:
     def fail_input(*args, **kwargs):
         raise AssertionError("input() should not be called when profitable")
 
-    monkeypatch.setattr(run_cosa_arb, "execute_arbitrage", fake_execute_arbitrage)
+    monkeypatch.setattr(run_arb_bot, "execute_arbitrage", fake_execute_arbitrage)
     monkeypatch.setattr("builtins.input", fail_input)
 
-    executed = run_cosa_arb.evaluate_profitability_and_execute(
+    executed = run_arb_bot.evaluate_profitability_and_execute(
         client=object(),
         config=config,
         prices=prices,
