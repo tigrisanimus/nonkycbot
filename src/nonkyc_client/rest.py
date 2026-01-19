@@ -14,14 +14,8 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from nonkyc_client.auth import ApiCredentials, AuthSigner, SignedHeaders
-from nonkyc_client.models import (
-    Balance,
-    MarketTicker,
-    OrderCancelResult,
-    OrderRequest,
-    OrderResponse,
-    OrderStatus,
-)
+from nonkyc_client.models import (Balance, MarketTicker, OrderCancelResult,
+                                  OrderRequest, OrderResponse, OrderStatus)
 from nonkyc_client.time_sync import TimeSynchronizer
 
 
