@@ -4,9 +4,9 @@ exchange: "nonkyc"
 asset_a: "USDT"
 asset_b: "ETH"
 asset_c: "BTC"
-pair_ab: "ETH-USDT"    # USDT → ETH (ETH/USDT)
-pair_bc: "ETH-BTC"     # ETH → BTC (ETH/BTC)
-pair_ac: "BTC-USDT"    # BTC → USDT (BTC/USDT)
+pair_ab: "ETH/USDT"    # USDT → ETH (ETH/USDT) - Use slash, not hyphen!
+pair_bc: "ETH/BTC"     # ETH → BTC (ETH/BTC) - Use slash, not hyphen!
+pair_ac: "BTC/USDT"    # BTC → USDT (BTC/USDT) - Use slash, not hyphen!
 
 trade_amount_a: "1000"           # Start with 1000 USDT per cycle
 min_profitability: "0.005"       # 0.5% minimum profit (after fees)
