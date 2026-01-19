@@ -19,7 +19,7 @@
 - [x] Align cancel-order payload with NonKYC docs and support userProvidedId.
 - [x] Use documented limit field for order book subscriptions.
 - [x] Re-enable balances subscription for account updates in WS client.
-- [x] Align REST signing defaults with NonKYC/Hummingbot nonce precision and payload ordering.
+- [x] Align REST signing defaults with NonKYC nonce precision and payload ordering.
 - [x] Honor absolute URL signing configuration in REST client.
 - [x] Standardize cancel-all orders handling with response validation and symbol formatting.
 - [x] Auto-refresh bot orders at most every 30 minutes.
@@ -51,6 +51,8 @@
 - [x] Update the triangular arbitrage default triangle to USDT/ETH/BTC and refresh config docs.
 - [x] Remove manual arbitrage prompt in arb runner and add execution-path test coverage.
 - [x] Guard arbitrage price parsing against invalid ticker values with test coverage.
+- [x] Enforce market-only triangular arbitrage execution, fixed fee rate, and remove cancel-all usage.
+- [x] Remove residual external framework references from docs and roadmap.
 
 ## Next
 - [ ] Define API client interfaces and error handling.

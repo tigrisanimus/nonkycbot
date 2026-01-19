@@ -25,6 +25,9 @@ from strategies.triangular_arb import evaluate_cycle, find_profitable_cycle
 from utils.notional import resolve_quantity_rounding
 
 
+REQUIRED_FEE_RATE = Decimal("0.002")
+
+
 def load_config(config_file):
     """Load configuration from YAML file."""
     with open(config_file, "r") as f:
@@ -42,7 +45,7 @@ def _round_quantity(value, step_size, precision):
 
 def _min_quantities_for_cycle(config, prices, step_size, precision):
     min_notional = Decimal(str(config.get("min_notional_usd", "1.0")))
-    fee_rate = Decimal(str(config.get("fee_rate", "0")))
+    fee_rate = _resolve_fee_rate(config)
     min_quantities = {}
     for pair in (config["pair_ab"], config["pair_bc"], config["pair_ac"]):
         min_qty = min_quantity_for_notional(
@@ -55,7 +58,7 @@ def _min_quantities_for_cycle(config, prices, step_size, precision):
 
 
 def _simulate_fee_adjusted_cycle(config, prices, start_amount, min_quantities):
-    fee_rate = Decimal(str(config.get("fee_rate", "0")))
+    fee_rate = _resolve_fee_rate(config)
     pair_ab = config["pair_ab"]
     pair_bc = config["pair_bc"]
     pair_ac = config["pair_ac"]
@@ -82,7 +85,7 @@ def _simulate_fee_adjusted_cycle(config, prices, start_amount, min_quantities):
 
 def _should_skip_notional(config, symbol, side, quantity, price, order_type):
     min_notional = Decimal(str(config.get("min_notional_usd", "1.0")))
-    fee_rate = Decimal(str(config.get("fee_rate", "0")))
+    fee_rate = _resolve_fee_rate(config)
     notional = effective_notional(quantity, price, fee_rate)
     if notional < min_notional:
         print(
@@ -104,10 +107,21 @@ def _resolve_signing_enabled(config):
     return True
 
 
-def _missing_required_input_response(response: dict | str | None) -> bool:
-    if not response:
-        return False
-    return "missing required input" in str(response).lower()
+def _resolve_fee_rate(config):
+    configured = config.get("fee_rate")
+    if configured is None:
+        config["fee_rate"] = str(REQUIRED_FEE_RATE)
+        return REQUIRED_FEE_RATE
+    parsed = Decimal(str(configured))
+    if parsed != REQUIRED_FEE_RATE:
+        print(
+            "⚠️  Fee rate mismatch detected. "
+            f"Configured fee_rate={parsed} but exchange fee is {REQUIRED_FEE_RATE}. "
+            "Using the exchange fee."
+        )
+        config["fee_rate"] = str(REQUIRED_FEE_RATE)
+        return REQUIRED_FEE_RATE
+    return parsed
 
 
 def build_rest_client(config):
@@ -227,7 +241,7 @@ def execute_arbitrage(client, config, prices):
         if "strictValidate" in config
         else config.get("strict_validate")
     )
-    fee_rate = Decimal(str(config.get("fee_rate", "0")))
+    fee_rate = _resolve_fee_rate(config)
     step_size, precision = resolve_quantity_rounding(config)
     min_quantities = _min_quantities_for_cycle(
         config,
@@ -243,7 +257,7 @@ def execute_arbitrage(client, config, prices):
     print(f"Starting amount: {start_amount} {config['asset_a']}")
 
     try:
-        order_type = config.get("order_type", "limit")
+        order_type = "market"
         # Step 1: Buy ETH with USDT
         print(f"\nStep 1: Buying {config['asset_b']} with {config['asset_a']}...")
         eth_amount = start_amount / prices[config["pair_ab"]]
@@ -346,67 +360,6 @@ def execute_arbitrage(client, config, prices):
         return False
 
 
-def cancel_all_orders(client, config):
-    """Cancel all open orders for configured trading pairs."""
-    print(f"\n🗑️  Cancelling all open orders...")
-    symbol_format = config.get("cancel_symbol_format", "underscore")
-    symbols = [config["pair_ab"], config["pair_bc"], config["pair_ac"]]
-    success = True
-    for symbol in symbols:
-        known_formats = ["underscore", "slash", "dash"]
-        if symbol_format in known_formats:
-            start_index = known_formats.index(symbol_format)
-            attempt_formats = known_formats[start_index:] + known_formats[:start_index]
-        else:
-            attempt_formats = [symbol_format] + [
-                fmt for fmt in known_formats if fmt != symbol_format
-            ]
-        missing_required = False
-        canceled = False
-        for attempt_format in attempt_formats:
-            formatted_symbol = symbol
-            if attempt_format == "underscore":
-                formatted_symbol = symbol.replace("/", "_")
-            elif attempt_format == "dash":
-                formatted_symbol = symbol.replace("/", "-")
-            try:
-                canceled = client.cancel_all_orders(formatted_symbol)
-            except Exception as exc:
-                print(f"  ✗ Error cancelling orders for {symbol}: {exc}")
-                success = False
-                canceled = False
-                break
-            if canceled:
-                print(f"  ✓ Cancelled all orders for {symbol}")
-                break
-            response = client.last_cancel_all_response
-            if _missing_required_input_response(response):
-                missing_required = True
-                continue
-            print(f"  ✗ Cancel all orders failed for {symbol}. Response: {response}")
-            success = False
-            break
-        if not canceled and missing_required:
-            print(
-                f"  ⚠️ Cancel all orders failed with missing required input for {symbol}. "
-                "Retrying without a symbol."
-            )
-            try:
-                canceled = client.cancel_all_orders(None)
-            except Exception as exc:
-                print(f"  ✗ Error cancelling orders for {symbol}: {exc}")
-                success = False
-                continue
-            if canceled:
-                print(f"  ✓ Cancelled all orders for {symbol} without symbol")
-            else:
-                print(
-                    f"  ✗ Cancel all orders failed for {symbol}. Response: {client.last_cancel_all_response}"
-                )
-                success = False
-    return success
-
-
 def evaluate_profitability_and_execute(client, config, prices) -> bool:
     """Evaluate profit and execute arbitrage when thresholds are met."""
     # Calculate conversion rates
@@ -414,7 +367,7 @@ def evaluate_profitability_and_execute(client, config, prices) -> bool:
 
     # Calculate expected profit
     start_amount = Decimal(str(config["trade_amount_a"]))
-    fee_rate = Decimal(str(config["fee_rate"]))
+    fee_rate = _resolve_fee_rate(config)
     step_size, precision = resolve_quantity_rounding(config)
 
     # Simulate the cycle
@@ -495,12 +448,10 @@ def run_arbitrage_bot(config_file):
     )
     print(f"  Trade amount: {config['trade_amount_a']} {config['asset_a']}")
     print(f"  Min profitability: {float(config['min_profitability'])*100}%")
-    print(f"  Fee rate: {float(config['fee_rate'])*100}%")
-    max_refresh_seconds = int(config.get("max_refresh_seconds", 1800))
+    fee_rate = _resolve_fee_rate(config)
+    print(f"  Fee rate: {float(fee_rate)*100}%")
     refresh_seconds = int(config["refresh_time"])
-    effective_refresh_seconds = min(refresh_seconds, max_refresh_seconds)
     print(f"  Refresh time: {refresh_seconds}s")
-    print(f"  Max refresh time: {max_refresh_seconds}s")
 
     # Setup client
     client = build_rest_client(config)
@@ -509,14 +460,9 @@ def run_arbitrage_bot(config_file):
 
     cycle_count = 0
 
-    last_cancel_timestamp = time.time()
     try:
         while True:
             cycle_count += 1
-            current_time = time.time()
-            if current_time - last_cancel_timestamp >= max_refresh_seconds:
-                cancel_all_orders(client, config)
-                last_cancel_timestamp = current_time
             print(f"\n{'=' * 80}")
             print(
                 f"Cycle #{cycle_count} - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
@@ -541,13 +487,12 @@ def run_arbitrage_bot(config_file):
             evaluate_profitability_and_execute(client, config, prices)
 
             # Wait before next cycle
-            print(f"\n⏰ Waiting {effective_refresh_seconds} seconds...")
-            time.sleep(effective_refresh_seconds)
+            print(f"\n⏰ Waiting {refresh_seconds} seconds...")
+            time.sleep(refresh_seconds)
 
     except KeyboardInterrupt:
         print("\n\n🛑 Bot stopped by user")
         print(f"Total cycles run: {cycle_count}")
-        cancel_all_orders(client, config)
     except Exception as e:
         print(f"\n❌ Fatal error: {e}")
         import traceback

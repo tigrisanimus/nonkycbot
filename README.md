@@ -2,7 +2,7 @@
 
 A standalone trading bot framework for NonKYC exchanges. This repository provides a complete, independent project structure including exchange client integrations, trading engine components, strategy implementations, and a command-line interface.
 
-**100% standalone** - No Hummingbot, no CCXT, no external trading frameworks required.
+**100% standalone** - No external trading frameworks required.
 
 ## Table of Contents
 

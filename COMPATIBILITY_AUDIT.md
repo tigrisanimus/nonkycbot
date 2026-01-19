@@ -219,7 +219,7 @@ tomli; python_version < "3.11"  # TOML config parsing
 pyyaml                          # YAML config parsing
 ```
 
-**Verification**: ✅ No hummingbot, no ccxt, no external trading frameworks
+**Verification**: ✅ No ccxt, no external trading frameworks
 
 ### ⚠️ MISSING - Production Dependencies
 
@@ -315,7 +315,7 @@ The bot is a **well-structured scaffold** that correctly implements NonKYC's aut
 2. ❌ WebSocket streaming requires implementation
 3. ⚠️ Consider async migration for scalability
 
-The codebase demonstrates excellent architectural design and is 100% independent of Hummingbot or other frameworks.
+The codebase demonstrates excellent architectural design and is 100% independent of external trading frameworks.
 
 ---
 
