@@ -104,7 +104,7 @@ jobs:
       continue-on-error: true
 
     - name: Upload bandit results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v6
       if: always()
       with:
         name: bandit-report
@@ -117,7 +117,7 @@ jobs:
       continue-on-error: true
 
     - name: Upload pip-audit results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v6
       if: always()
       with:
         name: pip-audit-report
@@ -130,7 +130,7 @@ jobs:
       continue-on-error: true
 
     - name: Upload safety results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v6
       if: always()
       with:
         name: safety-report
@@ -184,7 +184,7 @@ jobs:
       run: twine check dist/*
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v6
       with:
         name: dist-packages
         path: dist/
