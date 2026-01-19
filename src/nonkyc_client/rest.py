@@ -475,11 +475,20 @@ class RestClient:
     def get_market_data(self, symbol: str) -> MarketTicker:
         response = self.send(RestRequest(method="GET", path=f"/api/v2/ticker/{symbol}"))
         payload = self._extract_payload(response) or {}
+        last_price = _resolve_last_price(payload)
         return MarketTicker(
             symbol=str(payload.get("symbol", symbol)),
-            last_price=str(payload.get("last_price", payload.get("last", ""))),
+            last_price=last_price,
             bid=str(payload.get("bid", "")) if "bid" in payload else None,
             ask=str(payload.get("ask", "")) if "ask" in payload else None,
             volume=str(payload.get("volume", "")) if "volume" in payload else None,
             raw_payload=payload,
         )
+
+
+def _resolve_last_price(payload: Mapping[str, Any]) -> str:
+    for key in ("last_price", "last", "lastPrice", "price"):
+        value = payload.get(key)
+        if value not in (None, ""):
+            return str(value)
+    return ""

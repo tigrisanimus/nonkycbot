@@ -1,3 +1,8 @@
 # Core runtime dependencies
 tomli; python_version < "3.11"
 pyyaml
+aiohttp
+websockets
+
+# Test/development helpers
+pytest-asyncio
