@@ -344,12 +344,14 @@ class InfinityGridBot:
         logger.info(f"  Action: {order.side.upper()} {order.amount}")
         logger.info(f"  Price: {order.price}")
 
-        # Calculate execution price (add spread for limit orders)
+        # Calculate execution price (apply spread for limit orders)
+        # Buy: place order BELOW market to get better price (maker)
+        # Sell: place order ABOVE market to get better price (maker)
         if self.order_type == "limit":
             if order.side == "buy":
-                exec_price = order.price * (Decimal("1") + self.order_spread)
-            else:  # sell
                 exec_price = order.price * (Decimal("1") - self.order_spread)
+            else:  # sell
+                exec_price = order.price * (Decimal("1") + self.order_spread)
         else:
             exec_price = order.price
 

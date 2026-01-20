@@ -243,11 +243,13 @@ class RebalanceBot:
             )
 
             # Calculate limit price with spread
+            # Buy: place order BELOW market to get better price (maker)
+            # Sell: place order ABOVE market to get better price (maker)
             if self.order_type == "limit":
                 if rebalance_order.side == "buy":
-                    limit_price = rebalance_order.price * (Decimal("1") + self.order_spread)
-                else:
                     limit_price = rebalance_order.price * (Decimal("1") - self.order_spread)
+                else:
+                    limit_price = rebalance_order.price * (Decimal("1") + self.order_spread)
             else:
                 limit_price = rebalance_order.price
 

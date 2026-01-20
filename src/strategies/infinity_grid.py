@@ -128,7 +128,9 @@ def calculate_infinity_grid_order(
         return None
 
     # Calculate price change percentage from last rebalance
-    price_change_pct = (price - grid_state.last_rebalance_price) / grid_state.last_rebalance_price
+    price_change_pct = (
+        price - grid_state.last_rebalance_price
+    ) / grid_state.last_rebalance_price
 
     # Determine if we need to rebalance
     # Sell trigger: price rose by at least step_pct
@@ -148,7 +150,7 @@ def calculate_infinity_grid_order(
             side="sell",
             amount=trade_amount,
             price=price,
-            reason=f"Price rose {price_change_pct*100:.2f}%, selling to maintain constant value",
+            reason=f"Price rose {price_change_pct * 100:.2f}%, selling to maintain constant value",
         )
     elif trade_amount < 0:
         # Need to buy (price went down)
@@ -156,7 +158,7 @@ def calculate_infinity_grid_order(
             side="buy",
             amount=abs(trade_amount),
             price=price,
-            reason=f"Price dropped {price_change_pct*100:.2f}%, buying to restore constant value",
+            reason=f"Price dropped {price_change_pct * 100:.2f}%, buying to restore constant value",
         )
 
     return None  # No rebalance needed
