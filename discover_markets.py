@@ -29,12 +29,10 @@ from nonkyc_client.rest import RestClient
 def discover_markets(rest_client: RestClient) -> list[dict[str, Any]]:
     """Fetch all available markets from the exchange."""
     endpoints = [
-        "/api/v2/markets",
-        "/api/v2/public/markets",
-        "/api/v1/markets",
+        "/markets",
         "/public/markets",
-        "/api/v2/symbols",
-        "/api/v2/tickers",
+        "/symbols",
+        "/tickers",
     ]
 
     print("🔍 Searching for markets endpoint...")
@@ -60,12 +58,10 @@ def discover_markets(rest_client: RestClient) -> list[dict[str, Any]]:
 def discover_pools(rest_client: RestClient) -> list[dict[str, Any]]:
     """Fetch all available liquidity pools from the exchange."""
     endpoints = [
-        "/api/v2/pools",
-        "/api/v2/liquiditypools",
-        "/api/v2/public/pools",
-        "/api/v1/pools",
+        "/pools",
+        "/liquiditypools",
         "/public/pools",
-        "/api/v2/swap/pools",
+        "/swap/pools",
     ]
 
     print("\n🔍 Searching for pools endpoint...")
@@ -187,7 +183,7 @@ def main() -> None:
         print(f"\n✅ Found API credentials (key: {api_key[:8]}...)\n")
 
     # Create REST client
-    base_url = os.getenv("NONKYC_BASE_URL", "https://nonkyc.io")
+    base_url = os.getenv("NONKYC_BASE_URL", "https://api.nonkyc.io/api/v2")
     rest_client = RestClient(base_url=base_url, credentials=credentials)
 
     print(f"🌐 Using base URL: {base_url}\n")

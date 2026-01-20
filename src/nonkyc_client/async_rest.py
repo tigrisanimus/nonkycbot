@@ -345,7 +345,7 @@ class AsyncRestClient:
     async def place_order(self, order: OrderRequest) -> OrderResponse:
         payload = order.to_payload()
         response = await self.send(
-            AsyncRestRequest(method="POST", path="/api/v2/createorder", body=payload)
+            AsyncRestRequest(method="POST", path="/createorder", body=payload)
         )
         data = self._extract_payload(response) or {}
         status = str(data.get("status", ""))
@@ -364,7 +364,7 @@ class AsyncRestClient:
         if symbol:
             body["symbol"] = symbol
         response = await self.send(
-            AsyncRestRequest(method="POST", path="/api/v2/cancelorder", body=body)
+            AsyncRestRequest(method="POST", path="/cancelorder", body=body)
         )
         payload = self._extract_payload(response) or {}
         success = bool(payload.get("success") or payload.get("status") == "Cancelled")
@@ -381,7 +381,7 @@ class AsyncRestClient:
         if side:
             body["side"] = side
         response = await self.send(
-            AsyncRestRequest(method="POST", path="/api/v2/cancelallorders", body=body)
+            AsyncRestRequest(method="POST", path="/cancelallorders", body=body)
         )
         payload = self._extract_payload(response) or {}
         if isinstance(payload, list):
@@ -397,7 +397,7 @@ class AsyncRestClient:
 
     async def get_order_status(self, order_id: str) -> OrderStatus:
         response = await self.send(
-            AsyncRestRequest(method="GET", path=f"/api/v2/getorder/{order_id}")
+            AsyncRestRequest(method="GET", path=f"/getorder/{order_id}")
         )
         payload = self._extract_payload(response) or {}
         status = str(payload.get("status", ""))
@@ -415,7 +415,7 @@ class AsyncRestClient:
 
     async def get_market_data(self, symbol: str) -> MarketTicker:
         response = await self.send(
-            AsyncRestRequest(method="GET", path=f"/api/v2/ticker/{symbol}")
+            AsyncRestRequest(method="GET", path=f"/ticker/{symbol}")
         )
         payload = self._extract_payload(response) or {}
         last_price = _resolve_last_price(payload, symbol)

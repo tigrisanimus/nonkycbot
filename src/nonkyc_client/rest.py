@@ -487,7 +487,7 @@ class RestClient:
 
     def get_order_status(self, order_id: str) -> OrderStatus:
         response = self.send(
-            RestRequest(method="GET", path=f"/api/v2/getorder/{order_id}")
+            RestRequest(method="GET", path=f"/getorder/{order_id}")
         )
         payload = self._extract_payload(response) or {}
         status = str(payload.get("status", ""))
@@ -505,7 +505,7 @@ class RestClient:
 
     def get_market_data(self, symbol: str) -> MarketTicker:
         # Use NonKYC API v2 ticker endpoint.
-        response = self.send(RestRequest(method="GET", path=f"/api/v2/ticker/{symbol}"))
+        response = self.send(RestRequest(method="GET", path=f"/ticker/{symbol}"))
         payload = self._extract_payload(response) or {}
         last_price = _resolve_last_price(payload)
         return MarketTicker(
@@ -542,9 +542,9 @@ class RestClient:
         # Use the documented NonKYC API v2 pool/info endpoint
         # API docs: https://api.nonkyc.io/api/v2/pool/info?symbol=COSA_PIRATE
         endpoints = [
-            f"/api/v2/pool/info?symbol={symbol}",  # Documented endpoint
-            f"/api/v2/pool/info?id={symbol}",  # Try with id parameter
-            f"/api/v2/ticker/{symbol}",  # Fallback to ticker endpoint
+            f"/pool/info?symbol={symbol}",  # Documented endpoint
+            f"/pool/info?id={symbol}",  # Try with id parameter
+            f"/ticker/{symbol}",  # Fallback to ticker endpoint
         ]
 
         last_error = None
@@ -639,9 +639,9 @@ class RestClient:
         body = {"symbol": symbol, "side": side, "amount": amount}
 
         endpoints = [
-            "/api/v2/pool/quote",
-            "/api/v2/swap/quote",
-            "/api/v2/pool/calculate",
+            "/pool/quote",
+            "/swap/quote",
+            "/pool/calculate",
         ]
 
         last_error = None
@@ -711,9 +711,9 @@ class RestClient:
             body["minReceived"] = min_received
 
         endpoints = [
-            "/api/v2/pool/swap",
-            "/api/v2/swap",
-            "/api/v2/pool/trade",
+            "/pool/swap",
+            "/swap",
+            "/pool/trade",
         ]
 
         last_error = None
