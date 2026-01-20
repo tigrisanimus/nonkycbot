@@ -13,7 +13,7 @@ import yaml
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
-from nonkyc_client.auth import ApiCredentials, AuthSigner
+from nonkyc_client.auth import AuthSigner
 from nonkyc_client.models import OrderRequest
 from nonkyc_client.pricing import (
     effective_notional,
@@ -21,6 +21,7 @@ from nonkyc_client.pricing import (
     round_up_to_step,
 )
 from nonkyc_client.rest import RestClient
+from utils.credentials import DEFAULT_SERVICE_NAME, load_api_credentials
 from utils.notional import resolve_quantity_rounding
 
 REQUIRED_FEE_RATE = Decimal("0.002")
@@ -126,9 +127,7 @@ def build_rest_client(config):
     """Create a REST client with optional signer configuration overrides."""
     signing_enabled = _resolve_signing_enabled(config)
     creds = (
-        ApiCredentials(api_key=config["api_key"], api_secret=config["api_secret"])
-        if signing_enabled
-        else None
+        load_api_credentials(DEFAULT_SERVICE_NAME, config) if signing_enabled else None
     )
     sign_absolute_url = config.get("sign_absolute_url")
     signer = (

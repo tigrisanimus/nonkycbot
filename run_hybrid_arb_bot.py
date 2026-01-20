@@ -31,7 +31,6 @@ import yaml
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from nonkyc_client.auth import ApiCredentials
 from nonkyc_client.models import OrderRequest
 from nonkyc_client.rest import RestClient
 from strategies.hybrid_triangular_arb import (
@@ -50,6 +49,7 @@ from utils.amm_pricing import (
     PoolReserves,
     get_swap_quote,
 )
+from utils.credentials import DEFAULT_SERVICE_NAME, load_api_credentials
 from utils.logging_config import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -88,10 +88,7 @@ class HybridArbBot:
 
     def _build_rest_client(self) -> RestClient:
         """Build REST client from config."""
-        credentials = ApiCredentials(
-            api_key=self.config["api_key"],
-            api_secret=self.config["api_secret"],
-        )
+        credentials = load_api_credentials(DEFAULT_SERVICE_NAME, self.config)
         base_url = self.config.get("base_url", "https://api.nonkyc.io")
         return RestClient(
             base_url=base_url,

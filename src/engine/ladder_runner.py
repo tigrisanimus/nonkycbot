@@ -7,7 +7,7 @@ import time
 from decimal import Decimal
 from pathlib import Path
 
-from nonkyc_client.auth import ApiCredentials, AuthSigner
+from nonkyc_client.auth import AuthSigner
 from nonkyc_client.rest import RestClient
 from nonkyc_client.rest_exchange import NonkycRestExchangeClient
 from strategies.ladder_grid import (
@@ -15,6 +15,7 @@ from strategies.ladder_grid import (
     LadderGridStrategy,
     derive_market_id,
 )
+from utils.credentials import DEFAULT_SERVICE_NAME, load_api_credentials
 
 
 def build_rest_client(config: dict) -> RestClient:
@@ -23,9 +24,7 @@ def build_rest_client(config: dict) -> RestClient:
     rest_retries = config.get("rest_retries", 3)
     rest_backoff = config.get("rest_backoff_factor", 0.5)
     creds = (
-        ApiCredentials(api_key=config["api_key"], api_secret=config["api_secret"])
-        if signing_enabled
-        else None
+        load_api_credentials(DEFAULT_SERVICE_NAME, config) if signing_enabled else None
     )
     signer = (
         AuthSigner(

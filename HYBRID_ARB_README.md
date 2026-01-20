@@ -62,8 +62,8 @@ Edit `examples/hybrid_arb_cosa_pirate.yml`:
 
 ```yaml
 # API credentials
-api_key: "your_api_key_here"
-api_secret: "your_api_secret_here"
+api_key: "your_api_key_here"       # Optional if stored in keychain
+api_secret: "your_api_secret_here" # Optional if stored in keychain
 
 # Trading parameters
 trade_amount: "100"      # Amount in USDT per cycle

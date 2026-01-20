@@ -44,7 +44,7 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-**Dependencies**: Only requires `pyyaml` (and `tomli` for Python <3.11)
+**Dependencies**: Requires `pyyaml`, `keyring`, and `tomli` (for Python <3.11).
 
 ### 2. Get API Credentials
 
@@ -52,6 +52,26 @@ pip install -r requirements.txt
 2. Navigate to **API Settings** in your account
 3. Generate a new API key pair
 4. Save your `API Key` and `API Secret` securely
+
+**Recommended: store credentials in your OS keychain**
+
+```bash
+# Store credentials securely (uses the OS keychain via keyring)
+python nonkyc_store_credentials.py --api-key "$NONKYC_API_KEY" --api-secret "$NONKYC_API_SECRET"
+```
+
+This stores two entries under the `nonkyc-bot` service name with usernames `api_key` and `api_secret`.
+
+Alternatively, you can store credentials directly with `keyring`:
+
+```bash
+python - <<'PY'
+import keyring
+
+keyring.set_password("nonkyc-bot", "api_key", "your_api_key")
+keyring.set_password("nonkyc-bot", "api_secret", "your_api_secret")
+PY
+```
 
 ### 3. Configure Your Bot
 
@@ -61,8 +81,8 @@ Create a configuration file (see [examples/rebalance_bot.yml](examples/rebalance
 # config.yml
 exchange: "nonkyc"
 trading_pair: "BTC/USDT"
-api_key: "your_api_key_here"
-api_secret: "your_api_secret_here"
+api_key: "your_api_key_here"       # Optional if stored in keychain
+api_secret: "your_api_secret_here" # Optional if stored in keychain
 
 # Strategy-specific settings
 target_base_percent: 0.5
@@ -70,7 +90,7 @@ rebalance_threshold_percent: 0.05
 refresh_time: 60
 ```
 
-**Security Note**: Never commit API credentials to git. Use environment variables or secure config files with restricted permissions.
+**Security Note**: Never commit API credentials to git. Prefer the OS keychain, or use environment variables/secure config files with restricted permissions.
 
 ### 4. Test Your Connection
 
@@ -109,6 +129,8 @@ exchange: "nonkyc"
 trading_pair: "BTC/USDT"
 api_key: "${NONKYC_API_KEY}"      # Can use environment variables
 api_secret: "${NONKYC_API_SECRET}"
+#
+# If omitted, the bot will fall back to env vars or the OS keychain.
 strategy_settings:
   target_base_percent: 0.5
   rebalance_threshold_percent: 0.05

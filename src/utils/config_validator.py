@@ -11,11 +11,19 @@ class ConfigValidationError(ValueError):
     """Raised when configuration validation fails."""
 
 
-def validate_api_credentials(config: dict[str, Any]) -> None:
+def validate_api_credentials(
+    config: dict[str, Any], *, allow_missing: bool = False
+) -> None:
     """Validate API credentials are present and properly formatted."""
-    if "api_key" not in config:
+    has_api_key = "api_key" in config
+    has_api_secret = "api_secret" in config
+    if not has_api_key and not has_api_secret:
+        if allow_missing:
+            return
         raise ConfigValidationError("Missing required field: api_key")
-    if "api_secret" not in config:
+    if not has_api_key:
+        raise ConfigValidationError("Missing required field: api_key")
+    if not has_api_secret:
         raise ConfigValidationError("Missing required field: api_secret")
 
     api_key = config["api_key"]
@@ -175,7 +183,7 @@ def validate_url(config: dict[str, Any], field: str = "base_url") -> None:
 
 def validate_ladder_grid_config(config: dict[str, Any]) -> None:
     """Validate configuration for ladder grid strategy."""
-    validate_api_credentials(config)
+    validate_api_credentials(config, allow_missing=True)
     validate_symbol(config)
     validate_url(config)
 
@@ -214,7 +222,7 @@ def validate_ladder_grid_config(config: dict[str, Any]) -> None:
 
 def validate_rebalance_config(config: dict[str, Any]) -> None:
     """Validate configuration for rebalance strategy."""
-    validate_api_credentials(config)
+    validate_api_credentials(config, allow_missing=True)
     validate_symbol(config)
     validate_url(config)
 
@@ -232,7 +240,7 @@ def validate_rebalance_config(config: dict[str, Any]) -> None:
 
 def validate_infinity_grid_config(config: dict[str, Any]) -> None:
     """Validate configuration for infinity grid strategy."""
-    validate_api_credentials(config)
+    validate_api_credentials(config, allow_missing=True)
     validate_symbol(config)
     validate_url(config)
 
@@ -251,7 +259,7 @@ def validate_infinity_grid_config(config: dict[str, Any]) -> None:
 
 def validate_triangular_arb_config(config: dict[str, Any]) -> None:
     """Validate configuration for triangular arbitrage strategy."""
-    validate_api_credentials(config)
+    validate_api_credentials(config, allow_missing=True)
     validate_url(config)
 
     # Validate trading pairs
