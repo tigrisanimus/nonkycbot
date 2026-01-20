@@ -127,12 +127,16 @@ class HybridArbBot:
         try:
             pool_data = self.rest_client.get_liquidity_pool(symbol)
 
+            # Debug logging to see what we actually got
+            logger.debug(f"Pool data type for {symbol}: {type(pool_data).__name__}")
+            logger.debug(f"Pool data content: {str(pool_data)[:200]}")
+
             # Ensure we got a valid dict response
             if not isinstance(pool_data, dict):
                 logger.error(
-                    f"Invalid pool data type for {symbol}: {type(pool_data).__name__}"
+                    f"Invalid pool data type for {symbol}: {type(pool_data).__name__}, content: {str(pool_data)[:100]}"
                 )
-                raise ValueError(f"Expected dict, got {type(pool_data).__name__}")
+                raise ValueError(f"Expected dict, got {type(pool_data).__name__}: {str(pool_data)[:100]}")
 
             # Parse reserves
             reserve_a = Decimal(str(pool_data.get("reserve_a", "0")))

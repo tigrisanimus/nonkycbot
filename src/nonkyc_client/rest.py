@@ -579,14 +579,19 @@ class RestClient:
                         "token_a": payload.get(
                             "tokenA",
                             payload.get(
-                                "token_a", payload.get("primaryAsset", {}).get("ticker")
+                                "token_a",
+                                payload.get("primaryAsset", {}).get("ticker")
+                                if isinstance(payload.get("primaryAsset"), dict)
+                                else None,
                             ),
                         ),
                         "token_b": payload.get(
                             "tokenB",
                             payload.get(
                                 "token_b",
-                                payload.get("secondaryAsset", {}).get("ticker"),
+                                payload.get("secondaryAsset", {}).get("ticker")
+                                if isinstance(payload.get("secondaryAsset"), dict)
+                                else None,
                             ),
                         ),
                         "last_price": payload.get(
