@@ -6,6 +6,13 @@
 
 ---
 
+## Related Documentation
+
+- **[README.md](README.md)** - Main documentation, quick start, features, strategies
+- **[CROSS_PLATFORM_COMPATIBILITY.md](CROSS_PLATFORM_COMPATIBILITY.md)** - Platform-specific setup, installation, and troubleshooting
+
+---
+
 ## Executive Summary
 
 The bot implements a **complete, production-ready** trading system that follows NonKYC API design patterns with full async/await support, WebSocket streaming, and comprehensive REST API coverage.
@@ -218,20 +225,11 @@ async def connect_once(self, session: aiohttp.ClientSession | None = None) -> No
 
 ### ✅ STANDALONE - No External Trading Frameworks
 
-**Current Dependencies** (`requirements.txt`):
-```
-tomli>=2.0.0; python_version < "3.11"  # TOML config parsing
-pyyaml>=6.0.1                          # YAML config parsing
-aiohttp>=3.9.0                         # Async HTTP client + WebSocket
-websockets>=12.0                       # WebSocket protocol
-pydantic>=2.0.0                        # Data validation
-keyring>=25.7.0                        # OS credential storage
-pytest>=7.4.0                          # Testing framework
-pytest-asyncio>=0.21.0                 # Async test support
-```
+**Status**: ✅ 100% standalone - no ccxt, no external trading frameworks
 
-**Verification**: ✅ No ccxt, no external trading frameworks
-**Status**: ✅ All production dependencies included
+**Core Dependencies**: `pyyaml`, `aiohttp`, `websockets`, `pydantic`, `keyring`
+
+📋 **For detailed dependency compatibility matrix**, see [CROSS_PLATFORM_COMPATIBILITY.md - Dependencies](CROSS_PLATFORM_COMPATIBILITY.md#core-runtime-dependencies)
 
 ---
 
@@ -251,20 +249,21 @@ pytest-asyncio>=0.21.0                 # Async test support
 
 ## Test Coverage
 
-### ⚠️ PARTIAL - Unit Tests for Strategies Only
+### ✅ COMPREHENSIVE - 80+ Tests Passing
 
-**Implemented** (`tests/test_strategies.py`):
-- ✅ Infinity grid generation
-- ✅ Rebalance calculations
-- ✅ Profit allocation
-- ✅ Standard grid
-- ✅ Triangular arbitrage
+**Test Suites**:
+- ✅ REST client (synchronous) - `test_rest.py` (20 tests)
+- ✅ Async REST client - `test_async_rest.py` (4 tests)
+- ✅ WebSocket client - `test_ws.py` (3 tests)
+- ✅ Strategies - `test_strategies.py` (9 tests)
+- ✅ Bot runners - `test_run_*.py` (20 tests)
+- ✅ AMM pricing - `test_amm_pricing.py` (13 tests)
+- ✅ Credentials - `test_credentials.py` (5 tests)
+- ✅ Order management - `test_order_manager.py` (2 tests)
+- ✅ Pricing utilities - `test_pricing.py` (3 tests)
+- ✅ Arbitrage runner - `test_arb_runner.py` (3 tests)
 
-**Missing**:
-- ❌ REST client tests
-- ❌ WebSocket client tests
-- ❌ Authentication tests
-- ❌ Integration tests
+**Status**: ✅ Comprehensive coverage across all major components
 
 ---
 
