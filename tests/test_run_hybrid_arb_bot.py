@@ -68,7 +68,10 @@ def test_hybrid_arb_bot_initialization(mock_config):
             assert bot.min_profit_pct == Decimal("0.5")
             assert bot.trade_amount == Decimal("100")
             assert bot.orderbook_pairs == [
-                "COSA/USDT", "COSA/BTC", "PIRATE/USDT", "PIRATE/BTC"
+                "COSA/USDT",
+                "COSA/BTC",
+                "PIRATE/USDT",
+                "PIRATE/BTC",
             ]
             assert bot.pool_pair == "COSA/PIRATE"
             assert bot.base_currency == "USDT"

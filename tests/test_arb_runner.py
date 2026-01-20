@@ -26,7 +26,9 @@ def test_evaluate_profitability_executes_without_prompt(monkeypatch) -> None:
     called = {"value": False}
     current_balance = Decimal("100")
 
-    def fake_execute_arbitrage(client, config_arg, prices_arg, start_amount, mode="live"):
+    def fake_execute_arbitrage(
+        client, config_arg, prices_arg, start_amount, mode="live"
+    ):
         called["value"] = True
         assert config_arg is config
         assert prices_arg == prices

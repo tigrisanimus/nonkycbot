@@ -120,6 +120,7 @@ api_secret: test_secret
 
     with open(config_file) as f:
         import yaml
+
         config = yaml.safe_load(f)
 
     assert config["trading_pair"] == "BTC/USDT"
