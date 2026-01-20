@@ -53,7 +53,7 @@ pip install -r requirements.txt
 
 ### 2. Get API Credentials
 
-1. Create an account at [NonKYC.io](https://nonkyc.io)
+1. Create an account at [nonkyc.io](https://nonkyc.io)
 2. Navigate to **API Settings** in your account
 3. Generate a new API key pair
 4. Save your `API Key` and `API Secret` securely
@@ -85,7 +85,7 @@ Create a configuration file (see [examples/rebalance_bot.yml](examples/rebalance
 ```yaml
 # config.yml
 exchange: "nonkyc"
-trading_pair: "BTC/USDT"
+trading_pair: "BTC_USDT"  # NOTE: Use UNDERSCORE format (not slash or hyphen)
 api_key: "your_api_key_here"       # Optional if stored in keychain
 api_secret: "your_api_secret_here" # Optional if stored in keychain
 
@@ -114,13 +114,18 @@ This will verify:
 
 ### 5. Run Your First Bot
 
+**Option A: Using standalone bot scripts (recommended for beginners)**
 ```bash
-# Using the CLI
-python -m cli.main start --strategy rebalance --config config.yml --log-level INFO
-
-# Or from the src directory
-PYTHONPATH=src python -m cli.main start --strategy rebalance --config config.yml
+python run_rebalance_bot.py examples/rebalance_bot.yml
 ```
+
+**Option B: Using the CLI**
+```bash
+# From project root
+PYTHONPATH=src python -m cli.main start --strategy rebalance --config config.yml --log-level INFO
+```
+
+The standalone scripts (`run_*.py`) are simpler and include strategy-specific options.
 
 ## Configuration
 
@@ -131,7 +136,7 @@ The bot supports **JSON**, **TOML**, and **YAML** configuration files:
 **YAML Example** (`config.yml`):
 ```yaml
 exchange: "nonkyc"
-trading_pair: "BTC/USDT"
+trading_pair: "BTC_USDT"
 api_key: "${NONKYC_API_KEY}"      # Can use environment variables
 api_secret: "${NONKYC_API_SECRET}"
 #
@@ -145,7 +150,7 @@ strategy_settings:
 ```json
 {
   "exchange": "nonkyc",
-  "trading_pair": "BTC/USDT",
+  "trading_pair": "BTC_USDT",
   "api_key": "your_api_key",
   "api_secret": "your_api_secret"
 }
@@ -154,7 +159,7 @@ strategy_settings:
 **TOML Example** (`config.toml`):
 ```toml
 exchange = "nonkyc"
-trading_pair = "BTC/USDT"
+trading_pair = "BTC_USDT"
 api_key = "your_api_key"
 api_secret = "your_api_secret"
 ```
@@ -219,7 +224,7 @@ for balance in balances:
 
 # Place an order
 order = OrderRequest(
-    symbol="BTC/USDT",
+    symbol="BTC_USDT",
     side="buy",
     order_type="limit",
     quantity="0.001",
@@ -229,7 +234,7 @@ response = client.place_order(order)
 print(f"Order ID: {response.order_id}, Status: {response.status}")
 
 # Get market data
-ticker = client.get_market_data("BTC/USDT")
+ticker = client.get_market_data("BTC_USDT")
 print(f"Last price: {ticker.last_price}")
 ```
 
@@ -328,7 +333,7 @@ python test_connection.py
 The test will:
 - ✓ Verify HMAC authentication
 - ✓ Fetch your account balances
-- ✓ Retrieve market data (BTC/USDT)
+- ✓ Retrieve market data (BTC_USDT)
 - ✓ Display detailed error messages if something fails
 
 ### Troubleshooting 401 Unauthorized
