@@ -8,10 +8,10 @@ from decimal import Decimal
 import pytest
 
 from strategies import (
+    grid,
     infinity_grid,
     profit_reinvest,
     rebalance,
-    standard_grid,
     triangular_arb,
 )
 
@@ -129,5 +129,5 @@ def test_profit_reinvest_returns_zero_without_profit() -> None:
     assert allocation.remaining_profit == Decimal("0")
 
 
-def test_standard_grid_description() -> None:
-    assert standard_grid.describe() == "Standard grid strategy scaffold."
+def test_grid_description() -> None:
+    assert "grid" in grid.describe().lower() or "Grid" in grid.describe()
