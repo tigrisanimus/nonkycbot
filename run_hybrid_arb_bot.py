@@ -89,13 +89,26 @@ class HybridArbBot:
 
     def _build_rest_client(self) -> RestClient:
         """Build REST client from config."""
+        from nonkyc_client.auth import AuthSigner
+
         credentials = load_api_credentials(DEFAULT_SERVICE_NAME, self.config)
         base_url = self.config.get("base_url", "https://api.nonkyc.io/api/v2")
+
+        # Create signer with proper configuration
+        signer = AuthSigner(
+            nonce_multiplier=self.config.get("nonce_multiplier", 1e4),
+            sort_params=self.config.get("sort_params", False),
+            sort_body=self.config.get("sort_body", False),
+        )
+
         return RestClient(
             base_url=base_url,
             credentials=credentials,
+            signer=signer,
+            sign_absolute_url=True,  # Critical for authentication
             timeout=self.config.get("rest_timeout_sec", 30.0),
             max_retries=self.config.get("rest_retries", 3),
+            backoff_factor=self.config.get("rest_backoff_factor", 0.5),
         )
 
     def fetch_orderbook_prices(self, symbol: str) -> dict[str, Decimal]:
