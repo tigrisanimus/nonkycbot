@@ -1,13 +1,45 @@
+# USDT/ETH/BTC Triangular Arbitrage Configuration
+# Order book only (no liquidity pools)
+
+# Exchange settings
 exchange: "nonkyc"
+base_url: "https://api.nonkyc.io"
+
+# API credentials
+api_key: "${NONKYC_API_KEY}"
+api_secret: "${NONKYC_API_SECRET}"
+
+# Bot mode: monitor, dry-run, or live
+mode: "monitor"
+
+# Triangle: USDT → ETH → BTC → USDT
 asset_a: "USDT"
 asset_b: "ETH"
 asset_c: "BTC"
-pair_ab: "ETH-USDT"
-pair_bc: "ETH-BTC"
-pair_ac: "BTC-USDT"
+
+# NOTE: NonKYC uses UNDERSCORE format, not hyphens or slashes!
+pair_ab: "ETH_USDT"
+pair_bc: "ETH_BTC"
+pair_ac: "BTC_USDT"
+
+# Trading parameters
 trade_amount_a: "50"
-min_profitability: "0.003"
+min_profitability: "0.003"           # 0.3% minimum profit
+poll_interval_seconds: 30            # Check every 30 seconds
+
+# Order configuration
 order_type: "market"
 limit_order_spread: "0.001"
-refresh_time: 30
+
+# Fee configuration
+orderbook_fee: "0.002"               # 0.2% taker fee
+
+# Price source
 price_source: "mid"
+
+# REST API settings
+rest_timeout_sec: 30.0
+rest_retries: 3
+
+# Logging
+log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR

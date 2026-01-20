@@ -1,8 +1,37 @@
-trading_pair: "ETH-USDT"
+# Portfolio Rebalance Configuration
+# Automatically rebalances portfolio when drift exceeds threshold
+
+# Exchange settings
 exchange: "nonkyc"
-target_base_percent: "0.5"
-rebalance_threshold_percent: "0.02"
-rebalance_order_type: "limit"
-rebalance_order_spread: "0.002"
-refresh_time: 60
-price_source: "mid"
+base_url: "https://api.nonkyc.io"
+
+# API credentials
+api_key: "${NONKYC_API_KEY}"
+api_secret: "${NONKYC_API_SECRET}"
+
+# Bot mode: monitor, dry-run, or live
+mode: "monitor"
+
+# NOTE: NonKYC uses UNDERSCORE format, not hyphens or slashes!
+trading_pair: "ETH_USDT"
+
+# Rebalance parameters
+target_base_percent: "0.5"           # Target 50% in ETH, 50% in USDT
+rebalance_threshold_percent: "0.02"  # Rebalance when drift > 2%
+
+# Order configuration
+rebalance_order_type: "limit"        # Use limit orders
+rebalance_order_spread: "0.002"      # 0.2% spread from mid price
+
+# Poll interval
+poll_interval_seconds: 60            # Check every 60 seconds
+
+# Price source
+price_source: "mid"                  # mid, last, bid, or ask
+
+# REST API settings
+rest_timeout_sec: 30.0
+rest_retries: 3
+
+# Logging
+log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR

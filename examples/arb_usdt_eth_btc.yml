@@ -1,0 +1,44 @@
+# USDT/ETH/BTC Triangular Arbitrage Configuration
+# Order book only (no liquidity pools)
+
+# Exchange settings
+exchange: "nonkyc"
+base_url: "https://api.nonkyc.io"
+
+# API credentials
+api_key: "${NONKYC_API_KEY}"
+api_secret: "${NONKYC_API_SECRET}"
+
+# Bot mode: monitor, dry-run, or live
+# - monitor: Only log opportunities, don't execute
+# - dry-run: Simulate execution (no real trades)
+# - live: Execute real trades (USE WITH CAUTION!)
+mode: "monitor"
+
+# Triangle: USDT → ETH → BTC → USDT (using only order book pairs)
+asset_a: "USDT"
+asset_b: "ETH"
+asset_c: "BTC"
+
+# NOTE: NonKYC uses UNDERSCORE format, not slashes or hyphens!
+pair_ab: "ETH_USDT"    # USDT → ETH (buy ETH with USDT)
+pair_bc: "ETH_BTC"     # ETH → BTC (sell ETH for BTC)
+pair_ac: "BTC_USDT"    # BTC → USDT (sell BTC for USDT)
+
+# Trading parameters
+trade_amount_a: "100"            # Start with 100 USDT per cycle
+min_profitability: "0.005"       # 0.5% minimum profit (after fees)
+poll_interval_seconds: 2.0       # Check every 2 seconds
+
+# Fee configuration
+orderbook_fee: "0.002"           # 0.2% taker fee for market orders
+
+# Order type
+order_type: "market"             # Use market orders for instant execution
+
+# REST API settings
+rest_timeout_sec: 30.0
+rest_retries: 3
+
+# Logging
+log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR

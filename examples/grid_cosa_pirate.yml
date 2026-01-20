@@ -1,0 +1,39 @@
+# Grid Trading Configuration for COSA/PIRATE
+# NOTE: COSA/PIRATE is a liquidity pool pair, not an order book pair!
+# This config is for reference only - grid trading requires order book pairs
+
+# Exchange settings
+exchange: "nonkyc"
+base_url: "https://api.nonkyc.io"
+
+# API credentials
+api_key: "${NONKYC_API_KEY}"
+api_secret: "${NONKYC_API_SECRET}"
+
+# Bot mode: monitor, dry-run, or live
+mode: "monitor"
+
+# NOTE: NonKYC uses UNDERSCORE format for order book pairs
+# COSA_PIRATE is a liquidity pool - use COSA_USDT or COSA_BTC for grid trading!
+trading_pair: "COSA_USDT"       # Changed to order book pair
+
+# Grid Trading Settings
+grid_levels: 10                 # Number of buy and sell orders on each side
+grid_spread: "0.01"             # 1% spread between grid levels
+order_amount: "1000"            # Amount of COSA per order
+
+# Advanced Settings
+price_source: "mid"             # Use mid price between bid/ask
+poll_interval_seconds: 60       # Check and refresh grid every 60 seconds
+order_type: "limit"             # Use limit orders for better prices
+
+# Optional: Grid boundaries (remove these for infinite grid)
+# lower_bound: "0.9"            # Lowest price (90% of current)
+# upper_bound: "1.1"            # Highest price (110% of current)
+
+# REST API settings
+rest_timeout_sec: 30.0
+rest_retries: 3
+
+# Logging
+log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR

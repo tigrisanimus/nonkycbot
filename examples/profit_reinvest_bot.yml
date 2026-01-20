@@ -1,9 +1,40 @@
-trading_pair: "ETH-USDT"
+# Profit Reinvest Bot Configuration
+# Automatically reinvests profits into grid trading
+
+# Exchange settings
 exchange: "nonkyc"
+base_url: "https://api.nonkyc.io"
+
+# API credentials
+api_key: "${NONKYC_API_KEY}"
+api_secret: "${NONKYC_API_SECRET}"
+
+# Bot mode: monitor, dry-run, or live
+mode: "monitor"
+
+# NOTE: NonKYC uses UNDERSCORE format, not hyphens or slashes!
+trading_pair: "ETH_USDT"
+
+# Reserve targets
 target_quote_reserve: "100"
 target_base_reserve: "0"
+
+# Profit reinvestment
 skim_percent: "0.5"
+
+# Order configuration
 order_type: "market"
 limit_order_spread: "0.001"
-refresh_time: 60
+
+# Poll interval
+poll_interval_seconds: 60
+
+# Price source
 price_source: "mid"
+
+# REST API settings
+rest_timeout_sec: 30.0
+rest_retries: 3
+
+# Logging
+log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR

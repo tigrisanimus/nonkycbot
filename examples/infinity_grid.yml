@@ -1,7 +1,34 @@
-trading_pair: "ETH-USDT"
+# Infinity Grid Configuration
+# Grid trading with infinite levels
+
+# Exchange settings
 exchange: "nonkyc"
+base_url: "https://api.nonkyc.io"
+
+# API credentials
+api_key: "${NONKYC_API_KEY}"
+api_secret: "${NONKYC_API_SECRET}"
+
+# Bot mode: monitor, dry-run, or live
+mode: "monitor"
+
+# NOTE: NonKYC uses UNDERSCORE format, not hyphens or slashes!
+trading_pair: "ETH_USDT"
+
+# Grid settings
 grid_levels: 5
 grid_spread: "0.002"
 order_amount: "0.01"
-refresh_time: 60
+
+# Poll interval
+poll_interval_seconds: 60
+
+# Price source
 price_source: "mid"
+
+# REST API settings
+rest_timeout_sec: 30.0
+rest_retries: 3
+
+# Logging
+log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR

@@ -221,19 +221,10 @@ class HybridArbBot:
         """
         cycles = []
 
-        # Extract pool tokens (support both "/" and "_" separators)
-        if "/" in self.pool_pair:
-            pool_tokens = self.pool_pair.split("/")
-        elif "_" in self.pool_pair:
-            pool_tokens = self.pool_pair.split("_")
-        else:
-            logger.error(
-                f"Invalid pool pair format: {self.pool_pair} (expected '/' or '_' separator)"
-            )
-            return cycles
-
+        # Extract pool tokens (underscore format)
+        pool_tokens = self.pool_pair.split("_")
         if len(pool_tokens) != 2:
-            logger.error(f"Invalid pool pair format: {self.pool_pair}")
+            logger.error(f"Invalid pool pair format: {self.pool_pair} (expected underscore format)")
             return cycles
 
         token_a, token_b = pool_tokens
@@ -250,32 +241,11 @@ class HybridArbBot:
 
         # Build cycles for each base currency (USDT, BTC, etc.)
         for base in [self.base_currency]:
-            # Check if we have order book pairs for both tokens
-            # Try both formats: slash and underscore
-            token_a_pair_slash = f"{token_a}/{base}"
-            token_b_pair_slash = f"{token_b}/{base}"
-            token_a_pair_underscore = f"{token_a}_{base}"
-            token_b_pair_underscore = f"{token_b}_{base}"
+            # Build order book pair names (underscore format)
+            token_a_pair = f"{token_a}_{base}"
+            token_b_pair = f"{token_b}_{base}"
 
-            # Determine which format is actually in use
-            if (
-                token_a_pair_underscore in orderbook_prices
-                and token_b_pair_underscore in orderbook_prices
-            ):
-                token_a_pair = token_a_pair_underscore
-                token_b_pair = token_b_pair_underscore
-            elif (
-                token_a_pair_slash in orderbook_prices
-                and token_b_pair_slash in orderbook_prices
-            ):
-                token_a_pair = token_a_pair_slash
-                token_b_pair = token_b_pair_slash
-            else:
-                logger.warning(
-                    f"Missing order book pairs for {token_a} and {token_b} with base {base}"
-                )
-                continue
-
+            # Check if we have order book data for both pairs
             if (
                 token_a_pair not in orderbook_prices
                 or token_b_pair not in orderbook_prices
