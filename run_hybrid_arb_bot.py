@@ -138,9 +138,29 @@ class HybridArbBot:
                 )
                 raise ValueError(f"Expected dict, got {type(pool_data).__name__}: {str(pool_data)[:100]}")
 
-            # Parse reserves
-            reserve_a = Decimal(str(pool_data.get("reserve_a", "0")))
-            reserve_b = Decimal(str(pool_data.get("reserve_b", "0")))
+            # Parse reserves - handle None values
+            reserve_a_raw = pool_data.get("reserve_a")
+            reserve_b_raw = pool_data.get("reserve_b")
+            last_price_raw = pool_data.get("last_price")
+
+            # Convert to Decimal, handling None/invalid values
+            try:
+                reserve_a = Decimal(str(reserve_a_raw)) if reserve_a_raw is not None else Decimal("0")
+            except (ValueError, TypeError) as e:
+                logger.debug(f"Invalid reserve_a value: {reserve_a_raw} ({type(reserve_a_raw).__name__})")
+                reserve_a = Decimal("0")
+
+            try:
+                reserve_b = Decimal(str(reserve_b_raw)) if reserve_b_raw is not None else Decimal("0")
+            except (ValueError, TypeError) as e:
+                logger.debug(f"Invalid reserve_b value: {reserve_b_raw} ({type(reserve_b_raw).__name__})")
+                reserve_b = Decimal("0")
+
+            try:
+                last_price = Decimal(str(last_price_raw)) if last_price_raw is not None else Decimal("0")
+            except (ValueError, TypeError) as e:
+                logger.debug(f"Invalid last_price value: {last_price_raw} ({type(last_price_raw).__name__})")
+                last_price = Decimal("0")
 
             # If reserves not available, try to infer from ticker data
             if reserve_a == 0 or reserve_b == 0:
@@ -154,7 +174,7 @@ class HybridArbBot:
                 "reserve_b": reserve_b,
                 "token_a": pool_data.get("token_a", ""),
                 "token_b": pool_data.get("token_b", ""),
-                "last_price": Decimal(str(pool_data.get("last_price", "0"))),
+                "last_price": last_price,
                 "raw": pool_data,
             }
         except Exception as e:
