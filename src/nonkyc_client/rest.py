@@ -555,7 +555,14 @@ class RestClient:
         for endpoint in endpoints:
             try:
                 response = self.send(RestRequest(method="GET", path=endpoint))
-                payload = self._extract_payload(response) or {}
+                payload = self._extract_payload(response)
+
+                # Ensure payload is a dict, not a string or other type
+                if not isinstance(payload, dict):
+                    last_error = ValueError(
+                        f"API returned non-dict response: {type(payload).__name__}"
+                    )
+                    continue
 
                 if payload:
                     # Normalize the response structure
