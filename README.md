@@ -382,8 +382,7 @@ nonkycbot/
 │   │   ├── infinity_grid.py    # Grid utilities
 │   │   ├── triangular_arb.py   # Triangular arbitrage
 │   │   ├── hybrid_triangular_arb.py # Hybrid arbitrage
-│   │   ├── rebalance.py        # Portfolio rebalancing
-│   │   └── profit_reinvest.py  # Profit allocation helpers
+│   │   └── rebalance.py        # Portfolio rebalancing
 │   └── cli/                    # Command-line interface
 │       ├── main.py             # CLI entry point
 │       └── config.py           # Configuration loader

@@ -16,7 +16,6 @@ from engine.state import EngineState
 from strategies import (
     grid_describe,
     infinity_grid_describe,
-    profit_reinvest_describe,
     rebalance_describe,
     triangular_arb_describe,
 )
@@ -30,7 +29,6 @@ STRATEGY_DESCRIPTIONS: dict[str, Callable[[], str]] = {
     "infinity_grid": infinity_grid_describe,
     "rebalance": rebalance_describe,
     "triangular_arb": triangular_arb_describe,
-    "profit_reinvest": profit_reinvest_describe,
 }
 
 SUPPORTED_FORMATS = (".json", ".toml", ".yaml", ".yml")

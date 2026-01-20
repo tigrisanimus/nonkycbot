@@ -10,7 +10,6 @@ import pytest
 from strategies import (
     grid,
     infinity_grid,
-    profit_reinvest,
     rebalance,
     triangular_arb,
 )
@@ -104,29 +103,6 @@ def test_triangular_arb_rejects_unprofitable_cycle_with_fees() -> None:
         profit_threshold=Decimal("0"),
     )
     assert plan is None
-
-
-def test_profit_reinvest_allocation() -> None:
-    allocation = profit_reinvest.allocate_profit(
-        balance=Decimal("130"),
-        principal=Decimal("100"),
-        reserve_ratio=Decimal("0.5"),
-        reinvest_ratio=Decimal("0.5"),
-    )
-    assert allocation.reserve_amount == Decimal("15")
-    assert allocation.reinvest_amount == Decimal("7.5")
-    assert allocation.remaining_profit == Decimal("7.5")
-
-
-def test_profit_reinvest_returns_zero_without_profit() -> None:
-    allocation = profit_reinvest.allocate_profit(
-        balance=Decimal("99"),
-        principal=Decimal("100"),
-        reserve_ratio=Decimal("0.2"),
-    )
-    assert allocation.reserve_amount == Decimal("0")
-    assert allocation.reinvest_amount == Decimal("0")
-    assert allocation.remaining_profit == Decimal("0")
 
 
 def test_grid_description() -> None:
