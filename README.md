@@ -4,6 +4,8 @@ A standalone trading bot framework for NonKYC exchanges. This repository provide
 
 **100% standalone** - No external trading frameworks required.
 
+**Free and Open Source** - Licensed under Apache 2.0. Use it, modify it, redistribute it - no restrictions. See [License](#license) and [Acknowledgments](#acknowledgments) for details.
+
 ## Table of Contents
 
 - [Features](#features)
@@ -15,6 +17,9 @@ A standalone trading bot framework for NonKYC exchanges. This repository provide
 - [Project Structure](#project-structure)
 - [API Compatibility](#api-compatibility)
 - [Development](#development)
+- [Security](#security)
+- [License](#license)
+- [Acknowledgments](#acknowledgments)
 
 ## Features
 
@@ -503,7 +508,31 @@ def describe() -> str:
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+Copyright 2026 Robert Clarke
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+See the [LICENSE](LICENSE) file for the full license text.
+
+## Acknowledgments
+
+This project was inspired by the [NonKYC fork of Hummingbot](https://github.com/tigrisanimus/hummingbot-nonkyc), an open-source algorithmic trading bot. While NonKYC Bot is a standalone implementation with its own architecture, the NonKYC Hummingbot fork provided valuable inspiration for trading strategies and exchange integration patterns.
+
+**Development**: This software was developed with the assistance of AI-powered coding tools:
+- ChatGPT Codex (OpenAI)
+- Claude Code (Anthropic)
+
+See the [NOTICE](NOTICE) file for complete attribution information and third-party licenses.
 
 ## Support
 
