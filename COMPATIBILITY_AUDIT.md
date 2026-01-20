@@ -2,7 +2,7 @@
 
 **Date**: 2026-01-20 (Updated)
 **Bot Version**: 0.1.0
-**Reference**: NonKYC Exchange official Python API client
+**Reference**: nonkyc.io exchange official Python API client
 
 ---
 
@@ -15,7 +15,7 @@
 
 ## Executive Summary
 
-The bot implements a **complete, production-ready** trading system that follows NonKYC API design patterns with full async/await support, WebSocket streaming, and comprehensive REST API coverage.
+The bot implements a **complete, production-ready** trading system that follows nonkyc.io API design patterns with full async/await support, WebSocket streaming, and comprehensive REST API coverage.
 
 **Status**: ✅ **FULLY COMPATIBLE** - Production ready with REST and WebSocket support
 
@@ -35,7 +35,7 @@ def sign(self, message: str, credentials: ApiCredentials) -> str:
     ).hexdigest()
 ```
 
-**Verification**: ✅ Matches NonKYC's HMAC SHA256 authentication method
+**Verification**: ✅ Matches nonkyc.io's HMAC SHA256 authentication method
 
 ### ✅ COMPATIBLE - API Credentials Structure
 
@@ -47,7 +47,7 @@ class ApiCredentials:
     api_secret: str
 ```
 
-**NonKYC Official Client**: Uses `access_key` and `secret_key` in JSON config
+**nonkyc.io Official Client**: Uses `access_key` and `secret_key` in JSON config
 **Compatibility**: ✅ Field names differ but structure is compatible
 
 ### ✅ COMPATIBLE - REST Authentication Headers

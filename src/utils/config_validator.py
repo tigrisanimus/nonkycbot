@@ -1,4 +1,4 @@
-"""Configuration validation utilities for NonKYC Bot."""
+"""Configuration validation utilities for nonkyc bot."""
 
 from __future__ import annotations
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Hybrid triangular arbitrage bot for NonKYC exchange.
+Hybrid triangular arbitrage bot for nonkyc.io exchange.
 
 Monitors order books and liquidity pools to find profitable arbitrage opportunities
 mixing limit orders and AMM swaps.

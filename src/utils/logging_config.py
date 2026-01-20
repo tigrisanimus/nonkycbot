@@ -1,4 +1,4 @@
-"""Structured logging configuration for NonKYC Bot."""
+"""Structured logging configuration for nonkyc bot."""
 
 from __future__ import annotations
 

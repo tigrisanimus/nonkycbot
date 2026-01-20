@@ -1,1 +1,1 @@
-"""Test package for NonKYC Bot."""
+"""Test package for nonkyc bot."""

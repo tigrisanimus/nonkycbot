@@ -1,4 +1,4 @@
-"""Strategy implementations for NonKYC Bot."""
+"""Strategy implementations for nonkyc bot."""
 
 from .grid import describe as grid_describe
 from .infinity_grid import describe as infinity_grid_describe

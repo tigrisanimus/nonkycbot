@@ -1,4 +1,4 @@
-"""WebSocket client for NonKYC exchange streams."""
+"""WebSocket client for nonkyc.io exchange streams."""
 
 from __future__ import annotations
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Discover available markets and liquidity pools on NonKYC exchange.
+Discover available markets and liquidity pools on nonkyc.io exchange.
 
 Usage:
     python discover_markets.py
@@ -256,7 +256,7 @@ def main() -> None:
         print("  2. Symbol format is different (try COSA-USDT, COSAUSDT, etc.)")
         print("  3. API endpoint has changed")
         print("  4. Need authentication to see certain markets")
-        print("\nTry checking NonKYC exchange website directly to verify symbols.")
+        print("\nTry checking nonkyc.io exchange website directly to verify symbols.")
 
     print(f"\n{'=' * 80}")
     print("✅ Discovery complete!")

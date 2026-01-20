@@ -1,4 +1,4 @@
-"""Pytest configuration for NonKYC Bot tests."""
+"""Pytest configuration for nonkyc bot tests."""
 
 from __future__ import annotations
 

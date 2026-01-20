@@ -1,4 +1,4 @@
-# NonKYC Bot Roadmap
+# nonkyc bot Roadmap
 
 ## Now
 - [x] Initialize repository scaffold with core packages, CLI, and tests.

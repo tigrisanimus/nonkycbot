@@ -1,4 +1,4 @@
-"""Credential loading helpers for NonKYC Bot."""
+"""Credential loading helpers for nonkyc bot."""
 
 from __future__ import annotations
 

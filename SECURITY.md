@@ -11,7 +11,7 @@ We release patches for security vulnerabilities. Currently supported versions:
 
 ## Reporting a Vulnerability
 
-We take the security of NonKYC Bot seriously. If you discover a security vulnerability, please follow these steps:
+We take the security of nonkyc bot seriously. If you discover a security vulnerability, please follow these steps:
 
 ### 1. **DO NOT** Disclose Publicly
 

@@ -1,4 +1,4 @@
-"""Async REST client implementation for NonKYC exchange APIs."""
+"""Async REST client implementation for nonkyc.io exchange APIs."""
 
 from __future__ import annotations
 

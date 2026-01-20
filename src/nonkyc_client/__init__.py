@@ -1,1 +1,1 @@
-"""Client package for NonKYC exchange integrations."""
+"""Client package for nonkyc.io exchange integrations."""

@@ -105,9 +105,9 @@ def _resolve_signer_settings() -> tuple[AuthSigner, float, bool, bool, bool, lis
 
 
 def test_connection():
-    """Test the NonKYC API connection."""
+    """Test the nonkyc.io API connection."""
     print("=" * 60)
-    print("NonKYC Bot - Connection Test")
+    print("nonkyc bot - Connection Test")
     print("=" * 60)
 
     # Create credentials

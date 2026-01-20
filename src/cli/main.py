@@ -1,4 +1,4 @@
-"""CLI entry point for NonKYC Bot."""
+"""CLI entry point for nonkyc bot."""
 
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ SUPPORTED_FORMATS = (".json", ".toml", ".yaml", ".yml")
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="NonKYC Bot CLI")
+    parser = argparse.ArgumentParser(description="nonkyc bot CLI")
     parser.add_argument("--version", action="version", version="nonkyc-bot 0.1.0")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -125,7 +125,7 @@ def run_start(args: argparse.Namespace) -> int:
         state.mark_running()
         state.save(state_path)
 
-        LOGGER.info("Starting NonKYC Bot")
+        LOGGER.info("Starting nonkyc bot")
         LOGGER.info("Strategy: %s", strategy_name)
         LOGGER.info("Strategy description: %s", STRATEGY_DESCRIPTIONS[strategy_name]())
         LOGGER.info("Config file: %s", config_path)

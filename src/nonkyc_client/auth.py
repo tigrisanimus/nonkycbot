@@ -1,4 +1,4 @@
-"""Authentication helpers for NonKYC exchange APIs."""
+"""Authentication helpers for nonkyc.io exchange APIs."""
 
 from __future__ import annotations
 

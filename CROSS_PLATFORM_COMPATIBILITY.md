@@ -9,7 +9,7 @@
 
 ✅ **YES - This bot works on Windows, macOS, and Linux** with no code modifications required.
 
-The NonKYC Bot is designed with cross-platform compatibility as a core principle. All platform-specific operations are abstracted through standard Python libraries and cross-platform dependencies.
+The nonkyc bot is designed with cross-platform compatibility as a core principle. All platform-specific operations are abstracted through standard Python libraries and cross-platform dependencies.
 
 ---
 

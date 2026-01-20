@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Portfolio rebalance bot for NonKYC exchange.
+Portfolio rebalance bot for nonkyc.io exchange.
 
 Monitors portfolio drift and automatically rebalances when the target ratio drifts
 beyond the configured threshold.

@@ -1,5 +1,5 @@
 [bandit]
-# Bandit configuration for NonKYC Bot security scanning
+# Bandit configuration for nonkyc bot security scanning
 exclude_dirs = [
     '/tests/',
     '/.venv/',

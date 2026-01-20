@@ -1,6 +1,6 @@
 # Hybrid Triangular Arbitrage Bot
 
-A specialized arbitrage bot for NonKYC exchange that exploits price discrepancies between order books and liquidity pools.
+A specialized arbitrage bot for nonkyc.io exchange that exploits price discrepancies between order books and liquidity pools.
 
 ## Overview
 
@@ -164,7 +164,7 @@ Net profit: 4.25 USDT (4.25% profit)
 ### ⚠️ Limitations / TODO
 
 - [ ] **Partial fill handling**: Assumes orders fill immediately (risky!)
-- [ ] **Pool API endpoints**: May need adjustment based on actual NonKYC API
+- [ ] **Pool API endpoints**: May need adjustment based on actual nonkyc.io API
 - [ ] **Order reversal**: If a leg fails mid-cycle, manual intervention needed
 - [ ] **Websocket support**: Currently polls REST API (slower)
 - [ ] **Multi-threaded execution**: Sequential execution only
@@ -251,7 +251,7 @@ WARNING: Failed to fetch pool data for COSA/PIRATE: HTTP error 404
 3. Pool symbol format wrong
 
 **Solutions:**
-- Verify pool exists on NonKYC exchange
+- Verify pool exists on nonkyc.io exchange
 - Check API documentation for correct endpoint
 - Try alternative symbols (e.g., "PIRATE/COSA" instead of "COSA/PIRATE")
 
@@ -275,7 +275,7 @@ ERROR: Leg execution failed: HTTP error 400: Insufficient balance
 
 ### Custom Fee Rates
 
-If NonKYC has different fees:
+If nonkyc.io has different fees:
 
 ```yaml
 orderbook_fee: "0.001"  # 0.1% maker fee

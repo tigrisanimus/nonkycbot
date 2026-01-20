@@ -1,1 +1,1 @@
-"""CLI package for NonKYC Bot."""
+"""CLI package for nonkyc bot."""

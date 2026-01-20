@@ -1,6 +1,6 @@
-# NonKYC Bot
+# nonkyc bot
 
-A standalone trading bot framework for NonKYC exchanges. This repository provides a complete, independent project structure including exchange client integrations, trading engine components, strategy implementations, and a command-line interface.
+A standalone trading bot framework for nonkyc.io exchange. This repository provides a complete, independent project structure including exchange client integrations, trading engine components, strategy implementations, and a command-line interface.
 
 **100% standalone** - No external trading frameworks required.
 
@@ -526,7 +526,7 @@ See the [LICENSE](LICENSE) file for the full license text.
 
 ## Acknowledgments
 
-This project was inspired by the [NonKYC fork of Hummingbot](https://github.com/tigrisanimus/hummingbot-nonkyc), an open-source algorithmic trading bot. While NonKYC Bot is a standalone implementation with its own architecture, the NonKYC Hummingbot fork provided valuable inspiration for trading strategies and exchange integration patterns.
+This project was inspired by the [NonKYC fork of Hummingbot](https://github.com/tigrisanimus/hummingbot-nonkyc), an open-source algorithmic trading bot. While nonkyc bot is a standalone implementation with its own architecture, the NonKYC Hummingbot fork provided valuable inspiration for trading strategies and exchange integration patterns.
 
 **Development**: This software was developed with the assistance of AI-powered coding tools:
 - ChatGPT Codex (OpenAI)
