@@ -16,14 +16,16 @@ api_secret: "${NONKYC_API_SECRET}"
 mode: "monitor"
 
 # Order book pairs to monitor
+# NOTE: NonKYC uses UNDERSCORE format, not slashes!
 orderbook_pairs:
-  - "COSA/USDT"
-  - "COSA/BTC"
-  - "PIRATE/USDT"
-  - "PIRATE/BTC"
+  - "COSA_USDT"   # Current price: ~2.13 USDT
+  - "COSA_BTC"    # Current price: ~0.000023 BTC
+  - "PIRATE_USDT" # Current price: ~0.022 USDT
+  - "PIRATE_BTC"  # Current price: ~0.00000024 BTC
 
 # Liquidity pool pair (swap only, no limit orders)
-pool_pair: "COSA/PIRATE"
+# Try different formats if COSA/PIRATE doesn't work
+pool_pair: "COSA_PIRATE"  # Try COSA_PIRATE or COSAPIRATE if this fails
 
 # Base currency for cycles
 base_currency: "USDT"
