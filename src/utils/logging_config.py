@@ -189,7 +189,7 @@ class LogContext:
     Context manager for adding extra fields to all logs within a scope.
 
     Example:
-        with LogContext(strategy="ladder_grid", symbol="BTC/USDT"):
+        with LogContext(strategy="grid", symbol="BTC/USDT"):
             logger.info("Starting strategy")  # Will include strategy and symbol
     """
 

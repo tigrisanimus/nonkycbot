@@ -11,14 +11,13 @@ import sys
 from pathlib import Path
 from typing import Any, Callable
 
-from engine.ladder_runner import run_ladder_grid
+from engine.grid_runner import run_grid
 from engine.state import EngineState
 from strategies import (
+    grid_describe,
     infinity_grid_describe,
-    ladder_grid_describe,
     profit_reinvest_describe,
     rebalance_describe,
-    standard_grid_describe,
     triangular_arb_describe,
 )
 from utils.config_validator import ConfigValidationError, validate_config
@@ -27,8 +26,7 @@ from utils.logging_config import setup_logging
 LOGGER = logging.getLogger("nonkyc_bot.cli")
 
 STRATEGY_DESCRIPTIONS: dict[str, Callable[[], str]] = {
-    "standard_grid": standard_grid_describe,
-    "ladder_grid": ladder_grid_describe,
+    "grid": grid_describe,
     "infinity_grid": infinity_grid_describe,
     "rebalance": rebalance_describe,
     "triangular_arb": triangular_arb_describe,
@@ -72,22 +70,22 @@ def build_parser() -> argparse.ArgumentParser:
     )
     start_parser.set_defaults(handler=run_start)
 
-    ladder_parser = subparsers.add_parser(
-        "start_ladder_grid", help="Start the fill-driven ladder grid bot."
+    grid_parser = subparsers.add_parser(
+        "start_grid", help="Start the grid trading bot."
     )
-    ladder_parser.add_argument(
+    grid_parser.add_argument(
         "--config", required=True, help="Path to JSON/TOML/YAML config file."
     )
-    ladder_parser.add_argument(
+    grid_parser.add_argument(
         "--state-path",
         help="Optional path to state.json (defaults to config file directory).",
     )
-    ladder_parser.add_argument(
+    grid_parser.add_argument(
         "--log-level",
         default="INFO",
         help="Logging level (DEBUG, INFO, WARNING, ERROR).",
     )
-    ladder_parser.set_defaults(handler=run_start_ladder_grid)
+    grid_parser.set_defaults(handler=run_start_grid)
     return parser
 
 
@@ -150,7 +148,7 @@ def run_start(args: argparse.Namespace) -> int:
     return 0
 
 
-def run_start_ladder_grid(args: argparse.Namespace) -> int:
+def run_start_grid(args: argparse.Namespace) -> int:
     configure_logging(args.log_level)
     try:
         config_path = Path(args.config).expanduser()
@@ -160,12 +158,12 @@ def run_start_ladder_grid(args: argparse.Namespace) -> int:
             if args.state_path
             else config_path.parent / "state.json"
         )
-        run_ladder_grid(config, state_path)
+        run_grid(config, state_path)
     except (FileNotFoundError, RuntimeError, ValueError) as exc:
         LOGGER.error(str(exc))
         return 2
     except Exception as exc:  # pragma: no cover - safeguard for unexpected issues.
-        LOGGER.exception("Unexpected error during ladder grid startup: %s", exc)
+        LOGGER.exception("Unexpected error during grid bot startup: %s", exc)
         return 3
     return 0
 

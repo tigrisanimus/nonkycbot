@@ -1,13 +1,30 @@
 # Hybrid Triangular Arbitrage Configuration
 # COSA/PIRATE pool with BTC and USDT order book pairs
+#
+# HOW TO USE:
+# 1. Store your API credentials securely in the OS keychain (RECOMMENDED):
+#    python nonkyc_store_credentials.py --api-key "your_key" --api-secret "your_secret"
+#
+#    The bot will automatically load credentials from the keychain.
+#    DO NOT edit api_key/api_secret below - leave them commented out!
+#
+# 2. Run the bot in monitor mode first to check for opportunities:
+#    python run_hybrid_arb_bot.py examples/hybrid_arb_cosa_pirate.yml
+#
+# 3. When ready to trade, set mode to "live" in this config
+#
+# WHAT THIS BOT DOES:
+# - Combines order book trading with liquidity pool swaps for arbitrage
+# - Monitors both order book pairs and AMM pools
+# - Executes profitable cycles when opportunities arise
+# - More complex than standard arbitrage due to pool slippage
 
 # Exchange settings
-exchange: "nonkyc"
 base_url: "https://api.nonkyc.io"
 
-# API credentials
-api_key: "${NONKYC_API_KEY}"
-api_secret: "${NONKYC_API_SECRET}"
+# API credentials - DO NOT EDIT! Use keychain storage instead (see above)
+# api_key: "${NONKYC_API_KEY}"      # Loaded from keychain automatically
+# api_secret: "${NONKYC_API_SECRET}" # Loaded from keychain automatically
 
 # Bot mode: monitor, dry-run, or live
 # - monitor: Only log opportunities, don't execute

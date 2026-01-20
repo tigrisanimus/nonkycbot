@@ -181,8 +181,8 @@ def validate_url(config: dict[str, Any], field: str = "base_url") -> None:
         )
 
 
-def validate_ladder_grid_config(config: dict[str, Any]) -> None:
-    """Validate configuration for ladder grid strategy."""
+def validate_grid_config(config: dict[str, Any]) -> None:
+    """Validate configuration for grid trading strategy."""
     validate_api_credentials(config, allow_missing=True)
     validate_symbol(config)
     validate_url(config)
@@ -288,7 +288,7 @@ def validate_config(config: dict[str, Any], strategy: str | None = None) -> None
 
     Args:
         config: Configuration dictionary
-        strategy: Strategy name (e.g., 'ladder_grid', 'rebalance')
+        strategy: Strategy name (e.g., 'grid', 'rebalance')
 
     Raises:
         ConfigValidationError: If configuration is invalid
@@ -304,8 +304,8 @@ def validate_config(config: dict[str, Any], strategy: str | None = None) -> None
         validate_api_credentials(config)
 
     # Strategy-specific validation
-    if strategy == "ladder_grid":
-        validate_ladder_grid_config(config)
+    if strategy == "grid":
+        validate_grid_config(config)
     elif strategy == "rebalance":
         validate_rebalance_config(config)
     elif strategy == "infinity_grid":

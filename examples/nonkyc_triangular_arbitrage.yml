@@ -1,13 +1,30 @@
-# USDT/ETH/BTC Triangular Arbitrage Configuration
-# Order book only (no liquidity pools)
+# Triangular Arbitrage Bot Configuration (Simple)
+# Simpler alternative to arb_usdt_eth_btc.yml with different parameters
+#
+# HOW TO USE:
+# 1. Store your API credentials securely in the OS keychain (RECOMMENDED):
+#    python nonkyc_store_credentials.py --api-key "your_key" --api-secret "your_secret"
+#
+#    The bot will automatically load credentials from the keychain.
+#    DO NOT edit api_key/api_secret below - leave them commented out!
+#
+# 2. Run the bot in monitor mode first to check for opportunities:
+#    python run_arb_bot.py examples/nonkyc_triangular_arbitrage.yml
+#
+# 3. When ready to trade, set mode to "live" in this config
+#
+# WHAT THIS BOT DOES:
+# - Monitors three trading pairs for arbitrage opportunities
+# - Example: USDT → ETH → BTC → USDT
+# - Executes trades when profit exceeds minimum threshold
+# - Works with order book pairs only (not liquidity pools)
 
 # Exchange settings
-exchange: "nonkyc"
 base_url: "https://api.nonkyc.io"
 
-# API credentials
-api_key: "${NONKYC_API_KEY}"
-api_secret: "${NONKYC_API_SECRET}"
+# API credentials - DO NOT EDIT! Use keychain storage instead (see above)
+# api_key: "${NONKYC_API_KEY}"      # Loaded from keychain automatically
+# api_secret: "${NONKYC_API_SECRET}" # Loaded from keychain automatically
 
 # Bot mode: monitor, dry-run, or live
 mode: "monitor"

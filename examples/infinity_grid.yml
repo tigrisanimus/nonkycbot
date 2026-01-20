@@ -1,34 +1,56 @@
-# Infinity Grid Configuration
-# Grid trading with infinite levels
+# Infinity Grid Bot Configuration
+# Grid trading with ladder behavior that automatically adjusts to price movements
+#
+# HOW TO USE:
+# 1. Store your API credentials securely in the OS keychain (RECOMMENDED):
+#    python nonkyc_store_credentials.py --api-key "your_key" --api-secret "your_secret"
+#
+#    The bot will automatically load credentials from the keychain.
+#    DO NOT edit api_key/api_secret below - leave them commented out!
+#
+# 2. Run the bot:
+#    python run_grid.py examples/infinity_grid.yml
+#
+# WHAT THIS BOT DOES:
+# - Similar to standard grid but optimized for trending markets
+# - Places fewer levels with tighter spreads
+# - Continuously refills orders as price moves
+# - Best for volatile pairs like ETH/USDT
+# - Requires balanced inventory (both ETH and USDT)
 
 # Exchange settings
-exchange: "nonkyc"
 base_url: "https://api.nonkyc.io"
 
-# API credentials
-api_key: "${NONKYC_API_KEY}"
-api_secret: "${NONKYC_API_SECRET}"
+# API credentials - DO NOT EDIT! Use keychain storage instead (see above)
+# api_key: "${NONKYC_API_KEY}"      # Loaded from keychain automatically
+# api_secret: "${NONKYC_API_SECRET}" # Loaded from keychain automatically
 
-# Bot mode: monitor, dry-run, or live
-mode: "monitor"
+# Trading pair (NonKYC uses UNDERSCORE format, not slashes!)
+symbol: "ETH_USDT"
 
-# NOTE: NonKYC uses UNDERSCORE format, not hyphens or slashes!
-trading_pair: "ETH_USDT"
+# Grid configuration (tighter spread for infinity grid)
+step_pct: "0.002"                # 0.2% spread between grid levels (tighter than standard)
+n_buy_levels: 5                  # 5 buy orders below mid price
+n_sell_levels: 5                 # 5 sell orders above mid price
+base_order_size: "0.01"          # Amount of base asset (ETH) per order
 
-# Grid settings
-grid_levels: 5
-grid_spread: "0.002"
-order_amount: "0.01"
+# Minimum order size (exchange requirement)
+min_notional_quote: "1.05"       # Minimum order value in USDT
 
-# Poll interval
-poll_interval_seconds: 60
+# Fee configuration
+total_fee_rate: "0.002"          # 0.2% total fee (maker + taker)
 
-# Price source
-price_source: "mid"
+# Polling settings (more frequent for infinity grid)
+poll_interval_sec: 30            # Check for fills every 30 seconds
+balance_refresh_sec: 60          # Refresh balance every 60 seconds
+
+# Startup options
+startup_cancel_all: false        # Cancel all existing orders on startup
+startup_rebalance: false         # Auto-rebalance to 50/50 on startup
 
 # REST API settings
 rest_timeout_sec: 30.0
 rest_retries: 3
 
-# Logging
-log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+# State persistence
+state_path: "state.json"         # Saves grid state between restarts

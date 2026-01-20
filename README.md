@@ -4,6 +4,8 @@ A standalone trading bot framework for NonKYC exchanges. This repository provide
 
 **100% standalone** - No external trading frameworks required.
 
+**Free and Open Source** - Licensed under Apache 2.0. Use it, modify it, redistribute it - no restrictions. See [License](#license) and [Acknowledgments](#acknowledgments) for details.
+
 ## Table of Contents
 
 - [Features](#features)
@@ -15,6 +17,9 @@ A standalone trading bot framework for NonKYC exchanges. This repository provide
 - [Project Structure](#project-structure)
 - [API Compatibility](#api-compatibility)
 - [Development](#development)
+- [Security](#security)
+- [License](#license)
+- [Acknowledgments](#acknowledgments)
 
 ## Features
 
@@ -251,55 +256,56 @@ else:
 
 ## Available Strategies
 
-### 1. Rebalance Strategy
-Maintains a target ratio between base and quote assets.
+### 1. Grid Trading
+Fill-driven grid with ladder behavior that automatically refills orders as they execute.
 
-**Use case**: Keep 50% portfolio value in BTC, 50% in USDT
-**Config**: `target_base_percent`, `rebalance_threshold_percent`, `refresh_time`
-**Module**: `strategies.rebalance`
+**Use case**: Profit from price oscillations in ranging or trending markets
+**How it works**: Places buy orders below and sell orders above current price. When an order fills, automatically places a new order on the opposite side.
+**Config**: `symbol`, `step_pct`, `n_buy_levels`, `n_sell_levels`, `base_order_size`, `total_fee_rate`
+**Module**: `strategies.grid`
+**Runner**: `run_grid.py`
+**Examples**: `examples/grid_cosa_pirate.yml`, `examples/infinity_grid.yml`
 
-### 2. Infinity Grid
-Creates symmetric buy/sell grid orders around current price.
-
-**Use case**: Profit from price oscillations in ranging markets
-**Config**: `mid_price`, `levels`, `step_pct`, `order_size`
-**Module**: `strategies.infinity_grid`
-
-### 3. Standard Grid
-Fixed-range grid trading with defined upper and lower bounds.
-
-**Use case**: Range-bound trading with clear support/resistance
-**Config**: `lower_price`, `upper_price`, `grid_count`, `order_size`
-**Module**: `strategies.standard_grid`
-
-### 4. Triangular Arbitrage
-Identifies arbitrage opportunities across three trading pairs.
-
-**Use case**: Profit from price discrepancies (e.g., BTC/USDT, ETH/USDT, BTC/ETH)
-**Module**: `strategies.triangular_arb`
-
-### 5. Profit Reinvest
-Allocates profits between reserves and reinvestment.
-
-**Use case**: Compound gains while maintaining safety reserves
-**Config**: `reserve_ratio`, `reinvest_ratio`
-**Module**: `strategies.profit_reinvest`
-
-### 6. Ladder Grid
-Fill-driven grid that replaces orders on fills without periodic refresh.
-
-**Use case**: KuCoin-style ladder that keeps a fixed number of buy/sell levels
-**Config**: `symbol`, `step_mode`, `step_pct`/`step_abs`, `n_buy_levels`, `n_sell_levels`, `total_fee_rate`
-**Module**: `strategies.ladder_grid`
-
-**Profitability rule**: spacing must exceed fees so that each buy/sell cycle clears costs.
+**Profitability rule**: Spacing must exceed fees so that each buy/sell cycle clears costs.
 - `step_pct` mode requires `step_pct > total_fee_rate`.
 - `step_abs` mode checks the implied spacing around mid: `(sell_price / buy_price - 1) > total_fee_rate`.
-`total_fee_rate` is the round-trip fee rate (e.g., 0.002 for 0.2%).
-If `total_fee_rate` is omitted, the ladder grid uses `fee_buffer_pct` as the proxy fee rate; set
-`total_fee_rate` explicitly to the combined maker/taker fee you expect for a round trip.
+- `total_fee_rate` is the round-trip fee rate (e.g., 0.002 for 0.2%).
 
-See [examples/](examples/) directory for configuration examples.
+**Grid variants**:
+- **Standard Grid**: Balanced grid for range-bound markets (see `grid_cosa_pirate.yml`)
+- **Infinity Grid**: Tighter spreads with fewer levels for trending markets (see `infinity_grid.yml`)
+
+### 2. Triangular Arbitrage
+Identifies and executes arbitrage opportunities across three trading pairs.
+
+**Use case**: Profit from price discrepancies (e.g., USDT → ETH → BTC → USDT)
+**How it works**: Monitors three pairs for profitable cycles and executes market orders when opportunities arise
+**Config**: `asset_a`, `asset_b`, `asset_c`, `pair_ab`, `pair_bc`, `pair_ac`, `trade_amount_a`, `min_profitability`
+**Module**: `strategies.triangular_arb`
+**Runner**: `run_arb_bot.py`
+**Examples**: `examples/arb_usdt_eth_btc.yml`, `examples/nonkyc_triangular_arbitrage.yml`
+
+### 3. Hybrid Arbitrage
+Combines order book trading with liquidity pool swaps for arbitrage.
+
+**Use case**: Exploit price differences between order books and AMM pools
+**How it works**: Monitors both order book pairs and liquidity pools, executing profitable cycles
+**Config**: `orderbook_pairs`, `pool_pair`, `base_currency`, `trade_amount`, `min_profit_pct`
+**Module**: `strategies.hybrid_triangular_arb`
+**Runner**: `run_hybrid_arb_bot.py`
+**Examples**: `examples/hybrid_arb_cosa_pirate.yml`
+
+### 4. Rebalance Strategy
+Maintains a target ratio between base and quote assets.
+
+**Use case**: Keep consistent portfolio allocation (e.g., 50% ETH, 50% USDT)
+**How it works**: Monitors portfolio drift and places rebalancing trades when threshold is exceeded
+**Config**: `target_base_percent`, `rebalance_threshold_percent`, `poll_interval_seconds`
+**Module**: `strategies.rebalance`
+**Runner**: `run_rebalance_bot.py`
+**Examples**: `examples/rebalance_bot.yml`
+
+See [examples/](examples/) directory for complete configuration examples with detailed usage instructions.
 
 ## Testing Your Connection
 
@@ -361,24 +367,33 @@ nonkycbot/
 │   │   ├── ws.py               # WebSocket client
 │   │   └── models.py           # Data models
 │   ├── engine/                 # Trading engine
+│   │   ├── grid_runner.py      # Grid bot runner
 │   │   ├── order_manager.py    # Order lifecycle management
 │   │   ├── balances.py         # Balance tracking
 │   │   ├── state.py            # State persistence
 │   │   └── risk.py             # Risk controls
 │   ├── strategies/             # Trading strategies
-│   │   ├── rebalance.py        # Portfolio rebalancing
-│   │   ├── infinity_grid.py    # Infinity grid trading
-│   │   ├── standard_grid.py    # Standard grid trading
-│   │   ├── ladder_grid.py      # Fill-driven ladder grid
+│   │   ├── grid.py             # Grid trading with ladder behavior
+│   │   ├── infinity_grid.py    # Grid utilities
 │   │   ├── triangular_arb.py   # Triangular arbitrage
-│   │   └── profit_reinvest.py  # Profit allocation
+│   │   ├── hybrid_triangular_arb.py # Hybrid arbitrage
+│   │   ├── rebalance.py        # Portfolio rebalancing
+│   │   └── profit_reinvest.py  # Profit allocation helpers
 │   └── cli/                    # Command-line interface
 │       ├── main.py             # CLI entry point
 │       └── config.py           # Configuration loader
 ├── examples/                   # Example configurations
+│   ├── grid_cosa_pirate.yml    # Standard grid example
+│   ├── infinity_grid.yml       # Infinity grid example
+│   ├── arb_usdt_eth_btc.yml    # Triangular arbitrage example
+│   ├── hybrid_arb_cosa_pirate.yml # Hybrid arbitrage example
 │   └── rebalance_bot.yml       # Rebalance strategy config
 ├── tests/                      # Unit tests
 │   └── test_strategies.py      # Strategy tests
+├── run_grid.py                # Grid bot runner script
+├── run_arb_bot.py             # Arbitrage bot runner script
+├── run_hybrid_arb_bot.py      # Hybrid arbitrage runner script
+├── run_rebalance_bot.py       # Rebalance bot runner script
 ├── test_connection.py          # Manual API test script
 ├── requirements.txt            # Python dependencies
 ├── pyproject.toml             # Build configuration
@@ -493,7 +508,31 @@ def describe() -> str:
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+Copyright 2026 Robert Clarke
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+See the [LICENSE](LICENSE) file for the full license text.
+
+## Acknowledgments
+
+This project was inspired by the [NonKYC fork of Hummingbot](https://github.com/tigrisanimus/hummingbot-nonkyc), an open-source algorithmic trading bot. While NonKYC Bot is a standalone implementation with its own architecture, the NonKYC Hummingbot fork provided valuable inspiration for trading strategies and exchange integration patterns.
+
+**Development**: This software was developed with the assistance of AI-powered coding tools:
+- ChatGPT Codex (OpenAI)
+- Claude Code (Anthropic)
+
+See the [NOTICE](NOTICE) file for complete attribution information and third-party licenses.
 
 ## Support
 

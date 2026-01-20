@@ -1,4 +1,4 @@
-"""Runner utilities for the ladder grid strategy."""
+"""Runner utilities for the grid trading strategy."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pathlib import Path
 from nonkyc_client.auth import AuthSigner
 from nonkyc_client.rest import RestClient
 from nonkyc_client.rest_exchange import NonkycRestExchangeClient
-from strategies.ladder_grid import (
+from strategies.grid import (
     LadderGridConfig,
     LadderGridStrategy,
     derive_market_id,
@@ -118,7 +118,7 @@ def build_strategy(config: dict, state_path: Path) -> LadderGridStrategy:
     return LadderGridStrategy(exchange, ladder_config, state_path=state_path)
 
 
-def run_ladder_grid(config: dict, state_path: Path) -> None:
+def run_grid(config: dict, state_path: Path) -> None:
     strategy = build_strategy(config, state_path)
     strategy.load_state()
     if not strategy.state.open_orders:
@@ -136,7 +136,7 @@ def run_ladder_grid(config: dict, state_path: Path) -> None:
                 raise
         strategy.seed_ladder()
     print(
-        "Ladder grid running. Press Ctrl+C to stop. "
+        "Grid bot running. Press Ctrl+C to stop. "
         f"symbol={strategy.config.symbol} "
         f"poll_interval_sec={strategy.config.poll_interval_sec}"
     )

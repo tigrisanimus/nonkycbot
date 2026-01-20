@@ -1,39 +1,55 @@
-# Grid Trading Configuration for COSA/PIRATE
-# NOTE: COSA/PIRATE is a liquidity pool pair, not an order book pair!
-# This config is for reference only - grid trading requires order book pairs
+# Grid Trading Bot Configuration
+# Standard grid with ladder behavior - automatically places and refills orders as they execute
+#
+# HOW TO USE:
+# 1. Store your API credentials securely in the OS keychain (RECOMMENDED):
+#    python nonkyc_store_credentials.py --api-key "your_key" --api-secret "your_secret"
+#
+#    The bot will automatically load credentials from the keychain.
+#    DO NOT edit api_key/api_secret below - leave them commented out!
+#
+# 2. Run the bot:
+#    python run_grid.py examples/grid_cosa_pirate.yml
+#
+# WHAT THIS BOT DOES:
+# - Places buy orders below current price and sell orders above
+# - When an order fills, automatically places a new order on the opposite side
+# - Creates a "ladder" effect that profits from price oscillations
+# - Requires balanced inventory (both base and quote assets)
 
 # Exchange settings
-exchange: "nonkyc"
 base_url: "https://api.nonkyc.io"
 
-# API credentials
-api_key: "${NONKYC_API_KEY}"
-api_secret: "${NONKYC_API_SECRET}"
+# API credentials - DO NOT EDIT! Use keychain storage instead (see above)
+# api_key: "${NONKYC_API_KEY}"      # Loaded from keychain automatically
+# api_secret: "${NONKYC_API_SECRET}" # Loaded from keychain automatically
 
-# Bot mode: monitor, dry-run, or live
-mode: "monitor"
+# Trading pair (NonKYC uses UNDERSCORE format, not slashes!)
+symbol: "COSA_USDT"
 
-# NOTE: NonKYC uses UNDERSCORE format for order book pairs
-# COSA_PIRATE is a liquidity pool - use COSA_USDT or COSA_BTC for grid trading!
-trading_pair: "COSA_USDT"       # Changed to order book pair
+# Grid configuration
+step_pct: "0.01"                 # 1% spread between grid levels
+n_buy_levels: 10                 # Number of buy orders below mid price
+n_sell_levels: 10                # Number of sell orders above mid price
+base_order_size: "1000"          # Amount of base asset (COSA) per order
 
-# Grid Trading Settings
-grid_levels: 10                 # Number of buy and sell orders on each side
-grid_spread: "0.01"             # 1% spread between grid levels
-order_amount: "1000"            # Amount of COSA per order
+# Minimum order size (exchange requirement)
+min_notional_quote: "1.05"       # Minimum order value in USDT
 
-# Advanced Settings
-price_source: "mid"             # Use mid price between bid/ask
-poll_interval_seconds: 60       # Check and refresh grid every 60 seconds
-order_type: "limit"             # Use limit orders for better prices
+# Fee configuration
+total_fee_rate: "0.002"          # 0.2% total fee (maker + taker)
 
-# Optional: Grid boundaries (remove these for infinite grid)
-# lower_bound: "0.9"            # Lowest price (90% of current)
-# upper_bound: "1.1"            # Highest price (110% of current)
+# Polling settings
+poll_interval_sec: 60            # Check for fills every 60 seconds
+balance_refresh_sec: 60          # Refresh balance every 60 seconds
+
+# Startup options
+startup_cancel_all: false        # Cancel all existing orders on startup
+startup_rebalance: false         # Auto-rebalance to 50/50 on startup
 
 # REST API settings
 rest_timeout_sec: 30.0
 rest_retries: 3
 
-# Logging
-log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+# State persistence
+state_path: "state.json"         # Saves grid state between restarts
