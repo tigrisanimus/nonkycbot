@@ -508,7 +508,8 @@ class RestClient:
         )
 
     def get_market_data(self, symbol: str) -> MarketTicker:
-        response = self.send(RestRequest(method="GET", path=f"/api/v2/ticker/{symbol}"))
+        # Use NonKYC API v2 ticker endpoint (base_url already includes /api/v2)
+        response = self.send(RestRequest(method="GET", path=f"/ticker/{symbol}"))
         payload = self._extract_payload(response) or {}
         last_price = _resolve_last_price(payload)
         return MarketTicker(
@@ -542,12 +543,12 @@ class RestClient:
             This method attempts multiple possible API endpoints as the exact
             endpoint may vary. If one fails, it tries alternatives.
         """
-        # Try different possible endpoints for liquidity pools
+        # Use the documented NonKYC API v2 pool/info endpoint
+        # API docs: https://api.nonkyc.io/api/v2/pool/info?symbol=COSA_PIRATE
         endpoints = [
-            f"/api/v2/pool/{symbol}",
-            f"/api/v2/liquiditypool/{symbol}",
-            f"/api/v2/pools/{symbol}",
-            f"/api/v2/ticker/{symbol}",  # Fallback to ticker endpoint
+            f"/pool/info?symbol={symbol}",  # Documented endpoint
+            f"/pool/info?id={symbol}",  # Try with id parameter
+            f"/ticker/{symbol}",  # Fallback to ticker endpoint
         ]
 
         last_error = None
