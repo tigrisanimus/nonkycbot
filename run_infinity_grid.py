@@ -63,6 +63,7 @@ class InfinityGridBot:
         # Order configuration
         self.order_type = config.get("order_type", "limit")
         self.order_spread = Decimal(str(config.get("order_spread", "0.001")))  # 0.1% from mid
+        self.min_notional_quote = Decimal(str(config.get("min_notional_quote", "1.0")))  # $1 minimum
 
         # Poll configuration
         self.poll_interval = config.get("poll_interval_seconds", 60)
@@ -257,12 +258,20 @@ class InfinityGridBot:
         Returns:
             True if successful, False otherwise
         """
+        # Check minimum notional value (dollar amount)
+        notional_value = amount * price
+        if notional_value < self.min_notional_quote:
+            logger.warning(
+                f"Order below minimum notional: ${notional_value:.2f} < ${self.min_notional_quote:.2f}. Skipping."
+            )
+            return False
+
         if self.mode == "monitor":
-            logger.info(f"MONITOR MODE: Would {side} {amount} at {price}")
+            logger.info(f"MONITOR MODE: Would {side} {amount} at {price} (notional: ${notional_value:.2f})")
             return False
 
         if self.mode == "dry-run":
-            logger.info(f"DRY RUN: Simulating {side} {amount} at {price}")
+            logger.info(f"DRY RUN: Simulating {side} {amount} at {price} (notional: ${notional_value:.2f})")
             return True
 
         # Live execution

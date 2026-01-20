@@ -50,6 +50,7 @@ base_currency: "USDT"
 # Trading parameters
 trade_amount: "100"  # Amount in base currency (USDT) per cycle
 min_profit_pct: "0.5"  # Minimum 0.5% profit to execute
+min_notional_quote: "1.0"  # Minimum order size in quote currency (e.g., $1 USDT)
 poll_interval_seconds: 2.0  # Check for opportunities every 2 seconds
 
 # Fee configuration

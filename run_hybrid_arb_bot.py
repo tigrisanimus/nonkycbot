@@ -65,6 +65,7 @@ class HybridArbBot:
         self.mode = config.get("mode", "monitor")  # monitor, dry-run, or live
         self.min_profit_pct = Decimal(str(config.get("min_profit_pct", "0.5")))
         self.trade_amount = Decimal(str(config.get("trade_amount", "100")))
+        self.min_notional_quote = Decimal(str(config.get("min_notional_quote", "1.0")))  # $1 minimum
         self.poll_interval = config.get("poll_interval_seconds", 2.0)
 
         # Market configuration
@@ -415,6 +416,15 @@ class HybridArbBot:
         if leg.input_amount is None or leg.output_amount is None:
             logger.error("Leg missing amount information")
             return False
+
+        # Check minimum notional for orderbook trades
+        if leg.leg_type == LegType.ORDERBOOK:
+            notional_value = leg.input_amount * leg.price if leg.price else leg.input_amount
+            if notional_value < self.min_notional_quote:
+                logger.warning(
+                    f"Leg {leg.symbol} below minimum notional: ${notional_value:.2f} < ${self.min_notional_quote:.2f}. Skipping."
+                )
+                return False
 
         try:
             if leg.leg_type == LegType.ORDERBOOK:

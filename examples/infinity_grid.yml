@@ -38,6 +38,7 @@ step_pct: "0.01"                 # 1% grid spacing - rebalance when price moves 
 order_type: "limit"              # "limit" or "market"
 order_spread: "0.001"            # 0.1% spread from mid for limit orders
 price_source: "mid"              # Price source: "mid", "last", "bid", "ask"
+min_notional_quote: "1.0"        # Minimum order size in quote currency (e.g., $1 USDT)
 
 # Polling settings
 poll_interval_seconds: 60        # Check for rebalance every 60 seconds

@@ -37,6 +37,7 @@ rebalance_threshold_percent: "0.02"  # Rebalance when drift > 2%
 # Order configuration
 rebalance_order_type: "limit"        # Use limit orders
 rebalance_order_spread: "0.002"      # 0.2% spread from mid price
+min_notional_quote: "1.0"            # Minimum order size in quote currency (e.g., $1 USDT)
 
 # Poll interval
 poll_interval_seconds: 60            # Check every 60 seconds
