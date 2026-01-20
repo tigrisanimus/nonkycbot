@@ -278,20 +278,21 @@ Fill-driven grid with ladder behavior that automatically refills orders as they 
 - `total_fee_rate` is the round-trip fee rate (e.g., 0.002 for 0.2%).
 
 ### 2. Infinity Grid
-Maintains constant base asset value with no upper limit, optimal for trending bull markets.
+Two-sided grid that maintains constant base asset value with no upper limit, optimal for trending bull markets.
 
 **Use case**: Profit from sustained bull markets with unlimited upside potential
-**How it works**: Maintains a constant value in base asset (e.g., always $50k worth of BTC). When price rises by step_pct, sells to maintain constant value (profit = sale proceeds). When price drops, buys to restore constant value. Has no upper limit but includes lower limit protection.
-**Config**: `trading_pair`, `step_pct`, `lower_limit_pct`, `order_type`, `poll_interval_seconds`
+**How it works**: Maintains a constant value in base asset (e.g., always $50k worth of BTC). When price rises by step_pct, sells to maintain constant value (profit = sale proceeds). When price drops below entry, buys using allocated USDT to restore constant value. Has no upper limit but includes dynamically calculated lower limit based on available USDT.
+**Config**: `trading_pair`, `step_pct`, `order_type`, `poll_interval_seconds`
 **Module**: `strategies.infinity_grid`
 **Runner**: `run_infinity_grid.py`
 **Examples**: `examples/infinity_grid.yml`
 
 **Key differences from standard grid**:
 - **No upper limit**: Profits can grow indefinitely as price increases
+- **Two-sided**: Buys on dips using USDT allocation, sells on rises
 - **Maintains constant value**: Keeps base asset value constant (not quantity)
 - **Best for bull markets**: Optimized for trending upward markets
-- **Lower limit only**: Only has downside protection, no upper bound
+- **Dynamic lower limit**: Calculated from available USDT - stops buying when depleted
 
 ### 3. Triangular Arbitrage
 Identifies and executes arbitrage opportunities across three trading pairs.
@@ -340,14 +341,16 @@ Before running any bot, you need to have the appropriate assets in your nonkyc.i
 - **⚠️ Important**: If you only have BTC, you can only place sell orders. If you only have USDT, you can only place buy orders. You need both!
 
 ### Infinity Grid
-**Requires: Base asset ONLY**
+**Requires: BOTH base and quote assets**
 
-- **What you need**: Only the base asset you want to trade (e.g., BTC for BTC_USDT)
-- **Why**: Bot maintains a constant value in base asset, selling as price rises
-- **Example**: Start with 1 BTC @ $50k = maintains $50k constant value
-  - As BTC price rises, bot sells BTC to maintain $50k worth
-  - Profits accumulate in USDT automatically
-- **✅ Advantage**: Don't need quote currency upfront - it accumulates as profit
+- **What you need**: Base asset (e.g., BTC) AND quote asset (e.g., USDT) for buying dips
+- **Why**: Two-sided grid - sells BTC as price rises, buys BTC as price drops below entry
+- **Example**: Start with 1 BTC @ $50k + $10k USDT
+  - Bot maintains $50k constant value in BTC
+  - As BTC price rises, bot sells BTC to maintain $50k worth (profits in USDT)
+  - As BTC price drops below $50k, bot buys BTC using the $10k USDT allocation
+  - Lower limit calculated from USDT: with $10k USDT and 1% steps, can support dips to ~$40k
+- **Important**: More USDT allocated = lower the grid can extend = more dip-buying capacity
 
 ### Triangular Arbitrage
 **Requires: Starting currency ONLY**
@@ -386,7 +389,7 @@ Before running any bot, you need to have the appropriate assets in your nonkyc.i
 | Strategy | Minimum Recommended | Comfortable Start | Notes |
 |----------|-------------------|-------------------|-------|
 | Grid | $1,000 - $2,000 | $5,000+ | Need balanced inventory |
-| Infinity Grid | $500 - $1,000 | $2,000+ | One-sided, easier to start |
+| Infinity Grid | $1,000 - $2,000 | $5,000+ | Two-sided grid, needs USDT for dips |
 | Triangular Arb | $100 - $500 | $1,000+ | Can start small, test profitability |
 | Hybrid Arb | $100 - $500 | $1,000+ | Similar to triangular |
 | Rebalance | $500 - $1,000 | $2,000+ | Need both assets |

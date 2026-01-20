@@ -12,11 +12,12 @@
 #    python run_infinity_grid.py examples/infinity_grid.yml
 #
 # WHAT THIS BOT DOES:
+# - TWO-SIDED GRID: Requires BOTH base asset (BTC) and quote asset (USDT)
 # - Maintains a constant value in the base asset (e.g., $50,000 in BTC)
 # - When price rises by step_pct, sells base to maintain constant value (profit = sale amount)
-# - When price drops by step_pct, buys base to restore constant value
+# - When price drops by step_pct, buys base using allocated USDT to restore constant value
 # - NO UPPER LIMIT - profits can grow indefinitely in bull markets
-# - Has LOWER LIMIT to prevent total loss in crashes
+# - Has LOWER LIMIT calculated from USDT allocation (stops buying when USDT depleted)
 # - Best for trending bull markets with consistent upward movement
 
 # Exchange settings
@@ -31,7 +32,7 @@ trading_pair: "BTC_USDT"
 
 # Infinity grid configuration
 step_pct: "0.01"                 # 1% grid spacing - rebalance when price moves 1%
-lower_limit_pct: "0.20"          # Lower limit: 20% below entry price (safety stop)
+                                 # Lower limit calculated automatically from available USDT balance
 
 # Order configuration
 order_type: "limit"              # "limit" or "market"

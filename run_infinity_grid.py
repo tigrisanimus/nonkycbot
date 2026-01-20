@@ -59,7 +59,6 @@ class InfinityGridBot:
         # Market configuration
         self.trading_pair = config.get("trading_pair", "BTC_USDT")
         self.step_pct = Decimal(str(config.get("step_pct", "0.01")))
-        self.lower_limit_pct = Decimal(str(config.get("lower_limit_pct", "0.20")))  # 20% below entry
 
         # Order configuration
         self.order_type = config.get("order_type", "limit")
@@ -81,7 +80,6 @@ class InfinityGridBot:
         logger.info(f"Initialized InfinityGridBot in {self.mode.upper()} mode")
         logger.info(f"Trading pair: {self.trading_pair}")
         logger.info(f"Grid step: {self.step_pct * 100}%")
-        logger.info(f"Lower limit: {self.lower_limit_pct * 100}% below entry")
 
     def _build_rest_client(self) -> RestClient:
         """Build REST client from config."""
@@ -169,6 +167,7 @@ class InfinityGridBot:
                     last_rebalance_price=Decimal(state_data["last_rebalance_price"]),
                     step_pct=Decimal(state_data["step_pct"]),
                     lower_limit=Decimal(state_data["lower_limit"]),
+                    allocated_quote=Decimal(state_data["allocated_quote"]),
                     total_profit_quote=Decimal(state_data.get("total_profit_quote", "0")),
                 )
 
@@ -195,28 +194,29 @@ class InfinityGridBot:
         if base_balance <= 0:
             logger.error(f"Cannot initialize: no base asset balance ({base_balance})")
             return False
+        if quote_balance < 0:
+            logger.error(f"Cannot initialize: invalid quote balance ({quote_balance})")
+            return False
 
         current_price = self.get_price()
         if current_price is None:
             logger.error("Cannot initialize: failed to fetch price")
             return False
 
-        # Calculate lower limit
-        lower_limit = current_price * (Decimal("1") - self.lower_limit_pct)
-
-        # Initialize grid state
+        # Initialize grid state (lower limit calculated automatically from quote balance)
         self.grid_state = initialize_infinity_grid(
             base_balance=base_balance,
+            quote_balance=quote_balance,
             current_price=current_price,
             step_pct=self.step_pct,
-            lower_limit=lower_limit,
         )
 
         logger.info(f"✓ Initialized infinity grid:")
         logger.info(f"  Entry price: {current_price}")
         logger.info(f"  Base balance: {base_balance}")
+        logger.info(f"  Quote balance: {quote_balance}")
         logger.info(f"  Constant value: {self.grid_state.constant_value_quote}")
-        logger.info(f"  Lower limit: {lower_limit}")
+        logger.info(f"  Lower limit: {self.grid_state.lower_limit} (calculated from quote allocation)")
         logger.info(f"  Grid step: {self.step_pct * 100}%")
 
         # Save initial state
@@ -235,6 +235,7 @@ class InfinityGridBot:
                 "last_rebalance_price": str(self.grid_state.last_rebalance_price),
                 "step_pct": str(self.grid_state.step_pct),
                 "lower_limit": str(self.grid_state.lower_limit),
+                "allocated_quote": str(self.grid_state.allocated_quote),
                 "total_profit_quote": str(self.grid_state.total_profit_quote),
             }
 
@@ -330,6 +331,7 @@ class InfinityGridBot:
         # Calculate if rebalance is needed
         order = calculate_infinity_grid_order(
             base_balance=base_balance,
+            quote_balance=quote_balance,
             current_price=current_price,
             grid_state=self.grid_state,
         )
