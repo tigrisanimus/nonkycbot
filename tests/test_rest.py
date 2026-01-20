@@ -99,7 +99,7 @@ def test_rest_post_signing_and_body_payload() -> None:
         response = client.place_order(order)
 
     request = captured["request"]
-    assert request.full_url == "https://api.example/api/v2/createorder"
+    assert request.full_url == "https://api.example/createorder"
     assert request.headers["Content-type"] == "application/json"
 
     body = json.loads(request.data.decode("utf8"))
@@ -114,7 +114,7 @@ def test_rest_post_signing_and_body_payload() -> None:
     }
 
     nonce = str(int(1700000100.0 * 1e3))
-    data_to_sign = "https://api.example/api/v2/createorder" + json.dumps(
+    data_to_sign = "https://api.example/createorder" + json.dumps(
         body, separators=(",", ":")
     )
     message = f"{credentials.api_key}{data_to_sign}{nonce}"
@@ -154,13 +154,13 @@ def test_rest_createorder_signature_string_matches_known_good_format() -> None:
     request = captured["request"]
     body = order.to_payload()
     json_str = json.dumps(body, separators=(",", ":"))
-    data_to_sign = "https://api.example/api/v2/createorder" + json_str
+    data_to_sign = "https://api.example/createorder" + json_str
     nonce = str(int(1700000150.0 * 1e3))
     message = f"{credentials.api_key}{data_to_sign}{nonce}"
     expected_signature = _expected_signature(message, credentials.api_secret)
 
     assert request.headers["X-api-sign"] == expected_signature
-    assert data_to_sign == "https://api.example/api/v2/createorder" + json_str
+    assert data_to_sign == "https://api.example/createorder" + json_str
 
 
 def test_rest_createorder_signature_matches_request_payload() -> None:
@@ -194,7 +194,7 @@ def test_rest_createorder_signature_matches_request_payload() -> None:
     assert request_payload == expected_payload
 
     nonce = str(int(1700000250.0 * 1e3))
-    data_to_sign = f"https://api.example/api/v2/createorder{request_payload}"
+    data_to_sign = f"https://api.example/createorder{request_payload}"
     message = f"{credentials.api_key}{data_to_sign}{nonce}"
     expected_signature = _expected_signature(message, credentials.api_secret)
 

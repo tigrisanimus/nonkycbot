@@ -338,7 +338,7 @@ class RestClient:
         return response
 
     def get_balances(self) -> list[Balance]:
-        response = self.send(RestRequest(method="GET", path="/api/v2/balances"))
+        response = self.send(RestRequest(method="GET", path="/balances"))
         payload = self._extract_payload(response) or []
         return [
             Balance(
@@ -352,7 +352,7 @@ class RestClient:
     def place_order(self, order: OrderRequest) -> OrderResponse:
         response = self.send(
             RestRequest(
-                method="POST", path="/api/v2/createorder", body=order.to_payload()
+                method="POST", path="/createorder", body=order.to_payload()
             )
         )
         payload = self._extract_payload(response) or {}
@@ -376,7 +376,7 @@ class RestClient:
         else:
             raise ValueError("Either order_id or user_provided_id must be provided.")
         response = self.send(
-            RestRequest(method="POST", path="/api/v2/cancelorder", body=body)
+            RestRequest(method="POST", path="/cancelorder", body=body)
         )
         payload = self._extract_payload(response) or {}
         success = bool(payload.get("success", payload.get("status") == "Cancelled"))
@@ -397,7 +397,7 @@ class RestClient:
         if side is not None:
             body["side"] = side
         response = self.send(
-            RestRequest(method="POST", path="/api/v2/cancelallorders", body=body)
+            RestRequest(method="POST", path="/cancelallorders", body=body)
         )
         payload = self._extract_payload(response) or {}
         if isinstance(payload, list):
