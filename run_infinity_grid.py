@@ -87,7 +87,15 @@ class InfinityGridBot:
         from nonkyc_client.auth import AuthSigner
 
         credentials = load_api_credentials(DEFAULT_SERVICE_NAME, self.config)
+        if credentials:
+            logger.info(f"✓ Loaded API credentials (key: {credentials.api_key[:8]}...)")
+        else:
+            logger.error("✗ Failed to load API credentials!")
+
         base_url = self.config.get("base_url", "https://api.nonkyc.io/api/v2")
+        debug_auth = self.config.get("debug_auth", False)
+
+        logger.info(f"REST client config: base_url={base_url}, debug_auth={debug_auth}")
 
         # Create signer with proper configuration
         signer = AuthSigner(
@@ -104,7 +112,7 @@ class InfinityGridBot:
             timeout=self.config.get("rest_timeout_sec", 30.0),
             max_retries=self.config.get("rest_retries", 3),
             backoff_factor=self.config.get("rest_backoff_factor", 0.5),
-            debug_auth=self.config.get("debug_auth", False),
+            debug_auth=debug_auth,
         )
 
     def get_price(self) -> Decimal | None:
