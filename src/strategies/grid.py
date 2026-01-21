@@ -12,6 +12,10 @@ from typing import Iterable
 
 from engine.exchange_client import ExchangeClient, OrderStatusView
 from nonkyc_client.rest import RestError, TransientApiError
+from utils.profit_calculator import (
+    calculate_min_profitable_step_pct,
+    validate_order_profitability,
+)
 
 LOGGER = logging.getLogger("nonkyc_bot.strategy.ladder_grid")
 
@@ -354,15 +358,21 @@ class LadderGridStrategy:
         total_fee_rate = self.config.total_fee_rate
         if total_fee_rate < 0:
             raise ValueError("total_fee_rate must be non-negative.")
+
+        # Calculate minimum profitable step percentage
+        min_step_pct = calculate_min_profitable_step_pct(
+            total_fee_rate, self.config.fee_buffer_pct
+        )
+
         if self.config.step_mode == "pct":
             if self.config.step_pct is None:
                 raise ValueError("step_pct is required for pct step mode.")
             spacing_pct = self.config.step_pct
-            if spacing_pct <= total_fee_rate:
+            if spacing_pct < min_step_pct:
                 raise ValueError(
-                    "Ladder spacing too small for fees: "
-                    f"spacing_pct={spacing_pct} total_fee_rate={total_fee_rate} "
-                    f"min_spacing_pct={total_fee_rate}"
+                    "Grid spacing too small to be profitable after fees: "
+                    f"step_pct={spacing_pct * 100:.4f}% < min_profitable_step={min_step_pct * 100:.4f}% "
+                    f"(fee_rate={total_fee_rate * 100:.2f}%, buffer={self.config.fee_buffer_pct * 100:.2f}%)"
                 )
             return
         if self.config.step_abs is None:
@@ -412,6 +422,8 @@ class LadderGridStrategy:
             return
         price = self._quantize_price(price)
         quantity = self._resolve_order_quantity(price, base_quantity)
+
+        # Check minimum balance
         if not self._has_sufficient_balance(side, price, quantity):
             base, quote = self._split_symbol(self.config.symbol)
             required_asset = quote if side.lower() == "buy" else base
@@ -425,6 +437,33 @@ class LadderGridStrategy:
             self.state.needs_rebalance = True
             self._halt_placements = True
             return
+
+        # Calculate opposing price (one step away in the opposite direction)
+        if side.lower() == "buy":
+            # For buy orders, the opposing sell is one step up
+            opposing_price = self._apply_step(price, 1, upward=True)
+        else:
+            # For sell orders, the opposing buy is one step down
+            opposing_price = self._apply_step(price, 1, upward=False)
+
+        # Validate order profitability
+        is_valid, reason = validate_order_profitability(
+            side=side,
+            price=price,
+            quantity=quantity,
+            opposing_price=opposing_price,
+            total_fee_rate=self.config.total_fee_rate,
+            fee_buffer_pct=self.config.fee_buffer_pct,
+            min_notional_quote=self.config.min_notional_quote,
+        )
+
+        if not is_valid:
+            LOGGER.warning(
+                "Skipping unprofitable order: %s. Grid spacing may be too small.",
+                reason
+            )
+            return
+
         client_id = f"ladder-{side}-{int(time.time() * 1e6)}"
         try:
             order_id = self.client.place_limit(

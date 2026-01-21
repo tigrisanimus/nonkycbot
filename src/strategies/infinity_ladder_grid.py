@@ -20,6 +20,10 @@ from typing import Iterable
 
 from engine.exchange_client import ExchangeClient, OrderStatusView
 from nonkyc_client.rest import RestError, TransientApiError
+from utils.profit_calculator import (
+    calculate_min_profitable_step_pct,
+    validate_order_profitability,
+)
 
 LOGGER = logging.getLogger("nonkyc_bot.strategy.infinity_ladder_grid")
 
@@ -194,6 +198,7 @@ class InfinityLadderGridStrategy:
         price = self._quantize_price(price)
         quantity = self._quantize_quantity(base_quantity)
 
+        # Check minimum balance
         if not self._has_sufficient_balance(side, price, quantity):
             base, quote = self._split_symbol(self.config.symbol)
             required_asset = quote if side.lower() == "buy" else base
@@ -206,6 +211,34 @@ class InfinityLadderGridStrategy:
             )
             self.state.needs_rebalance = True
             self._halt_placements = True
+            return
+
+        # Calculate opposing price (one step away in the opposite direction)
+        step = (self.config.step_pct if self.config.step_mode == "pct"
+                else self.config.step_abs / price)
+        if side.lower() == "buy":
+            # For buy orders, the opposing sell is one step up
+            opposing_price = price * (Decimal("1") + step)
+        else:
+            # For sell orders, the opposing buy is one step down
+            opposing_price = price * (Decimal("1") - step)
+
+        # Validate order profitability
+        is_valid, reason = validate_order_profitability(
+            side=side,
+            price=price,
+            quantity=quantity,
+            opposing_price=opposing_price,
+            total_fee_rate=self.config.total_fee_rate,
+            fee_buffer_pct=self.config.fee_buffer_pct,
+            min_notional_quote=self.config.min_notional_quote,
+        )
+
+        if not is_valid:
+            LOGGER.warning(
+                "Skipping unprofitable order: %s. Grid spacing may be too small.",
+                reason
+            )
             return
 
         client_id = f"infinity-{side}-{int(time.time() * 1e6)}"
@@ -248,6 +281,36 @@ class InfinityLadderGridStrategy:
             levels.append(("sell", price))
         return levels
 
+    def _validate_profitability(self, mid_price: Decimal) -> None:
+        """Validate that grid spacing is sufficient for profitability."""
+        min_step_pct = calculate_min_profitable_step_pct(
+            self.config.total_fee_rate, self.config.fee_buffer_pct
+        )
+
+        if self.config.step_mode == "pct":
+            if self.config.step_pct is None:
+                raise ValueError("step_pct is required for pct step mode.")
+            if self.config.step_pct < min_step_pct:
+                raise ValueError(
+                    f"Grid spacing too small to be profitable after fees: "
+                    f"step_pct={self.config.step_pct * 100:.4f}% < "
+                    f"min_profitable_step={min_step_pct * 100:.4f}% "
+                    f"(fee_rate={self.config.total_fee_rate * 100:.2f}%, "
+                    f"buffer={self.config.fee_buffer_pct * 100:.2f}%)"
+                )
+        else:
+            # For absolute step mode, convert to percentage at mid price
+            if self.config.step_abs is None:
+                raise ValueError("step_abs is required for abs step mode.")
+            step_pct_at_mid = self.config.step_abs / mid_price
+            if step_pct_at_mid < min_step_pct:
+                raise ValueError(
+                    f"Grid spacing too small to be profitable after fees: "
+                    f"step_abs={self.config.step_abs} at mid_price={mid_price} "
+                    f"is {step_pct_at_mid * 100:.4f}% < "
+                    f"min_profitable_step={min_step_pct * 100:.4f}%"
+                )
+
     def seed_ladder(self) -> None:
         """Initialize the infinity grid with orders."""
         self._halt_placements = False
@@ -255,6 +318,9 @@ class InfinityLadderGridStrategy:
 
         mid_price = self.client.get_mid_price(self.config.symbol)
         self.state.last_mid = mid_price
+
+        # Validate profitability before placing any orders
+        self._validate_profitability(mid_price)
 
         # Build levels
         buy_levels = self._build_buy_levels(mid_price)
