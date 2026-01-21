@@ -126,8 +126,31 @@ class LadderGridStrategy:
         self.state.last_mid = mid_price
         buy_levels = self._build_levels(mid_price, "buy", self.config.n_buy_levels)
         sell_levels = self._build_levels(mid_price, "sell", self.config.n_sell_levels)
+
+        base, quote = self._split_symbol(self.config.symbol)
+        base_balance = self._balances.get(base, (Decimal("0"), Decimal("0")))[0] if self._balances else Decimal("0")
+        quote_balance = self._balances.get(quote, (Decimal("0"), Decimal("0")))[0] if self._balances else Decimal("0")
+        LOGGER.info(
+            "Seeding grid ladder: mid_price=%s, %d buy levels, %d sell levels. "
+            "Balances: %s %s, %s %s",
+            mid_price, len(buy_levels), len(sell_levels),
+            base_balance, base, quote_balance, quote
+        )
+
         for side, price in buy_levels + sell_levels:
             self._place_order(side, price, self.config.base_order_size)
+
+        orders_placed = len(self.state.open_orders)
+        total_levels = len(buy_levels) + len(sell_levels)
+        if orders_placed < total_levels:
+            LOGGER.warning(
+                "Only placed %d/%d orders. Insufficient balance detected. "
+                "Set startup_rebalance: true or deposit more funds.",
+                orders_placed, total_levels
+            )
+        else:
+            LOGGER.info("Successfully placed all %d orders", orders_placed)
+
         self.save_state()
 
     def rebalance_startup(self) -> None:
@@ -390,6 +413,15 @@ class LadderGridStrategy:
         price = self._quantize_price(price)
         quantity = self._resolve_order_quantity(price, base_quantity)
         if not self._has_sufficient_balance(side, price, quantity):
+            base, quote = self._split_symbol(self.config.symbol)
+            required_asset = quote if side.lower() == "buy" else base
+            required_amount = price * quantity if side.lower() == "buy" else quantity
+            available = self._balances.get(required_asset, (Decimal("0"), Decimal("0")))[0] if self._balances else Decimal("0")
+            LOGGER.warning(
+                "Insufficient balance to place %s order at %s. Required: %s %s, Available: %s %s. "
+                "Setting needs_rebalance=True. Enable startup_rebalance or deposit more funds.",
+                side.upper(), price, required_amount, required_asset, available, required_asset
+            )
             self.state.needs_rebalance = True
             self._halt_placements = True
             return
