@@ -1,5 +1,5 @@
 # Infinity Grid Bot Configuration
-# Maintains constant base asset value with no upper limit, optimal for bull markets
+# Grid trading with no upper limit - continuously extends sell ladder as price rises
 #
 # HOW TO USE:
 # 1. Store your API credentials securely in the OS keychain (RECOMMENDED):
@@ -12,20 +12,13 @@
 #    python run_infinity_grid.py examples/infinity_grid.yml
 #
 # WHAT THIS BOT DOES:
-# - REBALANCE STRATEGY: Does NOT create a ladder of standing orders
-# - Waits for price to move by step_pct, then places a SINGLE rebalance order
-# - You will see "No rebalance needed" frequently - THIS IS NORMAL!
-# - TWO-SIDED GRID: Requires BOTH base asset (BTC) and quote asset (USDT)
-# - Maintains a constant value in the base asset (e.g., $50,000 in BTC)
-# - When price rises by step_pct, sells base to maintain constant value (profit = sale amount)
-# - When price drops by step_pct, buys base using allocated USDT to restore constant value
-# - NO UPPER LIMIT - profits can grow indefinitely in bull markets
-# - Has LOWER LIMIT calculated from USDT allocation (stops buying when USDT depleted)
-# - Best for trending bull markets with consistent upward movement
-#
-# IMPORTANT: This is DIFFERENT from run_grid.py (ladder grid):
-# - Ladder grid: Creates many standing orders immediately
-# - Infinity grid: Only places orders AFTER price moves (reactive, not proactive)
+# - GRID STRATEGY: Places standing orders on the order book (like ladder grid)
+# - Buy orders below current price (with lower limit)
+# - Sell orders above current price (NO upper limit - extends infinitely!)
+# - When sell order fills → places new sell order above highest (extends ladder)
+# - When buy order fills → refills at that same level
+# - Continuously profits from upward price movement without upper bound
+# - Best for bull markets and long-term uptrends
 
 # Exchange settings
 base_url: "https://api.nonkyc.io/api/v2"
@@ -34,32 +27,47 @@ base_url: "https://api.nonkyc.io/api/v2"
 # api_key: "${NONKYC_API_KEY}"      # Loaded from keychain automatically
 # api_secret: "${NONKYC_API_SECRET}" # Loaded from keychain automatically
 
-# Trading pair (nonkyc.io uses UNDERSCORE format, not slashes!)
-trading_pair: "BTC_USDT"
+# Trading pair (NonKYC uses UNDERSCORE format, not slashes!)
+symbol: "BTC_USDT"
 
-# Infinity grid configuration
-step_pct: "0.01"                 # 1% grid spacing - rebalance when price moves 1%
-                                 # Lower limit calculated automatically from available USDT balance
+# Grid configuration
+step_mode: "pct"                 # "pct" for percentage or "abs" for absolute price
+step_pct: "0.01"                 # 1% spacing between grid levels
+# step_abs: "500"                # Alternative: absolute price spacing (if step_mode="abs")
 
-# Order configuration
-order_type: "limit"              # "limit" or "market"
-order_spread: "0.001"            # 0.1% spread from mid for limit orders
-price_source: "mid"              # Price source: "mid", "last", "bid", "ask"
-min_notional_quote: "1.0"        # Minimum order size in quote currency (e.g., $1 USDT)
+n_buy_levels: 10                 # Number of buy orders below entry (lower limit)
+initial_sell_levels: 10          # Initial sell orders above entry (more added as price rises!)
+base_order_size: "0.001"         # Amount of base asset (BTC) per order
+
+# Minimum order size (exchange requirement)
+min_notional_quote: "1.0"        # Minimum order value in quote currency
+
+# Fee configuration
+total_fee_rate: "0.002"          # 0.2% total fee (maker + taker)
+fee_buffer_pct: "0.0001"         # Safety buffer for fees
+
+# Market data precision (check NonKYC for your symbol)
+tick_size: "0.01"                # Price precision (e.g., 0.01 = 2 decimals)
+step_size: "0.00000001"          # Quantity precision (8 decimals for BTC)
 
 # Polling settings
-poll_interval_seconds: 60        # Check for rebalance every 60 seconds
+poll_interval_sec: 60            # Check for fills every 60 seconds
+reconcile_interval_sec: 60       # Reconcile orders every 60 seconds
+balance_refresh_sec: 60          # Refresh balance every 60 seconds
+fetch_backoff_sec: 15            # Backoff on API errors
+
+# Startup options
+startup_cancel_all: false        # Cancel all existing orders on startup
+startup_rebalance: false         # Auto-rebalance to 50/50 on startup (if one-sided)
+
+# Rebalancing (if startup_rebalance=true)
+rebalance_target_base_pct: "0.5"   # Target 50% base, 50% quote
+rebalance_slippage_pct: "0.002"    # 0.2% slippage tolerance
+rebalance_max_attempts: 2          # Max rebalance attempts
 
 # REST API settings
 rest_timeout_sec: 30.0
 rest_retries: 3
-debug_auth: true  # TEMPORARY: Enable to see authentication debug info
 
 # State persistence
-# State file will be specified via --state-file argument
-# Default: infinity_grid_state.json in current directory
-
-# Mode (can be overridden with command line flags)
-# mode: "monitor"  # Uncomment to default to monitor-only mode
-# mode: "dry-run"  # Uncomment to default to dry-run mode
-# mode: "live"     # Live trading (default)
+state_path: "infinity_grid_state.json"  # Saves grid state between restarts
