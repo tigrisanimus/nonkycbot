@@ -438,7 +438,7 @@ def test_cancel_all_orders_v1_signs_full_url_with_query() -> None:
     )
     assert request.full_url == expected_url
 
-    nonce = str(int(1700000500.0 * 1e4))
+    nonce = str(int(1700000500.0 * 1e3))  # Correct multiplier for milliseconds
     message = f"{credentials.api_key}{expected_url}{nonce}"
     expected_signature = _expected_signature(message, credentials.api_secret)
 

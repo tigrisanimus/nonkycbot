@@ -188,9 +188,11 @@ class RestClient:
                             "*** NONKYC_DEBUG_AUTH=1 - DEVELOPMENT ONLY ***",
                             f"method={request.method.upper()}",
                             f"url={url}",
-                            f"nonce={signed.nonce}",
+                            f"url_to_sign={url_to_sign}",
+                            f"nonce={signed.nonce} ({len(str(signed.nonce))} digits)",
                             f"json_str={signed.json_str or ''}",
                             f"data_to_sign={signed.data_to_sign}",
+                            f"signed_message={signed.signed_message[:50]}...{signed.signed_message[-50:]}",
                             f"signature=[REDACTED - {len(signed.signature)} chars]",
                             f"api_key=[REDACTED - {len(self.credentials.api_key) if self.credentials else 0} chars]",
                             "*** DO NOT USE IN PRODUCTION ***",
@@ -420,7 +422,7 @@ class RestClient:
         headers = {"Accept": "application/json"}
         signed: SignedHeaders | None = None
         if self.credentials is not None:
-            nonce = self.signer.generate_nonce(multiplier=1e4)
+            nonce = self.signer.generate_nonce()  # Use configured multiplier (1e3)
             signed = self.signer.build_headers_for_message(
                 credentials=self.credentials,
                 data_to_sign=url,
@@ -436,9 +438,10 @@ class RestClient:
                             "*** NONKYC_DEBUG_AUTH=1 - DEVELOPMENT ONLY ***",
                             "method=GET",
                             f"url={url}",
-                            f"nonce={signed.nonce}",
+                            f"nonce={signed.nonce} ({len(str(signed.nonce))} digits)",
                             "json_str=",
                             f"data_to_sign={signed.data_to_sign}",
+                            f"signed_message={signed.signed_message[:50]}...{signed.signed_message[-50:]}",
                             f"signature=[REDACTED - {len(signed.signature)} chars]",
                             f"api_key=[REDACTED - {len(self.credentials.api_key) if self.credentials else 0} chars]",
                             "*** DO NOT USE IN PRODUCTION ***",
@@ -486,9 +489,7 @@ class RestClient:
         return success
 
     def get_order_status(self, order_id: str) -> OrderStatus:
-        response = self.send(
-            RestRequest(method="GET", path=f"/getorder/{order_id}")
-        )
+        response = self.send(RestRequest(method="GET", path=f"/getorder/{order_id}"))
         payload = self._extract_payload(response) or {}
         status = str(payload.get("status", ""))
         symbol = str(payload.get("symbol", ""))

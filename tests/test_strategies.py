@@ -101,7 +101,9 @@ def test_infinity_grid_respects_lower_limit() -> None:
     """Test that infinity grid stops trading below lower limit."""
     state = infinity_grid.initialize_infinity_grid(
         base_balance=Decimal("1.0"),
-        quote_balance=Decimal("5000"),  # Limited USDT means lower limit will be calculated
+        quote_balance=Decimal(
+            "5000"
+        ),  # Limited USDT means lower limit will be calculated
         current_price=Decimal("50000"),
         step_pct=Decimal("0.01"),
     )
