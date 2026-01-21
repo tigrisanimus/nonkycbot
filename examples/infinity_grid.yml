@@ -46,6 +46,7 @@ poll_interval_seconds: 60        # Check for rebalance every 60 seconds
 # REST API settings
 rest_timeout_sec: 30.0
 rest_retries: 3
+debug_auth: true  # TEMPORARY: Enable to see authentication debug info
 
 # State persistence
 # State file will be specified via --state-file argument
