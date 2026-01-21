@@ -1,0 +1,27 @@
+name: "CodeQL Configuration"
+
+# Suppress false positives for API authentication code
+query-filters:
+  - exclude:
+      id: py/weak-cryptographic-algorithm
+      # HMAC-SHA256 is the REQUIRED algorithm for nonkyc.io API authentication
+      # This is not password hashing - it's request signing (which is secure)
+      paths:
+        - test_auth.py
+        - src/nonkyc_client/auth.py
+        - src/nonkyc_client/rest.py
+        - src/nonkyc_client/async_rest.py
+
+  - exclude:
+      id: py/clear-text-logging-sensitive-data
+      # The nonce is a public timestamp value, not a secret
+      # It's sent in clear text in API requests and is safe to log
+      paths:
+        - test_auth.py
+
+# Path filters
+paths-ignore:
+  - tests/**
+  - examples/**
+  - docs/**
+  - "**/*.md"

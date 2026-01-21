@@ -134,7 +134,8 @@ async def test_async_rest_post_signing_and_body_payload() -> None:
 
     nonce = str(int(1700000100.0 * 1e3))
     expected_payload = json.dumps(body, separators=(",", ":"))
-    data_to_sign = "https://api.example/api/v2/createorder" + expected_payload
+    # URL should match base_url + path (no extra /api/v2 since base_url is just "https://api.example")
+    data_to_sign = "https://api.example/createorder" + expected_payload
     message = f"{credentials.api_key}{data_to_sign}{nonce}"
     expected_signature = _expected_signature(message, credentials.api_secret)
 
