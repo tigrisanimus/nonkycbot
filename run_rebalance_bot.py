@@ -85,7 +85,7 @@ class RebalanceBot:
 
         # Create signer with proper configuration
         signer = AuthSigner(
-            nonce_multiplier=self.config.get("nonce_multiplier", 1e4),
+            nonce_multiplier=self.config.get("nonce_multiplier", 1e3),
             sort_params=self.config.get("sort_params", False),
             sort_body=self.config.get("sort_body", False),
         )

@@ -155,7 +155,7 @@ def build_rest_client(config):
     sign_absolute_url = config.get("sign_absolute_url")
     signer = (
         AuthSigner(
-            nonce_multiplier=config.get("nonce_multiplier", 1e4),
+            nonce_multiplier=config.get("nonce_multiplier", 1e3),
             sort_params=config.get("sort_params", False),
             sort_body=config.get("sort_body", False),
         )

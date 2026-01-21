@@ -98,8 +98,9 @@ class InfinityGridBot:
         logger.info(f"REST client config: base_url={base_url}, debug_auth={debug_auth}")
 
         # Create signer with proper configuration
+        # nonce_multiplier=1e3 converts seconds to milliseconds (matching Date.now() in JS)
         signer = AuthSigner(
-            nonce_multiplier=self.config.get("nonce_multiplier", 1e4),
+            nonce_multiplier=self.config.get("nonce_multiplier", 1e3),
             sort_params=self.config.get("sort_params", False),
             sort_body=self.config.get("sort_body", False),
         )
