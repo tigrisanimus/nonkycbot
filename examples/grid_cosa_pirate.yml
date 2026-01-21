@@ -51,5 +51,13 @@ startup_rebalance: false         # Auto-rebalance to 50/50 on startup
 rest_timeout_sec: 30.0
 rest_retries: 3
 
+# Authentication settings (DEBUGGING ONLY)
+# Uncomment these to debug authentication issues:
+# debug_auth: true                  # Show detailed auth debug info (NEVER use in production!)
+# sign_absolute_url: false          # Try path-only signing if you get 401 errors
+#                                   # - true  => sign "https://api.nonkyc.io/api/v2/balances"
+#                                   # - false => sign "/balances"
+#                                   # If unset, defaults to None (API client decides)
+
 # State persistence
 state_path: "state.json"         # Saves grid state between restarts

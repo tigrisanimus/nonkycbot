@@ -23,7 +23,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from nonkyc_client.auth import ApiCredentials
-from nonkyc_client.rest import RestClient
+from nonkyc_client.rest import RestClient, RestRequest
 
 
 def discover_markets(rest_client: RestClient) -> list[dict[str, Any]]:
@@ -40,7 +40,7 @@ def discover_markets(rest_client: RestClient) -> list[dict[str, Any]]:
         try:
             print(f"  Trying: {endpoint}")
             response = rest_client.send(
-                rest_client.RestRequest(method="GET", path=endpoint)
+                RestRequest(method="GET", path=endpoint)
             )
             payload = rest_client._extract_payload(response)
 
@@ -69,7 +69,7 @@ def discover_pools(rest_client: RestClient) -> list[dict[str, Any]]:
         try:
             print(f"  Trying: {endpoint}")
             response = rest_client.send(
-                rest_client.RestRequest(method="GET", path=endpoint)
+                RestRequest(method="GET", path=endpoint)
             )
             payload = rest_client._extract_payload(response)
 
