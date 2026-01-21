@@ -22,6 +22,7 @@ def build_rest_client(config: dict) -> RestClient:
     signing_enabled = config.get("sign_requests", True)
     rest_timeout = config.get("rest_timeout_sec", 10.0)
     rest_retries = config.get("rest_retries", 3)
+    base_url = config.get("base_url", "https://api.nonkyc.io/api/v2")
     rest_backoff = config.get("rest_backoff_factor", 0.5)
     creds = (
         load_api_credentials(DEFAULT_SERVICE_NAME, config) if signing_enabled else None
@@ -36,14 +37,17 @@ def build_rest_client(config: dict) -> RestClient:
         else None
     )
     return RestClient(
-        base_url="https://api.nonkyc.io/api/v2",
+        base_url=base_url,
         credentials=creds,
         signer=signer,
         use_server_time=config.get("use_server_time"),
         timeout=float(rest_timeout),
         max_retries=int(rest_retries),
         backoff_factor=float(rest_backoff),
-        sign_absolute_url=True,
+        # Allow toggling signature scheme from YAML/env for debugging:
+        # - true  => sign absolute URL (https://host/path?query)
+        # - false => sign path only (/path?query)
+        sign_absolute_url=config.get("sign_absolute_url"),
         debug_auth=config.get("debug_auth"),
     )
 
