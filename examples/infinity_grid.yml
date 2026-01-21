@@ -12,6 +12,9 @@
 #    python run_infinity_grid.py examples/infinity_grid.yml
 #
 # WHAT THIS BOT DOES:
+# - REBALANCE STRATEGY: Does NOT create a ladder of standing orders
+# - Waits for price to move by step_pct, then places a SINGLE rebalance order
+# - You will see "No rebalance needed" frequently - THIS IS NORMAL!
 # - TWO-SIDED GRID: Requires BOTH base asset (BTC) and quote asset (USDT)
 # - Maintains a constant value in the base asset (e.g., $50,000 in BTC)
 # - When price rises by step_pct, sells base to maintain constant value (profit = sale amount)
@@ -19,6 +22,10 @@
 # - NO UPPER LIMIT - profits can grow indefinitely in bull markets
 # - Has LOWER LIMIT calculated from USDT allocation (stops buying when USDT depleted)
 # - Best for trending bull markets with consistent upward movement
+#
+# IMPORTANT: This is DIFFERENT from run_grid.py (ladder grid):
+# - Ladder grid: Creates many standing orders immediately
+# - Infinity grid: Only places orders AFTER price moves (reactive, not proactive)
 
 # Exchange settings
 base_url: "https://api.nonkyc.io/api/v2"
