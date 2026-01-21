@@ -10,9 +10,29 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 from nonkyc_client.auth import ApiCredentials
 from nonkyc_client.rest import RestClient
 
-# Get credentials
-api_key = os.getenv("NONKYC_API_KEY", "your_key")
-api_secret = os.getenv("NONKYC_API_SECRET", "your_secret")
+# Get credentials from environment
+api_key = os.getenv("NONKYC_API_KEY")
+api_secret = os.getenv("NONKYC_API_SECRET")
+
+# Validate credentials are provided
+if not api_key or not api_secret:
+    print("=" * 80)
+    print("ERROR: Missing API Credentials")
+    print("=" * 80)
+    print("\n❌ No credentials found in environment variables.")
+    print("\nTo run this test, set your credentials:")
+    print("  export NONKYC_API_KEY='your_key_here'")
+    print("  export NONKYC_API_SECRET='your_secret_here'")
+    print("  python test_symbol_formats.py")
+    print("\nAlternatively, pass them as arguments:")
+    print("  python test_symbol_formats.py YOUR_API_KEY YOUR_API_SECRET")
+
+    if len(sys.argv) == 3:
+        api_key = sys.argv[1]
+        api_secret = sys.argv[2]
+        print("\n✓ Using credentials from command line arguments\n")
+    else:
+        sys.exit(1)
 
 credentials = ApiCredentials(api_key=api_key, api_secret=api_secret)
 client = RestClient("https://api.nonkyc.io", credentials=credentials)
