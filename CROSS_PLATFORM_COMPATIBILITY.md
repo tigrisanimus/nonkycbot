@@ -88,7 +88,7 @@ python nonkyc_store_credentials.py --api-key "your_key" --api-secret "your_secre
 **Implementation**: UTC-based timestamps for API nonce generation
 ```python
 import time
-nonce = int(time.time() * 1e4)  # Millisecond precision
+nonce = int(time.time() * 1e3)  # Milliseconds since epoch (13 digits)
 ```
 
 **Cross-platform notes**:

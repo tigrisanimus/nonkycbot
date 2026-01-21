@@ -18,9 +18,9 @@ API_SECRET = "your_api_secret_here"
 SIGNER_NONCE_MULTIPLIER = None
 SIGNER_SORT_PARAMS = None
 SIGNER_SORT_BODY = None
-SIGN_ABSOLUTE_URL = None
+SIGN_ABSOLUTE_URL = True  # NonKYC requires full URL signing
 
-DEFAULT_NONCE_MULTIPLIER = 1e4
+DEFAULT_NONCE_MULTIPLIER = 1e3  # 13 digits (milliseconds since epoch)
 DEFAULT_SORT_PARAMS = False
 DEFAULT_SORT_BODY = False
 

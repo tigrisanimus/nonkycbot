@@ -54,10 +54,11 @@ class ApiCredentials:
 
 **Bot Implementation** (`auth.py:42-64`):
 - `X-API-KEY`: API key
-- `X-API-NONCE`: Timestamp-based nonce (int(time() * 1e4))
+- `X-API-NONCE`: Timestamp-based nonce (int(time() * 1e3)) - 13 digits (milliseconds)
 - `X-API-SIGN`: HMAC signature
 
-**Message Format**: `{api_key}{url}{params/body}{nonce}`
+**Message Format**: `{api_key}{full_url}{params/body}{nonce}`
+**Important**: Must sign the FULL absolute URL (e.g., `https://api.nonkyc.io/api/v2/balances`), not just the path
 
 **Verification**: ✅ Follows standard HMAC REST authentication pattern
 
