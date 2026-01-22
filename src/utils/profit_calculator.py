@@ -188,16 +188,24 @@ def validate_order_profitability(
     if opposing_price is not None:
         if side.lower() == "buy":
             # We're buying, so opposing_price is where we'll sell
-            if not is_profitable_grid_level(price, opposing_price, total_fee_rate, fee_buffer_pct):
-                min_sell = calculate_min_profitable_sell_price(price, total_fee_rate, fee_buffer_pct)
+            if not is_profitable_grid_level(
+                price, opposing_price, total_fee_rate, fee_buffer_pct
+            ):
+                min_sell = calculate_min_profitable_sell_price(
+                    price, total_fee_rate, fee_buffer_pct
+                )
                 return False, (
                     f"Buy at {price} with sell at {opposing_price} would lose money after fees. "
                     f"Min profitable sell: {min_sell}"
                 )
         else:  # sell
             # We're selling, so opposing_price is where we bought
-            if not is_profitable_grid_level(opposing_price, price, total_fee_rate, fee_buffer_pct):
-                min_sell = calculate_min_profitable_sell_price(opposing_price, total_fee_rate, fee_buffer_pct)
+            if not is_profitable_grid_level(
+                opposing_price, price, total_fee_rate, fee_buffer_pct
+            ):
+                min_sell = calculate_min_profitable_sell_price(
+                    opposing_price, total_fee_rate, fee_buffer_pct
+                )
                 return False, (
                     f"Sell at {price} after buying at {opposing_price} would lose money after fees. "
                     f"Min profitable sell: {min_sell}"

@@ -30,12 +30,15 @@ LOGGER = logging.getLogger("nonkyc_bot.strategy.infinity_ladder_grid")
 @dataclass(frozen=True)
 class InfinityLadderGridConfig:
     """Configuration for infinity ladder grid."""
+
     symbol: str
     step_mode: str  # "pct" or "abs"
     step_pct: Decimal | None
     step_abs: Decimal | None
     n_buy_levels: int  # Number of buy levels below entry
-    initial_sell_levels: int  # Initial sell levels above entry (more added as price rises)
+    initial_sell_levels: (
+        int  # Initial sell levels above entry (more added as price rises)
+    )
     base_order_size: Decimal
     min_notional_quote: Decimal
     fee_buffer_pct: Decimal
@@ -56,6 +59,7 @@ class InfinityLadderGridConfig:
 @dataclass
 class LiveOrder:
     """Live order on the exchange."""
+
     side: str
     price: Decimal
     quantity: Decimal
@@ -66,6 +70,7 @@ class LiveOrder:
 @dataclass
 class InfinityLadderGridState:
     """State for infinity ladder grid."""
+
     entry_price: Decimal  # Initial entry price
     lowest_buy_price: Decimal  # Lowest buy level (lower limit)
     highest_sell_price: Decimal  # Highest sell level (tracks upward extension)
@@ -114,7 +119,9 @@ class InfinityLadderGridStrategy:
                     highest_sell_price=Decimal(data["highest_sell_price"]),
                     open_orders=orders,
                     needs_rebalance=data.get("needs_rebalance", False),
-                    last_mid=Decimal(data["last_mid"]) if data.get("last_mid") else None,
+                    last_mid=(
+                        Decimal(data["last_mid"]) if data.get("last_mid") else None
+                    ),
                     total_profit_quote=Decimal(data.get("total_profit_quote", "0")),
                 )
             except Exception as exc:
@@ -124,7 +131,9 @@ class InfinityLadderGridStrategy:
         mid_price = self.client.get_mid_price(self.config.symbol)
         step = self._get_step_size(mid_price)
         lowest_buy = mid_price * (Decimal("1") - step * self.config.n_buy_levels)
-        highest_sell = mid_price * (Decimal("1") + step * self.config.initial_sell_levels)
+        highest_sell = mid_price * (
+            Decimal("1") + step * self.config.initial_sell_levels
+        )
 
         return InfinityLadderGridState(
             entry_price=mid_price,
@@ -164,11 +173,15 @@ class InfinityLadderGridStrategy:
 
     def _quantize_price(self, price: Decimal) -> Decimal:
         """Round price to tick size."""
-        return (price / self.config.tick_size).quantize(Decimal("1"), rounding=ROUND_DOWN) * self.config.tick_size
+        return (price / self.config.tick_size).quantize(
+            Decimal("1"), rounding=ROUND_DOWN
+        ) * self.config.tick_size
 
     def _quantize_quantity(self, quantity: Decimal) -> Decimal:
         """Round quantity to step size."""
-        return (quantity / self.config.step_size).quantize(Decimal("1"), rounding=ROUND_DOWN) * self.config.step_size
+        return (quantity / self.config.step_size).quantize(
+            Decimal("1"), rounding=ROUND_DOWN
+        ) * self.config.step_size
 
     def _refresh_balances(self, now: float) -> None:
         """Refresh balance cache."""
@@ -178,7 +191,9 @@ class InfinityLadderGridStrategy:
         self._balances = balances
         self._last_balance_refresh = now
 
-    def _has_sufficient_balance(self, side: str, price: Decimal, quantity: Decimal) -> bool:
+    def _has_sufficient_balance(
+        self, side: str, price: Decimal, quantity: Decimal
+    ) -> bool:
         """Check if sufficient balance for order."""
         if not self._balances:
             return True
@@ -202,19 +217,31 @@ class InfinityLadderGridStrategy:
             base, quote = self._split_symbol(self.config.symbol)
             required_asset = quote if side.lower() == "buy" else base
             required_amount = price * quantity if side.lower() == "buy" else quantity
-            available = self._balances.get(required_asset, (Decimal("0"), Decimal("0")))[0] if self._balances else Decimal("0")
+            available = (
+                self._balances.get(required_asset, (Decimal("0"), Decimal("0")))[0]
+                if self._balances
+                else Decimal("0")
+            )
             LOGGER.warning(
                 "Insufficient balance to place %s order at %s. Required: %s %s, Available: %s %s. "
                 "Setting needs_rebalance=True or deposit more funds.",
-                side.upper(), price, required_amount, required_asset, available, required_asset
+                side.upper(),
+                price,
+                required_amount,
+                required_asset,
+                available,
+                required_asset,
             )
             self.state.needs_rebalance = True
             self._halt_placements = True
             return
 
         # Calculate opposing price (one step away in the opposite direction)
-        step = (self.config.step_pct if self.config.step_mode == "pct"
-                else self.config.step_abs / price)
+        step = (
+            self.config.step_pct
+            if self.config.step_mode == "pct"
+            else self.config.step_abs / price
+        )
         if side.lower() == "buy":
             # For buy orders, the opposing sell is one step up
             opposing_price = price * (Decimal("1") + step)
@@ -236,7 +263,7 @@ class InfinityLadderGridStrategy:
         if not is_valid:
             LOGGER.warning(
                 "Skipping unprofitable order: %s. Grid spacing may be too small.",
-                reason
+                reason,
             )
             return
 
@@ -259,7 +286,9 @@ class InfinityLadderGridStrategy:
             client_id=client_id,
             created_at=time.time(),
         )
-        LOGGER.info(f"Placed {side.upper()} order: {quantity} @ {price} (order_id={order_id})")
+        LOGGER.info(
+            f"Placed {side.upper()} order: {quantity} @ {price} (order_id={order_id})"
+        )
 
     def _build_buy_levels(self, mid_price: Decimal) -> list[tuple[str, Decimal]]:
         """Build buy levels below mid price down to lowest_buy_price."""
@@ -271,7 +300,9 @@ class InfinityLadderGridStrategy:
                 levels.append(("buy", price))
         return levels
 
-    def _build_initial_sell_levels(self, mid_price: Decimal) -> list[tuple[str, Decimal]]:
+    def _build_initial_sell_levels(
+        self, mid_price: Decimal
+    ) -> list[tuple[str, Decimal]]:
         """Build initial sell levels above mid price."""
         step = self._get_step_size(mid_price)
         levels = []
@@ -326,15 +357,29 @@ class InfinityLadderGridStrategy:
         sell_levels = self._build_initial_sell_levels(mid_price)
 
         base, quote = self._split_symbol(self.config.symbol)
-        base_balance = self._balances.get(base, (Decimal("0"), Decimal("0")))[0] if self._balances else Decimal("0")
-        quote_balance = self._balances.get(quote, (Decimal("0"), Decimal("0")))[0] if self._balances else Decimal("0")
+        base_balance = (
+            self._balances.get(base, (Decimal("0"), Decimal("0")))[0]
+            if self._balances
+            else Decimal("0")
+        )
+        quote_balance = (
+            self._balances.get(quote, (Decimal("0"), Decimal("0")))[0]
+            if self._balances
+            else Decimal("0")
+        )
 
         LOGGER.info(
             "Seeding infinity grid: entry=%s, %d buy levels (down to %s), %d initial sell levels (up to %s). "
             "Balances: %s %s, %s %s",
-            mid_price, len(buy_levels), self.state.lowest_buy_price,
-            len(sell_levels), self.state.highest_sell_price,
-            base_balance, base, quote_balance, quote
+            mid_price,
+            len(buy_levels),
+            self.state.lowest_buy_price,
+            len(sell_levels),
+            self.state.highest_sell_price,
+            base_balance,
+            base,
+            quote_balance,
+            quote,
         )
 
         # Place all orders
@@ -348,13 +393,16 @@ class InfinityLadderGridStrategy:
             LOGGER.warning(
                 "Only placed %d/%d orders. Insufficient balance. "
                 "Deposit more funds or enable startup_rebalance.",
-                orders_placed, total_levels
+                orders_placed,
+                total_levels,
             )
         else:
             LOGGER.info("✓ Successfully placed all %d orders", orders_placed)
 
         # Update highest sell price
-        sell_prices = [o.price for o in self.state.open_orders.values() if o.side == "sell"]
+        sell_prices = [
+            o.price for o in self.state.open_orders.values() if o.side == "sell"
+        ]
         if sell_prices:
             self.state.highest_sell_price = max(sell_prices)
 
@@ -368,7 +416,10 @@ class InfinityLadderGridStrategy:
             if status.status in ["filled", "closed"]:
                 LOGGER.info(
                     "Order filled: %s %s @ %s (order_id=%s)",
-                    order.side.upper(), order.quantity, order.price, order_id
+                    order.side.upper(),
+                    order.quantity,
+                    order.price,
+                    order_id,
                 )
                 filled.append((order_id, order))
 
@@ -376,7 +427,9 @@ class InfinityLadderGridStrategy:
                 if order.side == "sell":
                     profit = order.quantity * order.price
                     self.state.total_profit_quote += profit
-                    LOGGER.info(f"Profit from sell: {profit} (total: {self.state.total_profit_quote})")
+                    LOGGER.info(
+                        f"Profit from sell: {profit} (total: {self.state.total_profit_quote})"
+                    )
 
         # Remove filled orders
         for order_id, _ in filled:
@@ -395,7 +448,9 @@ class InfinityLadderGridStrategy:
                 # Buy filled - place SELL order one step above to take profit
                 new_sell_price = order.price * (Decimal("1") + step)
                 self._place_order("sell", new_sell_price, order.quantity)
-                LOGGER.info(f"Buy filled at {order.price}, placed sell at {new_sell_price}")
+                LOGGER.info(
+                    f"Buy filled at {order.price}, placed sell at {new_sell_price}"
+                )
             else:
                 # Sell filled - TWO actions:
                 # 1. Extend the ladder upward (no upper limit!)
@@ -405,15 +460,21 @@ class InfinityLadderGridStrategy:
                 # Update highest sell price
                 if new_sell_price > self.state.highest_sell_price:
                     self.state.highest_sell_price = new_sell_price
-                    LOGGER.info(f"Extended sell ladder to {new_sell_price} (no upper limit!)")
+                    LOGGER.info(
+                        f"Extended sell ladder to {new_sell_price} (no upper limit!)"
+                    )
 
                 # 2. Place buy order below to buy back (if above lower limit)
                 new_buy_price = order.price * (Decimal("1") - step)
                 if new_buy_price >= self.state.lowest_buy_price:
                     self._place_order("buy", new_buy_price, order.quantity)
-                    LOGGER.info(f"Sell filled at {order.price}, placed buy-back at {new_buy_price}")
+                    LOGGER.info(
+                        f"Sell filled at {order.price}, placed buy-back at {new_buy_price}"
+                    )
                 else:
-                    LOGGER.info(f"Sell filled at {order.price}, but {new_buy_price} below lower limit {self.state.lowest_buy_price}, no buy-back placed")
+                    LOGGER.info(
+                        f"Sell filled at {order.price}, but {new_buy_price} below lower limit {self.state.lowest_buy_price}, no buy-back placed"
+                    )
 
         self.save_state()
 

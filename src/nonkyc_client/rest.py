@@ -160,7 +160,7 @@ class RestClient:
         body = dict(request.body or {})
         headers = {
             "Accept": "application/json",
-            "User-Agent": "Mozilla/5.0 (compatible; nonkyc-bot/1.0)"
+            "User-Agent": "Mozilla/5.0 (compatible; nonkyc-bot/1.0)",
         }
 
         if request.method.upper() == "GET" and params:
