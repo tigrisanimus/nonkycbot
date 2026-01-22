@@ -35,9 +35,9 @@ step_mode: "pct"                 # "pct" for percentage or "abs" for absolute pr
 step_pct: "0.01"                 # 1% spacing between grid levels
 # step_abs: "500"                # Alternative: absolute price spacing (if step_mode="abs")
 
-n_buy_levels: 10                 # Number of buy orders below entry (lower limit)
-initial_sell_levels: 10          # Initial sell orders above entry (more added as price rises!)
-base_order_size: "0.001"         # Amount of base asset (BTC) per order
+n_buy_levels: 5                  # Number of buy orders below entry (lower limit)
+initial_sell_levels: 5           # Initial sell orders above entry (more added as price rises!)
+base_order_size: "0.0001"        # Amount of base asset (BTC) per order (~$9 at BTC=$90k)
 
 # Minimum order size (exchange requirement)
 min_notional_quote: "1.0"        # Minimum order value in quote currency
