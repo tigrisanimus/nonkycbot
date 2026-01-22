@@ -158,7 +158,10 @@ class RestClient:
         url = base_url
         params = dict(request.params or {})
         body = dict(request.body or {})
-        headers = {"Accept": "application/json"}
+        headers = {
+            "Accept": "application/json",
+            "User-Agent": "Mozilla/5.0 (compatible; nonkyc-bot/1.0)"
+        }
 
         if request.method.upper() == "GET" and params:
             url = f"{url}?{self.signer.serialize_query(params)}"
