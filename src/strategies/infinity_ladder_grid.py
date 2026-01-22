@@ -365,7 +365,7 @@ class InfinityLadderGridStrategy:
         """Check for filled orders and refill the grid."""
         filled = []
         for order_id, order in list(self.state.open_orders.items()):
-            status = self.client.get_order_status(order_id)
+            status = self.client.get_order(order_id)
             if status.status in ["filled", "closed"]:
                 LOGGER.info(
                     "Order filled: %s %s @ %s (order_id=%s)",
