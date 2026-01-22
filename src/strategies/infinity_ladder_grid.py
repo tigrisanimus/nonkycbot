@@ -393,10 +393,13 @@ class InfinityLadderGridStrategy:
 
         for order_id, order in filled:
             if order.side == "buy":
-                # Buy filled - place new buy at same level
-                self._place_order("buy", order.price, self.config.base_order_size)
+                # Buy filled - place SELL order one step above to take profit
+                new_sell_price = order.price * (Decimal("1") + step)
+                self._place_order("sell", new_sell_price, order.quantity)
+                LOGGER.info(f"Buy filled at {order.price}, placed sell at {new_sell_price}")
             else:
-                # Sell filled - extend the ladder upward!
+                # Sell filled - TWO actions:
+                # 1. Extend the ladder upward (no upper limit!)
                 new_sell_price = self.state.highest_sell_price * (Decimal("1") + step)
                 self._place_order("sell", new_sell_price, self.config.base_order_size)
 
@@ -404,6 +407,14 @@ class InfinityLadderGridStrategy:
                 if new_sell_price > self.state.highest_sell_price:
                     self.state.highest_sell_price = new_sell_price
                     LOGGER.info(f"Extended sell ladder to {new_sell_price} (no upper limit!)")
+
+                # 2. Place buy order below to buy back (if above lower limit)
+                new_buy_price = order.price * (Decimal("1") - step)
+                if new_buy_price >= self.state.lowest_buy_price:
+                    self._place_order("buy", new_buy_price, order.quantity)
+                    LOGGER.info(f"Sell filled at {order.price}, placed buy-back at {new_buy_price}")
+                else:
+                    LOGGER.info(f"Sell filled at {order.price}, but {new_buy_price} below lower limit {self.state.lowest_buy_price}, no buy-back placed")
 
         self.save_state()
 

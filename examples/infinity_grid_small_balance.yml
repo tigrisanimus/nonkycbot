@@ -1,0 +1,62 @@
+# Infinity Grid - Optimized for Small Balance
+# Example balance: 0.00036516 BTC + $33 USDT
+#
+# This config is designed for balances under $100 total.
+# Adjust base_order_size based on your actual balance.
+
+base_url: "https://api.nonkyc.io/api/v2"
+
+# Trading pair
+symbol: "BTC_USDT"
+
+# Grid configuration
+step_mode: "pct"
+step_pct: "0.02"                 # 2% spacing (wider for small balance)
+
+# Order levels (fewer for small balance)
+n_buy_levels: 3                  # 3 buy orders below price
+initial_sell_levels: 6           # 6 sell orders above price (use more of your BTC)
+
+# IMPORTANT: Adjust this based on YOUR balance!
+# Formula: min(BTC_balance / sell_levels, USDT_balance / buy_levels / BTC_price)
+# For 0.00036 BTC + $33 USDT at BTC=$90k:
+#   - BTC per sell: 0.00036 / 6 = 0.00006
+#   - BTC per buy: 33 / 3 / 90000 = 0.00012
+#   - Use smaller: 0.00006 BTC (~$5.40 per order)
+base_order_size: "0.00006"
+
+# Exchange requirements
+min_notional_quote: "1.0"        # $1 minimum
+total_fee_rate: "0.002"          # 0.2% total fees
+fee_buffer_pct: "0.0001"         # 0.01% buffer
+
+# Market precision (BTC/USDT)
+tick_size: "0.01"                # Price: 2 decimals ($90,000.00)
+step_size: "0.00000001"          # Quantity: 8 decimals (0.00000001 BTC)
+
+# Polling
+poll_interval_sec: 60
+reconcile_interval_sec: 60
+balance_refresh_sec: 60
+
+# REST API
+rest_timeout_sec: 30.0
+rest_retries: 3
+
+# State file
+state_path: "infinity_grid_small_state.json"
+
+# USAGE:
+# 1. Verify credentials are set:
+#    export NONKYC_API_KEY="your_key"
+#    export NONKYC_API_SECRET="your_secret"
+#
+# 2. Run the bot:
+#    python run_infinity_grid.py examples/infinity_grid_small_balance.yml
+#
+# EXPECTED BEHAVIOR:
+# - Bot places 3 buy orders (~$16 USDT total)
+# - Bot places 6 sell orders (~0.00036 BTC total)
+# - When buy fills → places sell above
+# - When sell fills → extends ladder upward + places buy back
+# - Sell ladder grows infinitely as price rises!

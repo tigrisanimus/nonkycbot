@@ -1,0 +1,69 @@
+# Infinity Grid - TIGHTEST POSSIBLE SPACING
+# Optimized for: 0.00036 BTC + $33 USDT
+#
+# This config uses the minimum profitable spacing (0.5%)
+# with maximum number of grid levels your balance can support.
+#
+# WARNING: More levels = more API calls = higher chance of hitting rate limits
+# Recommended to start with fewer levels and increase gradually.
+
+base_url: "https://api.nonkyc.io/api/v2"
+
+symbol: "BTC_USDT"
+
+# TIGHTEST PROFITABLE SPACING
+step_mode: "pct"
+step_pct: "0.005"                # 0.5% spacing (just above 0.42% minimum)
+
+# MAXIMUM LEVELS (based on min $1 notional)
+# With 0.00036 BTC, you can fit ~33 sell orders at $1 each
+# With $33 USDT, you can fit ~33 buy orders at $1 each
+n_buy_levels: 15                 # 15 buys (using ~$15 USDT)
+initial_sell_levels: 20          # 20 sells (using ~0.00022 BTC)
+
+# MINIMUM ORDER SIZE (just above $1 notional)
+# At BTC=$90k: 0.000012 BTC = $1.08
+base_order_size: "0.000012"      # ~$1.08 per order
+
+# Exchange requirements
+min_notional_quote: "1.0"
+total_fee_rate: "0.002"          # 0.2% fees
+fee_buffer_pct: "0.0001"         # 0.01% buffer
+
+# Market precision
+tick_size: "0.01"
+step_size: "0.00000001"
+
+# Polling (more frequent for tight grid)
+poll_interval_sec: 30            # Check every 30 seconds (tighter = more fills)
+reconcile_interval_sec: 30       # Reconcile every 30 seconds
+balance_refresh_sec: 30
+
+# REST API
+rest_timeout_sec: 30.0
+rest_retries: 3
+
+# State
+state_path: "infinity_grid_tight_state.json"
+
+# WHAT TO EXPECT:
+# - 15 buy orders from $90k down to ~$83,500 (0.5% steps)
+# - 20 sell orders from $90k up to ~$99,400 (0.5% steps)
+# - Each order ~$1.08 (minimum size)
+# - Orders fill FREQUENTLY (tight grid = more action!)
+# - Profit per cycle: ~$0.005 (0.5% of $1.08)
+#
+# PROS:
+# - Maximum number of profit opportunities
+# - Catches small price movements
+# - More frequent fills = compounding faster
+#
+# CONS:
+# - More API calls (watch rate limits!)
+# - More gas fees (exchange fees per order)
+# - Requires more monitoring
+# - Small profit per trade (but many trades!)
+#
+# RECOMMENDATION:
+# Start with this for a day and see how it performs.
+# If too many orders/fills, increase step_pct to 0.01 (1%).
