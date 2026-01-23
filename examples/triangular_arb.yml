@@ -9,7 +9,7 @@
 #    DO NOT edit api_key/api_secret below - leave them commented out!
 #
 # 2. Run the bot in monitor mode first to check for opportunities:
-#    python run_arb_bot.py examples/arb_usdt_eth_btc.yml
+#    python run_arb_bot.py examples/triangular_arb.yml
 #
 # 3. When ready to trade, set mode to "live" in this config
 #

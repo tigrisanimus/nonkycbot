@@ -412,19 +412,41 @@ class InfinityLadderGridStrategy:
         """Check for filled orders and refill the grid."""
         filled = []
         for order_id, order in list(self.state.open_orders.items()):
-            try:
-                status = self.client.get_order(order_id)
-            except TransientApiError as exc:
-                LOGGER.warning(
-                    "Transient error fetching order %s; skipping update: %s",
-                    order_id,
-                    exc,
-                )
-                continue
-            except Exception as exc:
-                LOGGER.warning(
-                    "Error fetching order %s; skipping update: %s", order_id, exc
-                )
+            # Retry order fetch with exponential backoff on transient errors
+            status = None
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    status = self.client.get_order(order_id)
+                    break  # Success
+                except TransientApiError as exc:
+                    if attempt < max_retries - 1:
+                        backoff = self.config.fetch_backoff_sec * (2 ** attempt)
+                        LOGGER.debug(
+                            "Transient error fetching order %s (attempt %d/%d), "
+                            "retrying in %.1fs: %s",
+                            order_id,
+                            attempt + 1,
+                            max_retries,
+                            backoff,
+                            exc,
+                        )
+                        time.sleep(backoff)
+                    else:
+                        LOGGER.warning(
+                            "Transient error fetching order %s after %d attempts; "
+                            "skipping update: %s",
+                            order_id,
+                            max_retries,
+                            exc,
+                        )
+                except Exception as exc:
+                    LOGGER.warning(
+                        "Error fetching order %s; skipping update: %s", order_id, exc
+                    )
+                    break
+
+            if status is None:
                 continue
 
             if status.status in ["filled", "closed"]:
