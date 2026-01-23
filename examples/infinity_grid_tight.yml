@@ -17,7 +17,7 @@
 # - WARNING: More levels = more API calls = higher chance of hitting rate limits
 # - Recommended to start with fewer levels and increase gradually
 
-base_url: "https://api.nonkyc.io/api/v2"
+base_url: "https://api.nonkyc.io"
 
 # API credentials - DO NOT EDIT! Use keychain storage instead (see above)
 # api_key: "${NONKYC_API_KEY}"      # Loaded from keychain automatically

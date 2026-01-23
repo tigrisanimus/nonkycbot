@@ -20,7 +20,7 @@
 # - Works with order book pairs only (not liquidity pools)
 
 # Exchange settings
-base_url: "https://api.nonkyc.io/api/v2"
+base_url: "https://api.nonkyc.io"
 
 # API credentials - DO NOT EDIT! Use keychain storage instead (see above)
 # api_key: "${NONKYC_API_KEY}"      # Loaded from keychain automatically

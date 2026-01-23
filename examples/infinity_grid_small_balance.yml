@@ -16,7 +16,7 @@
 # - Uses fewer grid levels and wider spacing for small accounts
 # - Adjust base_order_size based on your actual balance
 
-base_url: "https://api.nonkyc.io/api/v2"
+base_url: "https://api.nonkyc.io"
 
 # API credentials - DO NOT EDIT! Use keychain storage instead (see above)
 # api_key: "${NONKYC_API_KEY}"      # Loaded from keychain automatically
