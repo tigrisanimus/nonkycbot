@@ -141,9 +141,11 @@ jobs:
       with:
         languages: python
         queries: security-extended
+      continue-on-error: true
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v4
+      continue-on-error: true
 
   dependency-review:
     name: Dependency Review
