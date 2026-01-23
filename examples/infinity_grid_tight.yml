@@ -1,13 +1,27 @@
 # Infinity Grid - TIGHTEST POSSIBLE SPACING
-# Optimized for: 0.00036 BTC + $33 USDT
+# Grid trading with no upper limit - optimized for tight spacing and maximum levels
 #
-# This config uses the minimum profitable spacing (0.5%)
-# with maximum number of grid levels your balance can support.
+# HOW TO USE:
+# 1. Store your API credentials securely in the OS keychain (RECOMMENDED):
+#    python nonkyc_store_credentials.py --api-key "your_key" --api-secret "your_secret"
 #
-# WARNING: More levels = more API calls = higher chance of hitting rate limits
-# Recommended to start with fewer levels and increase gradually.
+#    The bot will automatically load credentials from the keychain.
+#    DO NOT edit api_key/api_secret below - leave them commented out!
+#
+# 2. Run the bot:
+#    python run_infinity_grid.py examples/infinity_grid_tight.yml
+#
+# WHAT THIS BOT DOES:
+# - Uses the minimum profitable spacing (0.5%) for maximum trading opportunities
+# - Places more grid levels to catch small price movements
+# - WARNING: More levels = more API calls = higher chance of hitting rate limits
+# - Recommended to start with fewer levels and increase gradually
 
-base_url: "https://api.nonkyc.io/api/v2"
+base_url: "https://api.nonkyc.io"
+
+# API credentials - DO NOT EDIT! Use keychain storage instead (see above)
+# api_key: "${NONKYC_API_KEY}"      # Loaded from keychain automatically
+# api_secret: "${NONKYC_API_SECRET}" # Loaded from keychain automatically
 
 symbol: "BTC_USDT"
 

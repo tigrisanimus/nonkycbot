@@ -1,10 +1,26 @@
 # Infinity Grid - Optimized for Small Balance
-# Example balance: 0.00036516 BTC + $33 USDT
+# Grid trading with no upper limit - optimized for balances under $100
 #
-# This config is designed for balances under $100 total.
-# Adjust base_order_size based on your actual balance.
+# HOW TO USE:
+# 1. Store your API credentials securely in the OS keychain (RECOMMENDED):
+#    python nonkyc_store_credentials.py --api-key "your_key" --api-secret "your_secret"
+#
+#    The bot will automatically load credentials from the keychain.
+#    DO NOT edit api_key/api_secret below - leave them commented out!
+#
+# 2. Run the bot:
+#    python run_infinity_grid.py examples/infinity_grid_small_balance.yml
+#
+# WHAT THIS BOT DOES:
+# - Designed for balances under $100 total
+# - Uses fewer grid levels and wider spacing for small accounts
+# - Adjust base_order_size based on your actual balance
 
-base_url: "https://api.nonkyc.io/api/v2"
+base_url: "https://api.nonkyc.io"
+
+# API credentials - DO NOT EDIT! Use keychain storage instead (see above)
+# api_key: "${NONKYC_API_KEY}"      # Loaded from keychain automatically
+# api_secret: "${NONKYC_API_SECRET}" # Loaded from keychain automatically
 
 # Trading pair
 symbol: "BTC_USDT"
@@ -46,14 +62,6 @@ rest_retries: 3
 # State file
 state_path: "infinity_grid_small_state.json"
 
-# USAGE:
-# 1. Verify credentials are set:
-#    export NONKYC_API_KEY="your_key"
-#    export NONKYC_API_SECRET="your_secret"
-#
-# 2. Run the bot:
-#    python run_infinity_grid.py examples/infinity_grid_small_balance.yml
-#
 # EXPECTED BEHAVIOR:
 # - Bot places 3 buy orders (~$16 USDT total)
 # - Bot places 6 sell orders (~0.00036 BTC total)

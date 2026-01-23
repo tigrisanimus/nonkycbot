@@ -9,7 +9,7 @@
 #    DO NOT edit api_key/api_secret below - leave them commented out!
 #
 # 2. Run the bot:
-#    python run_grid.py examples/grid_cosa_pirate.yml
+#    python run_grid.py examples/grid.yml
 #
 # WHAT THIS BOT DOES:
 # - Places buy orders below current price and sell orders above
@@ -18,23 +18,23 @@
 # - Requires balanced inventory (both base and quote assets)
 
 # Exchange settings
-base_url: "https://api.nonkyc.io/api/v2"
+base_url: "https://api.nonkyc.io"
 
 # API credentials - DO NOT EDIT! Use keychain storage instead (see above)
 # api_key: "${NONKYC_API_KEY}"      # Loaded from keychain automatically
 # api_secret: "${NONKYC_API_SECRET}" # Loaded from keychain automatically
 
 # Trading pair (NonKYC uses UNDERSCORE format, not slashes!)
-symbol: "COSA_USDT"
+symbol: "ETH_USDT"
 
 # Grid configuration
 step_pct: "0.01"                 # 1% spread between grid levels
 n_buy_levels: 10                 # Number of buy orders below mid price
 n_sell_levels: 10                # Number of sell orders above mid price
-base_order_size: "1000"          # Amount of base asset (COSA) per order
+base_order_size: "0.01"          # Amount of base asset (ETH) per order (~$35 at ETH=$3500)
 
 # Minimum order size (exchange requirement)
-min_notional_quote: "1.05"       # Minimum order value in USDT
+min_notional_quote: "1.0"        # Minimum order value in USDT
 
 # Fee configuration
 total_fee_rate: "0.002"          # 0.2% total fee (maker + taker)
