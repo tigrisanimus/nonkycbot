@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import socket
 from typing import Any
 from unittest.mock import patch
 from urllib.error import URLError
@@ -59,7 +60,7 @@ def test_rest_get_signing_and_request_formation() -> None:
     assert request.full_url == "https://api.example/balances?limit=1"
     assert request.data is None
 
-    nonce = str(int(1700000000.0 * 1e3))
+    nonce = str(int(1700000000.0 * 1e4))
     data_to_sign = "https://api.example/balances?limit=1"
     message = f"{credentials.api_key}{data_to_sign}{nonce}"
     expected_signature = _expected_signature(message, credentials.api_secret)
@@ -113,7 +114,7 @@ def test_rest_post_signing_and_body_payload() -> None:
         "strictValidate": True,
     }
 
-    nonce = str(int(1700000100.0 * 1e3))
+    nonce = str(int(1700000100.0 * 1e4))
     data_to_sign = "https://api.example/createorder" + json.dumps(
         body, separators=(",", ":")
     )
@@ -155,7 +156,7 @@ def test_rest_createorder_signature_string_matches_known_good_format() -> None:
     body = order.to_payload()
     json_str = json.dumps(body, separators=(",", ":"))
     data_to_sign = "https://api.example/createorder" + json_str
-    nonce = str(int(1700000150.0 * 1e3))
+    nonce = str(int(1700000150.0 * 1e4))
     message = f"{credentials.api_key}{data_to_sign}{nonce}"
     expected_signature = _expected_signature(message, credentials.api_secret)
 
@@ -193,7 +194,7 @@ def test_rest_createorder_signature_matches_request_payload() -> None:
 
     assert request_payload == expected_payload
 
-    nonce = str(int(1700000250.0 * 1e3))
+    nonce = str(int(1700000250.0 * 1e4))
     data_to_sign = f"https://api.example/createorder{request_payload}"
     message = f"{credentials.api_key}{data_to_sign}{nonce}"
     expected_signature = _expected_signature(message, credentials.api_secret)
@@ -284,6 +285,34 @@ def test_rest_send_retries_on_transient_url_error() -> None:
     assert sleep_calls == [0.5]
 
 
+def test_rest_send_retries_on_timeout_error() -> None:
+    client = RestClient(
+        base_url="https://api.example", timeout=1.0, max_retries=2, backoff_factor=0.5
+    )
+    call_count = {"count": 0}
+    sleep_calls: list[float] = []
+
+    def fake_urlopen(request, timeout=10.0, context=None):
+        call_count["count"] += 1
+        if call_count["count"] == 1:
+            raise socket.timeout("read timed out")
+        return FakeResponse({"data": {"ok": True}})
+
+    def fake_sleep(duration: float) -> None:
+        sleep_calls.append(duration)
+
+    with (
+        patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen),
+        patch("nonkyc_client.rest.time.sleep", side_effect=fake_sleep),
+        patch("nonkyc_client.rest.random.uniform", return_value=0.0),
+    ):
+        response = client.send(RestRequest(method="GET", path="/ping"))
+
+    assert response["data"]["ok"] is True
+    assert call_count["count"] == 2
+    assert sleep_calls == [0.5]
+
+
 def test_rest_signing_defaults_to_absolute_url() -> None:
     credentials = ApiCredentials(api_key="full-url-key", api_secret="full-url-secret")
     signer = AuthSigner(time_provider=lambda: 1700000200.0)
@@ -306,7 +335,7 @@ def test_rest_signing_defaults_to_absolute_url() -> None:
     assert request.full_url == "https://api.example/balances?limit=1"
     assert request.data is None
 
-    nonce = str(int(1700000200.0 * 1e3))
+    nonce = str(int(1700000200.0 * 1e4))
     data_to_sign = "https://api.example/balances?limit=1"
     message = f"{credentials.api_key}{data_to_sign}{nonce}"
     expected_signature = _expected_signature(message, credentials.api_secret)
@@ -342,7 +371,7 @@ def test_rest_signing_can_opt_out_of_absolute_url() -> None:
     assert request.full_url == "https://api.example/balances?limit=1"
     assert request.data is None
 
-    nonce = str(int(1700000300.0 * 1e3))
+    nonce = str(int(1700000300.0 * 1e4))
     data_to_sign = "/balances?limit=1"
     message = f"{credentials.api_key}{data_to_sign}{nonce}"
     expected_signature = _expected_signature(message, credentials.api_secret)
@@ -438,7 +467,7 @@ def test_cancel_all_orders_v1_signs_full_url_with_query() -> None:
     )
     assert request.full_url == expected_url
 
-    nonce = str(int(1700000500.0 * 1e3))  # Correct multiplier for milliseconds
+    nonce = str(int(1700000500.0 * 1e4))  # Correct multiplier for NonKYC nonce
     message = f"{credentials.api_key}{expected_url}{nonce}"
     expected_signature = _expected_signature(message, credentials.api_secret)
 

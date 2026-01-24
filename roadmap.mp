@@ -20,6 +20,7 @@
 - [x] Use documented limit field for order book subscriptions.
 - [x] Re-enable balances subscription for account updates in WS client.
 - [x] Align REST signing defaults with NonKYC nonce precision and payload ordering.
+- [x] Align NonKYC nonce multiplier defaults with Hummingbot reference signing.
 - [x] Honor absolute URL signing configuration in REST client.
 - [x] Standardize cancel-all orders handling with response validation and symbol formatting.
 - [x] Auto-refresh bot orders at most every 30 minutes.
@@ -43,6 +44,7 @@
 - [x] Refresh ladder grid balances before seeding and halt cycles on insufficient funds errors.
 - [x] Skip ladder grid updates on transient order fetch errors.
 - [x] Support ladder REST timeout/retry config and test transient REST retry behavior.
+- [x] Retry REST and async REST calls on network timeouts.
 - [x] Add ladder grid startup rebalance with market/limit fallback and tests.
 - [x] Halt ladder seeding on startup rebalance failures and surface manual guidance.
 - [x] Validate ladder grid spacing against total fee rate and document configuration.

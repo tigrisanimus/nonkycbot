@@ -7,6 +7,7 @@ import logging
 import os
 import random
 import re
+import socket
 import ssl
 import time
 from dataclasses import dataclass
@@ -227,6 +228,8 @@ class RestClient:
                 raise TransientApiError(f"Transient HTTP error {exc.code}") from exc
             payload = exc.read().decode("utf8") if exc.fp else ""
             raise RestError(self._build_http_error_message(exc.code, payload)) from exc
+        except (TimeoutError, socket.timeout) as exc:
+            raise TransientApiError("Network timeout while contacting API") from exc
         except URLError as exc:
             raise TransientApiError("Network error while contacting API") from exc
 
@@ -426,7 +429,7 @@ class RestClient:
         headers = {"Accept": "application/json"}
         signed: SignedHeaders | None = None
         if self.credentials is not None:
-            nonce = self.signer.generate_nonce()  # Use configured multiplier (1e3)
+            nonce = self.signer.generate_nonce()  # Use configured multiplier (1e4)
             signed = self.signer.build_headers_for_message(
                 credentials=self.credentials,
                 data_to_sign=url,

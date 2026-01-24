@@ -230,6 +230,10 @@ class AsyncRestClient:
                     raise AsyncRestError(
                         self._build_http_error_message(response.status, payload)
                     )
+        except asyncio.TimeoutError as exc:
+            raise AsyncTransientApiError(
+                "Network timeout while contacting API"
+            ) from exc
         except aiohttp.ClientError as exc:
             raise AsyncTransientApiError("Network error while contacting API") from exc
 
