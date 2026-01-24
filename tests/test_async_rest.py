@@ -93,7 +93,7 @@ async def test_async_rest_get_signing_and_request_formation() -> None:
     request = session.requests[0]
     assert request["url"] == "https://api.example/balances?limit=1"
 
-    nonce = str(int(1700000000.0 * 1e3))
+    nonce = str(int(1700000000.0 * 1e4))
     data_to_sign = "https://api.example/balances?limit=1"
     message = f"{credentials.api_key}{data_to_sign}{nonce}"
     expected_signature = _expected_signature(message, credentials.api_secret)
@@ -132,7 +132,7 @@ async def test_async_rest_post_signing_and_body_payload() -> None:
     body = json.loads(request["data"].decode("utf8"))
     assert body["symbol"] == "BTC/USD"
 
-    nonce = str(int(1700000100.0 * 1e3))
+    nonce = str(int(1700000100.0 * 1e4))
     expected_payload = json.dumps(body, separators=(",", ":"))
     # URL should match base_url + path (no extra /api/v2 since base_url is just "https://api.example")
     data_to_sign = "https://api.example/createorder" + expected_payload

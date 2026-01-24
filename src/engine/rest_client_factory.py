@@ -27,7 +27,7 @@ def build_rest_client(config: dict[str, Any]) -> RestClient:
         config: Configuration dict containing:
             - sign_requests: bool (default: True) - Enable signing
             - base_url: str (default: "https://api.nonkyc.io/api/v2")
-            - nonce_multiplier: float (default: 1e3) - 13-digit nonce (REQUIRED)
+            - nonce_multiplier: float (default: 1e4) - 14-digit nonce (REQUIRED)
             - sign_absolute_url: bool (default: True) - Sign full URL (REQUIRED)
             - sort_params: bool (default: False) - Sort query params
             - sort_body: bool (default: False) - Sort body params
@@ -43,7 +43,7 @@ def build_rest_client(config: dict[str, Any]) -> RestClient:
     Example:
         >>> config = {
         ...     "base_url": "https://api.nonkyc.io/api/v2",
-        ...     "nonce_multiplier": 1e3,
+        ...     "nonce_multiplier": 1e4,
         ...     "sign_absolute_url": True,
         ... }
         >>> client = build_rest_client(config)
@@ -56,7 +56,7 @@ def build_rest_client(config: dict[str, Any]) -> RestClient:
 
     # CRITICAL: NonKYC requires these exact settings
     # DO NOT CHANGE without testing with debug_auth.py first!
-    nonce_multiplier = config.get("nonce_multiplier", 1e3)  # 13 digits
+    nonce_multiplier = config.get("nonce_multiplier", 1e4)  # 14 digits
     sign_absolute_url = config.get("sign_absolute_url", True)  # Full URL signing
     sort_params = config.get("sort_params", False)
     sort_body = config.get("sort_body", False)

@@ -20,6 +20,7 @@
 - [x] Use documented limit field for order book subscriptions.
 - [x] Re-enable balances subscription for account updates in WS client.
 - [x] Align REST signing defaults with NonKYC nonce precision and payload ordering.
+- [x] Align NonKYC nonce multiplier defaults with Hummingbot reference signing.
 - [x] Honor absolute URL signing configuration in REST client.
 - [x] Standardize cancel-all orders handling with response validation and symbol formatting.
 - [x] Auto-refresh bot orders at most every 30 minutes.

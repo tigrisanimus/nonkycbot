@@ -36,7 +36,7 @@ class AuthSigner:
         self,
         time_provider: Callable[[], float] | None = None,
         *,
-        nonce_multiplier: float = 1e3,
+        nonce_multiplier: float = 1e4,
         sort_params: bool = False,
         sort_body: bool = False,
     ) -> None:

@@ -426,7 +426,7 @@ class RestClient:
         headers = {"Accept": "application/json"}
         signed: SignedHeaders | None = None
         if self.credentials is not None:
-            nonce = self.signer.generate_nonce()  # Use configured multiplier (1e3)
+            nonce = self.signer.generate_nonce()  # Use configured multiplier (1e4)
             signed = self.signer.build_headers_for_message(
                 credentials=self.credentials,
                 data_to_sign=url,
