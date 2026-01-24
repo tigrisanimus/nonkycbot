@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import http.client
 import json
 import logging
 import os
@@ -230,6 +231,14 @@ class RestClient:
             raise RestError(self._build_http_error_message(exc.code, payload)) from exc
         except (TimeoutError, socket.timeout) as exc:
             raise TransientApiError("Network timeout while contacting API") from exc
+        except (
+            http.client.RemoteDisconnected,
+            ConnectionResetError,
+            BrokenPipeError,
+        ) as exc:
+            raise TransientApiError(
+                "Network connection dropped while contacting API"
+            ) from exc
         except URLError as exc:
             raise TransientApiError("Network error while contacting API") from exc
 
@@ -556,7 +565,7 @@ class RestClient:
             f"/ticker/{symbol}",  # Fallback to ticker endpoint
         ]
 
-        last_error = None
+        last_error: Exception | None = None
         for endpoint in endpoints:
             try:
                 response = self.send(RestRequest(method="GET", path=endpoint))
@@ -653,7 +662,7 @@ class RestClient:
             "/pool/calculate",
         ]
 
-        last_error = None
+        last_error: Exception | None = None
         for endpoint in endpoints:
             try:
                 response = self.send(
@@ -725,7 +734,7 @@ class RestClient:
             "/pool/trade",
         ]
 
-        last_error = None
+        last_error: Exception | None = None
         for endpoint in endpoints:
             try:
                 response = self.send(

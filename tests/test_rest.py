@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import http.client
 import json
 import socket
-from typing import Any
+from typing import Any, Literal
 from unittest.mock import patch
 from urllib.error import URLError
 
@@ -27,7 +28,7 @@ class FakeResponse:
     def __enter__(self) -> "FakeResponse":
         return self
 
-    def __exit__(self, exc_type, exc, tb) -> bool:
+    def __exit__(self, exc_type, exc, tb) -> Literal[False]:
         return False
 
 
@@ -296,6 +297,36 @@ def test_rest_send_retries_on_timeout_error() -> None:
         call_count["count"] += 1
         if call_count["count"] == 1:
             raise socket.timeout("read timed out")
+        return FakeResponse({"data": {"ok": True}})
+
+    def fake_sleep(duration: float) -> None:
+        sleep_calls.append(duration)
+
+    with (
+        patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen),
+        patch("nonkyc_client.rest.time.sleep", side_effect=fake_sleep),
+        patch("nonkyc_client.rest.random.uniform", return_value=0.0),
+    ):
+        response = client.send(RestRequest(method="GET", path="/ping"))
+
+    assert response["data"]["ok"] is True
+    assert call_count["count"] == 2
+    assert sleep_calls == [0.5]
+
+
+def test_rest_send_retries_on_remote_disconnected() -> None:
+    client = RestClient(
+        base_url="https://api.example", timeout=1.0, max_retries=2, backoff_factor=0.5
+    )
+    call_count = {"count": 0}
+    sleep_calls: list[float] = []
+
+    def fake_urlopen(request, timeout=10.0, context=None):
+        call_count["count"] += 1
+        if call_count["count"] == 1:
+            raise http.client.RemoteDisconnected(
+                "Remote end closed connection without response"
+            )
         return FakeResponse({"data": {"ok": True}})
 
     def fake_sleep(duration: float) -> None:
