@@ -44,6 +44,7 @@
 - [x] Refresh ladder grid balances before seeding and halt cycles on insufficient funds errors.
 - [x] Skip ladder grid updates on transient order fetch errors.
 - [x] Support ladder REST timeout/retry config and test transient REST retry behavior.
+- [x] Retry REST and async REST calls on network timeouts.
 - [x] Add ladder grid startup rebalance with market/limit fallback and tests.
 - [x] Halt ladder seeding on startup rebalance failures and surface manual guidance.
 - [x] Validate ladder grid spacing against total fee rate and document configuration.

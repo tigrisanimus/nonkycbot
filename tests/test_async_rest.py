@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import json
@@ -156,6 +157,57 @@ async def test_async_rest_rate_limit_raises_retry_after() -> None:
         await client.send(AsyncRestRequest(method="GET", path="/ping"))
 
     assert excinfo.value.retry_after == 1.5
+
+
+@pytest.mark.asyncio
+async def test_async_rest_retries_on_timeout() -> None:
+    credentials = ApiCredentials(api_key="timeout-key", api_secret="timeout-secret")
+    signer = AuthSigner(time_provider=lambda: 1700000000.0)
+    call_count = {"count": 0}
+
+    class TimeoutSession:
+        def __init__(self) -> None:
+            self.requests: list[dict[str, Any]] = []
+
+        def request(
+            self,
+            method: str,
+            url: str,
+            headers: dict[str, str] | None = None,
+            data: bytes | None = None,
+            timeout: Any | None = None,
+        ) -> FakeResponse:
+            self.requests.append(
+                {
+                    "method": method,
+                    "url": url,
+                    "headers": headers or {},
+                    "data": data,
+                    "timeout": timeout,
+                }
+            )
+            call_count["count"] += 1
+            if call_count["count"] == 1:
+                raise asyncio.TimeoutError()
+            return FakeResponse(200, {"data": {"ok": True}})
+
+        async def close(self) -> None:
+            return None
+
+    session = TimeoutSession()
+    client = AsyncRestClient(
+        base_url="https://api.example",
+        credentials=credentials,
+        signer=signer,
+        session=session,
+        max_retries=1,
+        backoff_factor=0.0,
+    )
+
+    response = await client.send(AsyncRestRequest(method="GET", path="/ping"))
+
+    assert response["data"]["ok"] is True
+    assert call_count["count"] == 2
 
 
 @pytest.mark.asyncio
