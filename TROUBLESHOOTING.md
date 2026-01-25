@@ -195,7 +195,7 @@ See `GRID_STRATEGIES_EXPLAINED.md` for full details.
 ### Test Authentication
 ```bash
 # Quick test
-python test_auth.py
+python scripts/auth_check.py
 
 # Comprehensive test (all signing variations)
 python debug_auth.py
@@ -208,7 +208,7 @@ python check_grid_balances.py examples/grid_cosa_pirate.yml
 
 ### Test Symbol Formats
 ```bash
-python test_symbol_formats.py
+python scripts/symbol_format_check.py
 ```
 
 ### Dry Run Mode
@@ -282,10 +282,10 @@ export NONKYC_API_SECRET="your_secret"
 4. `SOLUTION_SUMMARY.md` - Recent fixes
 
 ### Debug Tools
-- `test_auth.py` - Test authentication
+- `scripts/auth_check.py` - Test authentication
 - `debug_auth.py` - Comprehensive auth testing
 - `check_grid_balances.py` - Balance diagnostics
-- `test_symbol_formats.py` - Symbol format testing
+- `scripts/symbol_format_check.py` - Symbol format testing
 
 ### Enable Debug Output
 ```yaml
@@ -304,7 +304,7 @@ python run_grid.py config.yml
 ## Quick Checklist
 
 Before starting any bot:
-- [ ] Credentials set and tested (`python test_auth.py`)
+- [ ] Credentials set and tested (`python scripts/auth_check.py`)
 - [ ] IP whitelisted on NonKYC
 - [ ] Balance sufficient (`python check_grid_balances.py`)
 - [ ] Symbol format correct (use underscore: `COSA_USDT`)

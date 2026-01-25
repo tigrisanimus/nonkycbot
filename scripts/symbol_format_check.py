@@ -22,9 +22,9 @@ if not api_key or not api_secret:
     print("\nTo run this test, set your credentials:")
     print("  export NONKYC_API_KEY='your_key_here'")
     print("  export NONKYC_API_SECRET='your_secret_here'")
-    print("  python test_symbol_formats.py")
+    print("  python scripts/symbol_format_check.py")
     print("\nAlternatively, pass them as arguments:")
-    print("  python test_symbol_formats.py YOUR_API_KEY YOUR_API_SECRET")
+    print("  python scripts/symbol_format_check.py YOUR_API_KEY YOUR_API_SECRET")
 
     if len(sys.argv) == 3:
         api_key = sys.argv[1]
@@ -39,7 +39,7 @@ config = {
     "api_secret": api_secret,
     "base_url": "https://api.nonkyc.io/api/v2",
     "sign_absolute_url": True,
-    "nonce_multiplier": 1e3,
+    "nonce_multiplier": 1e4,
     "rest_timeout_sec": 10.0,
     "rest_retries": 3,
     "rest_backoff_factor": 0.5,

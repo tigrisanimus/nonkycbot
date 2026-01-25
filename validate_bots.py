@@ -38,7 +38,7 @@ class BotValidator(ast.NodeVisitor):
         self.has_rest_client_import = False
         self.has_auth_signer_import = False
         self.has_sign_absolute_url = False
-        self.has_nonce_multiplier_1e3 = False
+        self.has_nonce_multiplier_1e4 = False
         self.uses_get_order_status = False  # Bad
         self.uses_get_order = False  # Good
         self.has_symbol_split = False
@@ -71,8 +71,8 @@ class BotValidator(ast.NodeVisitor):
 
         if node.arg == "nonce_multiplier":
             if isinstance(node.value, ast.Constant):
-                if node.value.value == 1000 or node.value.value == 1e3:
-                    self.has_nonce_multiplier_1e3 = True
+                if node.value.value == 10000 or node.value.value == 1e4:
+                    self.has_nonce_multiplier_1e4 = True
 
         self.generic_visit(node)
 
@@ -147,10 +147,10 @@ class BotValidator(ast.NodeVisitor):
                     "Should support config.get('sign_absolute_url')"
                 )
 
-            if not self.has_nonce_multiplier_1e3:
+            if not self.has_nonce_multiplier_1e4:
                 self.warnings.append(
-                    "nonce_multiplier not set to 1e3 (1000). "
-                    "Should use config.get('nonce_multiplier', 1e3)"
+                    "nonce_multiplier not set to 1e4 (10000). "
+                    "Should use config.get('nonce_multiplier', 1e4)"
                 )
 
         if is_strategy:
@@ -172,8 +172,8 @@ class BotValidator(ast.NodeVisitor):
         if is_bot_runner and self.has_sign_absolute_url:
             self.checks_passed.append("✓ sign_absolute_url configurable")
 
-        if is_bot_runner and self.has_nonce_multiplier_1e3:
-            self.checks_passed.append("✓ nonce_multiplier set to 1e3")
+        if is_bot_runner and self.has_nonce_multiplier_1e4:
+            self.checks_passed.append("✓ nonce_multiplier set to 1e4")
 
         if is_strategy and self.uses_get_order and not self.uses_get_order_status:
             self.checks_passed.append("✓ Uses correct get_order() method")

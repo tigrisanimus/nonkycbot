@@ -102,11 +102,11 @@ refresh_time: 60
 ### 4. Test Your Connection
 
 ```bash
-# Edit test_connection.py with your API credentials
-nano test_connection.py
+# Edit scripts/connection_check.py with your API credentials
+nano scripts/connection_check.py
 
 # Run the connection test
-python test_connection.py
+python scripts/connection_check.py
 ```
 
 This will verify:
@@ -437,7 +437,7 @@ Add these to your configuration file for proper NonKYC authentication:
 ```yaml
 # Authentication settings (REQUIRED for NonKYC)
 sign_absolute_url: true         # Sign full URL (NonKYC requires this)
-nonce_multiplier: 1000          # 13-digit nonce (1e3 or 1000)
+nonce_multiplier: 10000         # 14-digit nonce (1e4 or 10000)
 
 # Optional: Debug authentication issues
 # debug_auth: true              # Show detailed auth info (NEVER use in production!)
@@ -445,10 +445,10 @@ nonce_multiplier: 1000          # 13-digit nonce (1e3 or 1000)
 
 ### How It Works
 
-NonKYC uses **full URL signing** with a **13-digit nonce**:
+NonKYC uses **full URL signing** with a **14-digit nonce**:
 - `sign_absolute_url: true` → signs `https://api.nonkyc.io/api/v2/balances`
 - `sign_absolute_url: false` → signs `/balances` (path only - won't work with NonKYC)
-- `nonce_multiplier: 1000` → generates 13-digit nonce (required by NonKYC)
+- `nonce_multiplier: 10000` → generates 14-digit nonce (required by NonKYC)
 
 ### Testing Authentication
 
@@ -481,18 +481,18 @@ Just add `sign_absolute_url` and `nonce_multiplier` to your config file and all 
 
 ### Quick Test Script
 
-The repository includes `test_connection.py` for manual API testing:
+The repository includes `scripts/connection_check.py` for manual API testing:
 
 ```bash
 # 1. Edit the script with your credentials
-nano test_connection.py
+nano scripts/connection_check.py
 
 # 2. Update these lines:
 API_KEY = "your_actual_api_key"
 API_SECRET = "your_actual_api_secret"
 
 # 3. Run the test
-python test_connection.py
+python scripts/connection_check.py
 ```
 
 The test will:
@@ -509,7 +509,7 @@ If you see `HTTP error 401: Not Authorized` errors:
 - **Check signing mode**: NonKYC requires full URL signing. Add to your config:
   ```yaml
   sign_absolute_url: true       # Sign full URL (required for NonKYC)
-  nonce_multiplier: 1000        # Use 13-digit nonce (1e3 or 1000)
+  nonce_multiplier: 10000       # Use 14-digit nonce (1e4 or 10000)
   ```
 - **Debug authentication**: Use the provided debug script:
   ```bash
@@ -601,7 +601,7 @@ nonkycbot/
 ├── run_arb_bot.py              # Arbitrage bot runner script
 ├── run_hybrid_arb_bot.py       # Hybrid arbitrage runner script
 ├── run_rebalance_bot.py        # Rebalance bot runner script
-├── test_connection.py          # Manual API test script
+├── scripts/connection_check.py  # Manual API test script
 ├── debug_auth.py               # Authentication debugging tool
 ├── validate_bots.py            # Bot code validation (prevent regressions)
 ├── check_grid_balances.py      # Grid balance diagnostics tool

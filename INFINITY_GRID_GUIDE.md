@@ -45,6 +45,54 @@ Example at BTC = $90,000:
 
 This creates a **self-perpetuating cycle** that climbs with price!
 
+---
+
+## Implementation Snapshot (Current Version)
+
+This section captures the **actual live behavior** of the infinity grid bot as
+implemented in `run_infinity_grid.py` and `src/strategies/infinity_ladder_grid.py`.
+
+### Core Mechanics
+
+- **Stateful strategy with disk persistence**: The bot stores entry price, lowest
+  buy price, highest sell price, open orders, and accumulated profit in a JSON
+  state file (`state_path`). On restart it loads the state and continues without
+  losing the ladder context.
+- **Startup order sync**: If the state file is empty, the bot fetches open orders
+  from the exchange and repopulates its in-memory ladder before placing anything.
+- **Grid spacing & profitability guard**: Before seeding orders, it computes the
+  minimum profitable spacing based on total fees + buffer and refuses to place a
+  grid that would lose money after fees.
+- **Precision enforcement**: All prices are rounded down to `tick_size` and all
+  quantities are rounded down to `step_size` so orders always match exchange
+  precision requirements.
+- **Balance-aware placement**: The bot caches balances and refuses to place new
+  orders if the required balance is missing, marking `needs_rebalance` instead.
+- **Recoverable error handling**: Known recoverable order errors (e.g. a rejected
+  `userProvidedId`) are logged and skipped so the rest of the ladder can keep
+  operating.
+- **Fill reconciliation loop**: The bot periodically fetches order status with
+  exponential backoff on transient API errors, processes fills, and then refills
+  the ladder accordingly.
+- **Unlimited upside**: Sell fills always extend the ladder upward by adding a
+  new sell above the previous highest, so the grid continues indefinitely as
+  price rises.
+
+### Why It Works (Operational Guarantees)
+
+- **Profitability by design**: By validating minimum spacing vs. total fees,
+  every filled buy→sell round is expected to net positive profit after costs.
+- **Self-healing ladder**: Each fill triggers a replacement order, preserving
+  grid density and ensuring the bot is always positioned above and below price.
+- **No upper bound risk**: Unlike a bounded grid, the infinity ladder never runs
+  out of sell levels in a strong uptrend, so it can keep realizing profit as the
+  market climbs.
+- **State continuity**: Persistent state + startup open-order sync prevents the
+  bot from “forgetting” existing orders after restarts, eliminating duplicate or
+  conflicting placement.
+- **Exchange compliance**: Tick/step rounding and min-notional checks keep orders
+  inside exchange constraints to avoid systematic rejections.
+
 ### Example Cycle
 
 ```
@@ -329,6 +377,17 @@ step_pct: "0.01"  # Use 1% or higher
 2. Check bot logs for "Successfully placed all X orders"
 3. Verify balance is sufficient
 4. Check `state.json` for `open_orders`
+
+### Fills Logged but No Replacement Orders
+
+If a fill is detected but a replacement order doesn't show up on the exchange:
+
+1. **Check for warning logs** like `Insufficient balance` or `Skipping unprofitable order`.
+   These warnings explain why a refill was skipped.
+2. **Confirm min-notional and fee spacing**. If `step_pct` is too tight, the bot
+   will refuse to place orders that would lose money after fees.
+3. **Verify balances refreshed**. If funds are fully committed, refills will halt
+   until you deposit more or enable rebalancing.
 
 ---
 

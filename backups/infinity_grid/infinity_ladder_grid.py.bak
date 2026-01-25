@@ -238,25 +238,6 @@ class InfinityLadderGridStrategy:
         self._balances = balances
         self._last_balance_refresh = now
 
-    def _sync_client_order_counter(self, order_ids: list[str]) -> None:
-        """Best-effort sync for fake exchange counters used in tests."""
-        if not hasattr(self.client, "_order_count"):
-            return
-        try:
-            current = int(getattr(self.client, "_order_count"))
-        except (TypeError, ValueError):
-            return
-        max_seen = current
-        for order_id in order_ids:
-            for prefix in ("order-", "market-"):
-                if order_id.startswith(prefix):
-                    suffix = order_id[len(prefix) :]
-                    if suffix.isdigit():
-                        max_seen = max(max_seen, int(suffix))
-                    break
-        if max_seen > current:
-            setattr(self.client, "_order_count", max_seen)
-
     def _has_sufficient_balance(
         self, side: str, price: Decimal, quantity: Decimal
     ) -> bool:
@@ -270,10 +251,10 @@ class InfinityLadderGridStrategy:
         available = self._balances.get(base, (Decimal("0"), Decimal("0")))[0]
         return available >= quantity
 
-    def _place_order(self, side: str, price: Decimal, base_quantity: Decimal) -> bool:
+    def _place_order(self, side: str, price: Decimal, base_quantity: Decimal) -> None:
         """Place a single order."""
         if self._halt_placements:
-            return False
+            return
 
         price = self._quantize_price(price)
         quantity = self._quantize_quantity(base_quantity)
@@ -300,7 +281,7 @@ class InfinityLadderGridStrategy:
             )
             self.state.needs_rebalance = True
             self._halt_placements = True
-            return False
+            return
 
         # Calculate opposing price (one step away in the opposite direction)
         step = self._get_step_size(price)
@@ -327,7 +308,7 @@ class InfinityLadderGridStrategy:
                 "Skipping unprofitable order: %s. Grid spacing may be too small.",
                 reason,
             )
-            return False
+            return
 
         client_id = f"infinity-{side}-{uuid.uuid4().hex}"
         try:
@@ -338,7 +319,7 @@ class InfinityLadderGridStrategy:
             if "Insufficient funds" in str(exc):
                 self.state.needs_rebalance = True
                 self._halt_placements = True
-                return False
+                return
             if self._is_recoverable_order_error(exc):
                 LOGGER.warning(
                     "Recoverable order placement error: %s. Skipping %s order at %s.",
@@ -346,7 +327,7 @@ class InfinityLadderGridStrategy:
                     side.upper(),
                     price,
                 )
-                return False
+                return
             raise
 
         self.state.open_orders[order_id] = LiveOrder(
@@ -359,7 +340,6 @@ class InfinityLadderGridStrategy:
         LOGGER.info(
             f"Placed {side.upper()} order: {quantity} @ {price} (order_id={order_id})"
         )
-        return True
 
     @staticmethod
     def _is_recoverable_order_error(exc: RestError) -> bool:
@@ -561,14 +541,12 @@ class InfinityLadderGridStrategy:
                         f"Profit from sell: {profit} (total: {self.state.total_profit_quote})"
                     )
 
-        if not filled:
-            return
-
-        self._sync_client_order_counter(list(self.state.open_orders.keys()))
-
         # Remove filled orders
         for order_id, _ in filled:
             del self.state.open_orders[order_id]
+
+        if not filled:
+            return
 
         # Refill orders
         self._refresh_balances(now)
@@ -579,43 +557,33 @@ class InfinityLadderGridStrategy:
             if order.side == "buy":
                 # Buy filled - place SELL order one step above to take profit
                 new_sell_price = order.price * (Decimal("1") + step)
-                if self._place_order("sell", new_sell_price, order.quantity):
-                    LOGGER.info(
-                        "Buy filled at %s, placed sell at %s",
-                        order.price,
-                        new_sell_price,
-                    )
+                self._place_order("sell", new_sell_price, order.quantity)
+                LOGGER.info(
+                    f"Buy filled at {order.price}, placed sell at {new_sell_price}"
+                )
             else:
                 # Sell filled - TWO actions:
                 # 1. Extend the ladder upward (no upper limit!)
                 new_sell_price = self.state.highest_sell_price * (Decimal("1") + step)
-                placed_sell = self._place_order(
-                    "sell", new_sell_price, self.config.base_order_size
-                )
+                self._place_order("sell", new_sell_price, self.config.base_order_size)
 
                 # Update highest sell price
-                if placed_sell and new_sell_price > self.state.highest_sell_price:
+                if new_sell_price > self.state.highest_sell_price:
                     self.state.highest_sell_price = new_sell_price
                     LOGGER.info(
-                        "Extended sell ladder to %s (no upper limit!)",
-                        new_sell_price,
+                        f"Extended sell ladder to {new_sell_price} (no upper limit!)"
                     )
 
                 # 2. Place buy order below to buy back (if above lower limit)
                 new_buy_price = order.price * (Decimal("1") - step)
                 if new_buy_price >= self.state.lowest_buy_price:
-                    if self._place_order("buy", new_buy_price, order.quantity):
-                        LOGGER.info(
-                            "Sell filled at %s, placed buy-back at %s",
-                            order.price,
-                            new_buy_price,
-                        )
+                    self._place_order("buy", new_buy_price, order.quantity)
+                    LOGGER.info(
+                        f"Sell filled at {order.price}, placed buy-back at {new_buy_price}"
+                    )
                 else:
                     LOGGER.info(
-                        "Sell filled at %s, but %s below lower limit %s, no buy-back placed",
-                        order.price,
-                        new_buy_price,
-                        self.state.lowest_buy_price,
+                        f"Sell filled at {order.price}, but {new_buy_price} below lower limit {self.state.lowest_buy_price}, no buy-back placed"
                     )
 
         self.save_state()
