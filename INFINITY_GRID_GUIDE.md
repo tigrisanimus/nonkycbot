@@ -165,6 +165,31 @@ state_path: "infinity_grid_state.json"
 
 ---
 
+## Timing, Fill Detection, and Troubleshooting
+
+### How cadence works
+
+- `poll_interval_sec` controls how often the bot polls order status for fills.
+- `reconcile_interval_sec` controls how often it refreshes the open-order snapshot.
+- The **lower** of the two effectively sets the fill-monitoring cadence. If both are
+  60 seconds, fills are typically noticed within ~1 minute.
+
+**Typical values:** 30–120 seconds. Lower values detect fills faster but increase API
+usage and can surface rate-limit errors on busy accounts.
+
+### If fills aren’t detected promptly
+
+1. **Reduce the cadence** (e.g., set both to 30–45 seconds) and watch logs for more
+   frequent fill checks.
+2. **Confirm open orders are refreshing** by ensuring `reconcile_interval_sec` is not
+   much higher than `poll_interval_sec`.
+3. **Watch for REST backoff or timeout logs.** If you see frequent retries, increase
+   `rest_timeout_sec` or `rest_retries`, or raise the intervals to reduce load.
+4. **Verify exchange-side fills** by checking the NonKYC order history to ensure the
+   order actually filled (helpful when network latency or intermittent REST errors occur).
+
+---
+
 ## Lower Limit Behavior
 
 The **lower limit** is the lowest buy order price, calculated from your USDT allocation.

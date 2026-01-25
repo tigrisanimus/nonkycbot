@@ -18,6 +18,8 @@ class NonkycRestExchangeClient(ExchangeClient):
         ticker = self._rest.get_market_data(symbol)
         if ticker.bid is not None and ticker.ask is not None:
             return (Decimal(ticker.bid) + Decimal(ticker.ask)) / Decimal("2")
+        if ticker.last_price is None:
+            raise RestError(f"No last price available for {symbol}")
         return Decimal(ticker.last_price)
 
     def get_orderbook_top(self, symbol: str) -> tuple[Decimal, Decimal]:

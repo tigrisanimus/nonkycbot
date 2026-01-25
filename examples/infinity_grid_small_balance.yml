@@ -51,6 +51,9 @@ tick_size: "0.01"                # Price: 2 decimals ($90,000.00)
 step_size: "0.00000001"          # Quantity: 8 decimals (0.00000001 BTC)
 
 # Polling
+# poll_interval_sec checks for fills; reconcile_interval_sec refreshes open orders.
+# The lower of the two effectively determines fill-monitoring cadence.
+# Typical values: 30-120s. Lower values detect fills faster but use more API calls.
 poll_interval_sec: 60
 reconcile_interval_sec: 60
 balance_refresh_sec: 60

@@ -251,7 +251,9 @@ class AsyncRestClient:
         if self._session is None:
             timeout = aiohttp.ClientTimeout(total=self.timeout)
             # Create TCP connector with SSL context
-            connector = aiohttp.TCPConnector(ssl=self._ssl_context)
+            connector = aiohttp.TCPConnector(
+                ssl=self._ssl_context if self._ssl_context is not None else False
+            )
             self._session = aiohttp.ClientSession(timeout=timeout, connector=connector)
         return self._session
 

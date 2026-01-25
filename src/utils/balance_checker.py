@@ -85,7 +85,7 @@ def calculate_required_balance(
     For sell orders: Requires base asset (amount * (1 + fee_rate))
     """
     base_asset, quote_asset = parse_symbol(order.symbol)
-    amount = Decimal(str(order.amount))
+    amount = Decimal(str(order.quantity))
     price = Decimal(str(order.price))
 
     if order.side.lower() == "buy":
@@ -121,8 +121,8 @@ def check_sufficient_balance(
     """
     if not order.symbol:
         raise ValueError("Order symbol is required")
-    if not order.amount or Decimal(str(order.amount)) <= 0:
-        raise ValueError("Order amount must be positive")
+    if not order.quantity or Decimal(str(order.quantity)) <= 0:
+        raise ValueError("Order quantity must be positive")
     if not order.price or Decimal(str(order.price)) <= 0:
         raise ValueError("Order price must be positive")
     if not order.side or order.side.lower() not in {"buy", "sell"}:

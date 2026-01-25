@@ -56,7 +56,7 @@ class TokenOfSchema(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    schema: str | None = None
+    schema_: str | None = Field(None, alias="schema")
 
 
 class AssetSchema(BaseModel):
@@ -141,7 +141,7 @@ class MarketAssetReference(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
-    schema: AssetSchema | None = None
+    schema_: AssetSchema | None = Field(None, alias="schema")
 
 
 class MarketSchema(BaseModel):
@@ -235,7 +235,7 @@ class MarketReference(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
-    schema: dict[str, Any] | None = None
+    schema_: dict[str, Any] | None = Field(None, alias="schema")
     id: str | None = None
     symbol: str | None = None
 

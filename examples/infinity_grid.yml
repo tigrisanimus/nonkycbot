@@ -51,6 +51,10 @@ tick_size: "0.01"                # Price precision (e.g., 0.01 = 2 decimals)
 step_size: "0.00000001"          # Quantity precision (8 decimals for BTC)
 
 # Polling settings
+# poll_interval_sec controls how often the bot polls order status for fills.
+# reconcile_interval_sec controls how often it refreshes the open-order snapshot to
+# catch missed updates; whichever is lower effectively sets the monitoring cadence.
+# Typical values: 30-120s. Lower values = faster fill detection but more API calls.
 poll_interval_sec: 60            # Check for fills every 60 seconds
 reconcile_interval_sec: 60       # Reconcile orders every 60 seconds
 balance_refresh_sec: 60          # Refresh balance every 60 seconds

@@ -66,6 +66,7 @@
 - [x] Implement keychain-backed credential loading and storage helpers.
 - [x] Normalize infinity ladder grid order status handling for capitalized API values.
 - [x] Sync infinity ladder startup state with exchange open orders.
+- [x] Document infinity grid fill-monitoring cadence and troubleshooting guidance.
 
 ## Next
 - [ ] Define API client interfaces and error handling.

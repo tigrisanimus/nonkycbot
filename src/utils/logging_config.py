@@ -130,6 +130,7 @@ def setup_logging(
     root_logger.setLevel(log_level)
 
     # Choose formatter
+    formatter: logging.Formatter
     if structured:
         formatter = StructuredFormatter()
     elif sanitize:
