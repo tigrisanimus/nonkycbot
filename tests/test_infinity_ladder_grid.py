@@ -1,3 +1,4 @@
+import re
 from decimal import Decimal
 
 from engine.exchange_client import OpenOrder, OrderStatusView
@@ -11,6 +12,7 @@ from strategies.infinity_ladder_grid import (
 class FakeExchange:
     def __init__(self) -> None:
         self._order_count = 0
+        self.last_client_id: str | None = None
 
     def get_mid_price(self, symbol: str) -> Decimal:
         return Decimal("100")
@@ -27,6 +29,7 @@ class FakeExchange:
         client_id: str | None = None,
     ) -> str:
         self._order_count += 1
+        self.last_client_id = client_id
         return f"order-{self._order_count}"
 
     def place_market(
@@ -87,3 +90,28 @@ def test_reconcile_accepts_capitalized_filled_status(tmp_path) -> None:
 
     assert "order-1" not in strategy.state.open_orders
     assert any(order.side == "sell" for order in strategy.state.open_orders.values())
+
+
+def test_place_order_uses_uuid_client_id(tmp_path) -> None:
+    config = InfinityLadderGridConfig(
+        symbol="BTC/USDT",
+        step_mode="pct",
+        step_pct=Decimal("0.01"),
+        step_abs=None,
+        n_buy_levels=1,
+        initial_sell_levels=1,
+        base_order_size=Decimal("1"),
+        min_notional_quote=Decimal("1"),
+        fee_buffer_pct=Decimal("0"),
+        total_fee_rate=Decimal("0"),
+        tick_size=Decimal("0.01"),
+        step_size=Decimal("0.001"),
+        poll_interval_sec=1.0,
+    )
+    client = FakeExchange()
+    strategy = InfinityLadderGridStrategy(config, client, tmp_path / "state.json")
+
+    strategy._place_order("buy", Decimal("100"), Decimal("1"))
+
+    assert client.last_client_id is not None
+    assert re.match(r"^infinity-buy-[0-9a-f]{32}$", client.last_client_id)

@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+import uuid
 from dataclasses import dataclass, field
 from decimal import ROUND_DOWN, Decimal
 from pathlib import Path
@@ -309,7 +310,7 @@ class InfinityLadderGridStrategy:
             )
             return
 
-        client_id = f"infinity-{side}-{int(time.time() * 1e6)}"
+        client_id = f"infinity-{side}-{uuid.uuid4().hex}"
         try:
             order_id = self.client.place_limit(
                 self.config.symbol, side, price, quantity, client_id
