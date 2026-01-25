@@ -64,6 +64,7 @@
 - [x] Add lastPrice and bid/ask mid fallback parsing for arbitrage tickers.
 - [x] Align hybrid arbitrage example/API base URL with v2 REST endpoints.
 - [x] Implement keychain-backed credential loading and storage helpers.
+- [x] Normalize infinity ladder grid order status handling for capitalized API values.
 
 ## Next
 - [ ] Define API client interfaces and error handling.

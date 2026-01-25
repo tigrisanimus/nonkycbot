@@ -168,7 +168,11 @@ class InfinityLadderGridStrategy:
     def _get_step_size(self, ref_price: Decimal) -> Decimal:
         """Get step size based on mode."""
         if self.config.step_mode == "pct":
+            if self.config.step_pct is None:
+                raise ValueError("step_pct is required when step_mode is pct")
             return self.config.step_pct
+        if self.config.step_abs is None:
+            raise ValueError("step_abs is required when step_mode is abs")
         return self.config.step_abs / ref_price
 
     def _quantize_price(self, price: Decimal) -> Decimal:
@@ -237,11 +241,7 @@ class InfinityLadderGridStrategy:
             return
 
         # Calculate opposing price (one step away in the opposite direction)
-        step = (
-            self.config.step_pct
-            if self.config.step_mode == "pct"
-            else self.config.step_abs / price
-        )
+        step = self._get_step_size(price)
         if side.lower() == "buy":
             # For buy orders, the opposing sell is one step up
             opposing_price = price * (Decimal("1") + step)
@@ -449,7 +449,14 @@ class InfinityLadderGridStrategy:
             if status is None:
                 continue
 
-            if status.status in ["filled", "closed"]:
+            normalized_status = status.status.lower() if status.status else ""
+            filled_statuses = {"filled", "closed", "cancelled", "partly filled"}
+            api_filled_statuses = {"Filled", "Cancelled", "Partly Filled"}
+
+            if (
+                normalized_status in filled_statuses
+                or status.status in api_filled_statuses
+            ):
                 LOGGER.info(
                     "Order filled: %s %s @ %s (order_id=%s)",
                     order.side.upper(),
