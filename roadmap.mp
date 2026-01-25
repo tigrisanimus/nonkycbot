@@ -74,6 +74,7 @@
 - [x] Align auth tooling/docs with 14-digit nonce defaults across bots.
 - [x] Move symbol format check script out of pytest collection and update docs.
 - [x] Guard infinity ladder refill logs to reflect only successful placements.
+- [x] Remove legacy infinity grid backup directory.
 
 ## Next
 - [ ] Define API client interfaces and error handling.
