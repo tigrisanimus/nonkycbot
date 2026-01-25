@@ -71,7 +71,7 @@ def test_authenticated_endpoint(api_key: str, api_secret: str):
     body = ""  # GET request has no body
     message = api_key + full_url + body + nonce
 
-    print(f"\nAuthentication Details:")
+    print("\nAuthentication Details:")
     print(f"  URL: {full_url}")
     print(f"  Message format: <api_key> + {full_url} + <empty_body> + {nonce}")
     print(f"  Message length: {len(message)} chars")
@@ -95,12 +95,12 @@ def test_authenticated_endpoint(api_key: str, api_secret: str):
     }
 
     # Security: Only log non-sensitive headers explicitly
-    print(f"\nHeaders:")
+    print("\nHeaders:")
     print(f"  X-API-KEY: [REDACTED] ({len(api_key)} chars)")
     # lgtm[py/clear-text-logging-sensitive-data]  # False positive: Nonce is a public timestamp, not secret
     print(f"  X-API-NONCE: {nonce}")  # Nonce is not secret (public timestamp)
     print(f"  X-API-SIGN: [REDACTED] ({len(signature)} chars)")
-    print(f"  Content-Type: application/json")
+    print("  Content-Type: application/json")
 
     try:
         # Note: We must send credentials over HTTPS to authenticate - this is intentional
@@ -110,7 +110,7 @@ def test_authenticated_endpoint(api_key: str, api_secret: str):
 
         if response.status_code == 200:
             balances = response.json()
-            print(f"✅ SUCCESS - Authentication working!")
+            print("✅ SUCCESS - Authentication working!")
             print(f"\nBalances received: {len(balances)} assets")
 
             # Show first few balances
@@ -124,7 +124,7 @@ def test_authenticated_endpoint(api_key: str, api_secret: str):
 
             return True
         elif response.status_code == 401:
-            print(f"❌ AUTHENTICATION FAILED - 401 Unauthorized")
+            print("❌ AUTHENTICATION FAILED - 401 Unauthorized")
             print(f"\nResponse: {response.text}")
             print("\nPossible issues:")
             print("  1. Wrong API key or secret")
@@ -174,7 +174,7 @@ def main():
         else:
             return 0
     else:
-        print(f"\n✓ Found credentials in environment variables")
+        print("\n✓ Found credentials in environment variables")
 
     # Step 3: Test authenticated endpoint
     success = test_authenticated_endpoint(api_key, api_secret)

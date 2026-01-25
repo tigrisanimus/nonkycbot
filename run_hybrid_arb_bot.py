@@ -49,7 +49,6 @@ from utils.amm_pricing import (
     PoolReserves,
     get_swap_quote,
 )
-from utils.credentials import DEFAULT_SERVICE_NAME, load_api_credentials
 from utils.logging_config import setup_logging
 
 logger = logging.getLogger(__name__)

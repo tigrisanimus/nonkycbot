@@ -96,6 +96,7 @@ class InfinityLadderGridStrategy:
         self._balances: dict[str, tuple[Decimal, Decimal]] = {}
         self._halt_placements = False
         self._last_balance_refresh = 0.0
+        self._startup_reconcile_open_orders()
 
     def _load_or_create_state(self) -> InfinityLadderGridState:
         """Load existing state or create new."""
@@ -139,6 +140,47 @@ class InfinityLadderGridStrategy:
             entry_price=mid_price,
             lowest_buy_price=lowest_buy,
             highest_sell_price=highest_sell,
+        )
+
+    def _startup_reconcile_open_orders(self) -> None:
+        """Sync open orders from the exchange when the state is empty or stale."""
+        if self.state.open_orders:
+            return
+        try:
+            open_orders = self.client.list_open_orders(self.config.symbol)
+        except Exception as exc:
+            LOGGER.warning("Failed to fetch open orders for startup sync: %s", exc)
+            return
+        if not open_orders:
+            return
+        now = time.time()
+        reconciled: dict[str, LiveOrder] = {}
+        buy_prices: list[Decimal] = []
+        sell_prices: list[Decimal] = []
+        for order in open_orders:
+            side = order.side.lower()
+            if side == "buy":
+                buy_prices.append(order.price)
+            elif side == "sell":
+                sell_prices.append(order.price)
+            reconciled[order.order_id] = LiveOrder(
+                side=side,
+                price=order.price,
+                quantity=order.quantity,
+                client_id=order.order_id,
+                created_at=now,
+            )
+        if buy_prices:
+            self.state.lowest_buy_price = min(buy_prices)
+        if sell_prices:
+            self.state.highest_sell_price = max(sell_prices)
+        self.state.entry_price = self.client.get_mid_price(self.config.symbol)
+        self.state.last_mid = self.state.entry_price
+        self.state.open_orders = reconciled
+        self.save_state()
+        LOGGER.info(
+            "Synced %d open orders from exchange on startup.",
+            len(self.state.open_orders),
         )
 
     def save_state(self) -> None:
@@ -343,6 +385,12 @@ class InfinityLadderGridStrategy:
 
     def seed_ladder(self) -> None:
         """Initialize the infinity grid with orders."""
+        if self.state.open_orders:
+            LOGGER.info(
+                "Open orders already tracked (%d); skipping seed.",
+                len(self.state.open_orders),
+            )
+            return
         self._halt_placements = False
         self._refresh_balances(time.time())
 

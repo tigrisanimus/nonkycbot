@@ -39,9 +39,7 @@ def discover_markets(rest_client: RestClient) -> list[dict[str, Any]]:
     for endpoint in endpoints:
         try:
             print(f"  Trying: {endpoint}")
-            response = rest_client.send(
-                RestRequest(method="GET", path=endpoint)
-            )
+            response = rest_client.send(RestRequest(method="GET", path=endpoint))
             payload = rest_client._extract_payload(response)
 
             if payload:
@@ -68,9 +66,7 @@ def discover_pools(rest_client: RestClient) -> list[dict[str, Any]]:
     for endpoint in endpoints:
         try:
             print(f"  Trying: {endpoint}")
-            response = rest_client.send(
-                RestRequest(method="GET", path=endpoint)
-            )
+            response = rest_client.send(RestRequest(method="GET", path=endpoint))
             payload = rest_client._extract_payload(response)
 
             if payload:

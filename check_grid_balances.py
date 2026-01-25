@@ -5,15 +5,16 @@ Check if you have sufficient balance to run the grid bot
 
 import os
 import sys
-import yaml
 from decimal import Decimal
 from pathlib import Path
+
+import yaml
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from nonkyc_client.auth import ApiCredentials
-from nonkyc_client.rest import RestClient, AuthSigner
+from nonkyc_client.rest import AuthSigner, RestClient
 
 
 def load_config(config_path: str) -> dict:
@@ -47,9 +48,9 @@ def main():
         signer=signer,
     )
 
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("Grid Bot Balance Check")
-    print("="*80)
+    print("=" * 80)
 
     # Get config values
     symbol = config.get("symbol")
@@ -81,6 +82,7 @@ def main():
     # Get mid price
     try:
         from nonkyc_client.rest_exchange import RestExchangeClient
+
         exchange = RestExchangeClient(client)
         mid_price = exchange.get_mid_price(symbol)
         print(f"Current mid price: {mid_price}")
@@ -90,9 +92,9 @@ def main():
         mid_price = Decimal("1.0")
 
     # Get balances
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("Current Balances")
-    print("="*80)
+    print("=" * 80)
 
     try:
         response = client.send(client.RestRequest(method="GET", path="/balances"))
@@ -109,9 +111,9 @@ def main():
         return 1
 
     # Calculate requirements
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("Balance Requirements")
-    print("="*80)
+    print("=" * 80)
 
     # For buy orders, we need quote (USDT)
     buy_price_start = mid_price * (Decimal("1") - step_pct)
@@ -132,9 +134,9 @@ def main():
     print(f"  Total {base} needed: {total_sell_base}")
 
     # Check if sufficient
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("Balance Check")
-    print("="*80)
+    print("=" * 80)
 
     quote_balance = balances.get(quote, Decimal("0"))
     base_balance = balances.get(base, Decimal("0"))
@@ -156,7 +158,7 @@ def main():
         print(f"  ❌ INSUFFICIENT - need {total_sell_base - base_balance} more")
 
     # Overall verdict
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     if quote_balance >= total_buy_quote and base_balance >= total_sell_base:
         print("✅ READY TO RUN - You have sufficient balance for all orders!")
     elif quote_balance >= total_buy_quote or base_balance >= total_sell_base:
@@ -170,12 +172,13 @@ def main():
         print("  2. Reduce base_order_size in config")
         print("  3. Reduce n_buy_levels and n_sell_levels")
         print("  4. Enable startup_rebalance: true (if you have one asset)")
-    print("="*80)
+    print("=" * 80)
 
     # Check state.json
     state_path = config.get("state_path", "state.json")
     if os.path.exists(state_path):
         import json
+
         with open(state_path) as f:
             state = json.load(f)
         needs_rebalance = state.get("needs_rebalance", False)
