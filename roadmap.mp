@@ -76,6 +76,7 @@
 - [x] Guard infinity ladder refill logs to reflect only successful placements.
 - [x] Remove legacy infinity grid backup directory.
 - [x] Recreate infinity grid backup snapshot with current runner and strategy sources.
+- [x] Remove legacy infinity grid helper module references in favor of ladder strategy coverage.
 
 ## Next
 - [ ] Define API client interfaces and error handling.
