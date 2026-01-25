@@ -1,11 +1,13 @@
+import datetime
 from decimal import Decimal
 from typing import Any, Dict
-import datetime
 
-from pydantic import Field, SecretStr
-
-from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.client.config.config_data_types import (
+    BaseConnectorConfigMap,
+    ClientFieldData,
+)
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
+from pydantic import Field, SecretStr
 
 CENTRALIZED = True
 EXAMPLE_PAIR = "ZRX-ETH"
@@ -13,7 +15,7 @@ EXAMPLE_PAIR = "ZRX-ETH"
 DEFAULT_FEES = TradeFeeSchema(
     maker_percent_fee_decimal=Decimal("0.001"),
     taker_percent_fee_decimal=Decimal("0.001"),
-    buy_percent_fee_deducted_from_returns=True
+    buy_percent_fee_deducted_from_returns=True,
 )
 
 
@@ -27,7 +29,7 @@ def is_market_active(exchange_info: Dict[str, Any]) -> bool:
 
 
 def convert_fromiso_to_unix_timestamp(date_str):
-    date_object = datetime.datetime.fromisoformat(date_str.rstrip('Z'))
+    date_object = datetime.datetime.fromisoformat(date_str.rstrip("Z"))
     return int(date_object.timestamp() * 1000)
 
 
@@ -40,7 +42,7 @@ class NonkycConfigMap(BaseConnectorConfigMap):
             is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,
-        )
+        ),
     )
     nonkyc_api_secret: SecretStr = Field(
         default=...,
@@ -49,7 +51,7 @@ class NonkycConfigMap(BaseConnectorConfigMap):
             is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,
-        )
+        ),
     )
 
     class Config:

@@ -103,7 +103,76 @@ class NonkycRestExchangeClient(ExchangeClient):
         )
 
     def list_open_orders(self, symbol: str) -> list[OpenOrder]:
+        endpoints = [
+            RestRequest(method="GET", path="/openorders", params={"symbol": symbol}),
+            RestRequest(method="GET", path="/openorders", params={"market": symbol}),
+            RestRequest(method="GET", path="/getopenorders", params={"symbol": symbol}),
+            RestRequest(method="GET", path="/orders", params={"symbol": symbol}),
+        ]
+        last_error: Exception | None = None
+        for request in endpoints:
+            try:
+                response = self._rest.send(request)
+                return self._parse_open_orders(response, symbol)
+            except RestError as exc:
+                last_error = exc
+        if last_error is not None:
+            raise last_error
         return []
+
+    def _parse_open_orders(
+        self, response: dict[str, Any], symbol: str
+    ) -> list[OpenOrder]:
+        payload = response.get("data", response.get("result", response))
+        if isinstance(payload, dict):
+            for key in ("orders", "openOrders", "open_orders", "data", "result"):
+                if key in payload:
+                    payload = payload[key]
+                    break
+        if payload in (None, {}):
+            return []
+        if not isinstance(payload, list):
+            raise RestError(f"Unexpected open orders payload for {symbol}: {payload}")
+        orders: list[OpenOrder] = []
+        for entry in payload:
+            if not isinstance(entry, dict):
+                continue
+            order_id = str(
+                entry.get(
+                    "id",
+                    entry.get(
+                        "orderId", entry.get("order_id", entry.get("userProvidedId"))
+                    ),
+                )
+            )
+            side = entry.get("side", entry.get("type"))
+            price_value = entry.get("price", entry.get("rate", entry.get("orderPrice")))
+            quantity_value = entry.get(
+                "quantity",
+                entry.get("remaining", entry.get("amount", entry.get("origQty"))),
+            )
+            if (
+                not order_id
+                or side is None
+                or price_value is None
+                or quantity_value is None
+            ):
+                continue
+            try:
+                price = Decimal(str(price_value))
+                quantity = Decimal(str(quantity_value))
+            except (ValueError, TypeError, InvalidOperation):
+                continue
+            orders.append(
+                OpenOrder(
+                    order_id=order_id,
+                    symbol=str(entry.get("symbol", symbol)),
+                    side=str(side).lower(),
+                    price=price,
+                    quantity=quantity,
+                )
+            )
+        return orders
 
     def get_balances(self) -> dict[str, tuple[Decimal, Decimal]]:
         balances = {}

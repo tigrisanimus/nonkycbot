@@ -229,9 +229,11 @@ def main():
     all_files = bot_runners + strategies + test_files
 
     print(f"\n{'='*80}")
-    print(f"NonKYC Bot Validation")
+    print("NonKYC Bot Validation")
     print(f"{'='*80}")
-    print(f"\nValidating {len(bot_runners)} bot runners, {len(strategies)} strategies, and {len(test_files)} test files...")
+    print(
+        f"\nValidating {len(bot_runners)} bot runners, {len(strategies)} strategies, and {len(test_files)} test files..."
+    )
 
     has_any_errors = False
     results = []

@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-import os
 import re
 import sys
 import time
@@ -510,9 +509,7 @@ def evaluate_profitability_and_execute(
         )
 
         if adjusted_profit_ratio < min_profit:
-            logger.info(
-                "\n⏸️  Fee-adjusted profit below threshold. Skipping execution."
-            )
+            logger.info("\n⏸️  Fee-adjusted profit below threshold. Skipping execution.")
             logger.info(f"  Threshold: {float(config['min_profitability'])*100}%")
             return None
 

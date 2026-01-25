@@ -19,7 +19,9 @@ def sign(api_secret: str, message: str) -> str:
     ).hexdigest()
 
 
-def test_signature_variant(api_key: str, api_secret: str, variant_name: str, url_part: str, nonce: int):
+def test_signature_variant(
+    api_key: str, api_secret: str, variant_name: str, url_part: str, nonce: int
+):
     """Test a specific signature variant"""
     print(f"\n{'='*80}")
     print(f"Variant: {variant_name}")
@@ -47,6 +49,7 @@ def test_signature_variant(api_key: str, api_secret: str, variant_name: str, url
     # Try the request
     try:
         import urllib.request
+
         full_url = "https://api.nonkyc.io/api/v2/balances"
         req = urllib.request.Request(full_url, headers=headers)
 
@@ -68,9 +71,9 @@ def test_signature_variant(api_key: str, api_secret: str, variant_name: str, url
 
 
 def main():
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("NonKYC Authentication Debug Tool")
-    print("="*80)
+    print("=" * 80)
 
     # Get credentials
     api_key = os.getenv("NONKYC_API_KEY")
@@ -97,7 +100,7 @@ def main():
     # Generate nonce with 1e4 multiplier (14 digits)
     nonce_14 = int(time.time() * 10000)
 
-    print(f"\nGenerated nonces:")
+    print("\nGenerated nonces:")
     print(f"  1e3 multiplier: {nonce_13} ({len(str(nonce_13))} digits)")
     print(f"  1e4 multiplier: {nonce_14} ({len(str(nonce_14))} digits)")
 
@@ -105,9 +108,17 @@ def main():
     variants = [
         ("Path only + 13 digit nonce", "/balances", nonce_13),
         ("Path with /api/v2 + 13 digit nonce", "/api/v2/balances", nonce_13),
-        ("Full URL + 13 digit nonce", "https://api.nonkyc.io/api/v2/balances", nonce_13),
+        (
+            "Full URL + 13 digit nonce",
+            "https://api.nonkyc.io/api/v2/balances",
+            nonce_13,
+        ),
         ("Path only + 14 digit nonce", "/balances", nonce_14),
-        ("Full URL + 14 digit nonce", "https://api.nonkyc.io/api/v2/balances", nonce_14),
+        (
+            "Full URL + 14 digit nonce",
+            "https://api.nonkyc.io/api/v2/balances",
+            nonce_14,
+        ),
     ]
 
     success = False
@@ -115,7 +126,7 @@ def main():
         if test_signature_variant(api_key, api_secret, variant_name, url_part, nonce):
             success = True
             print(f"\n{'='*80}")
-            print(f"✅ WORKING CONFIGURATION FOUND!")
+            print("✅ WORKING CONFIGURATION FOUND!")
             print(f"{'='*80}")
             print(f"Variant: {variant_name}")
             print(f"URL part to sign: {url_part}")
