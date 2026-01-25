@@ -1,7 +1,9 @@
+import logging
 import re
 from decimal import Decimal
 
 from engine.exchange_client import OpenOrder, OrderStatusView
+from nonkyc_client.rest import RestError
 from strategies.infinity_ladder_grid import (
     InfinityLadderGridConfig,
     InfinityLadderGridStrategy,
@@ -115,3 +117,51 @@ def test_place_order_uses_uuid_client_id(tmp_path) -> None:
 
     assert client.last_client_id is not None
     assert re.match(r"^infinity-buy-[0-9a-f]{32}$", client.last_client_id)
+
+
+def test_seed_ladder_skips_recoverable_rest_error(tmp_path, caplog) -> None:
+    config = InfinityLadderGridConfig(
+        symbol="BTC/USDT",
+        step_mode="pct",
+        step_pct=Decimal("0.01"),
+        step_abs=None,
+        n_buy_levels=1,
+        initial_sell_levels=1,
+        base_order_size=Decimal("1"),
+        min_notional_quote=Decimal("1"),
+        fee_buffer_pct=Decimal("0"),
+        total_fee_rate=Decimal("0"),
+        tick_size=Decimal("0.01"),
+        step_size=Decimal("0.001"),
+        poll_interval_sec=1.0,
+    )
+
+    class RecoverableErrorExchange(FakeExchange):
+        def __init__(self) -> None:
+            super().__init__()
+            self._fail_once = True
+
+        def place_limit(
+            self,
+            symbol: str,
+            side: str,
+            price: Decimal,
+            quantity: Decimal,
+            client_id: str | None = None,
+        ) -> str:
+            if self._fail_once:
+                self._fail_once = False
+                raise RestError("HTTP error 400: Bad userProvidedId")
+            return super().place_limit(symbol, side, price, quantity, client_id)
+
+    client = RecoverableErrorExchange()
+    strategy = InfinityLadderGridStrategy(config, client, tmp_path / "state.json")
+
+    with caplog.at_level(logging.WARNING):
+        strategy.seed_ladder()
+
+    assert len(strategy.state.open_orders) == 1
+    assert not strategy._halt_placements
+    assert any(
+        "Bad userProvidedId" in record.message for record in caplog.records
+    ), "Expected warning for recoverable order error"
