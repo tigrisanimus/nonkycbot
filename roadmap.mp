@@ -68,6 +68,7 @@
 - [x] Sync infinity ladder startup state with exchange open orders.
 - [x] Document infinity grid fill-monitoring cadence and troubleshooting guidance.
 - [x] Ensure infinity ladder client IDs use UUIDs and add coverage.
+- [x] Continue infinity ladder seeding when recoverable 400 order errors occur.
 
 ## Next
 - [ ] Define API client interfaces and error handling.

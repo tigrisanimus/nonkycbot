@@ -320,6 +320,14 @@ class InfinityLadderGridStrategy:
                 self.state.needs_rebalance = True
                 self._halt_placements = True
                 return
+            if self._is_recoverable_order_error(exc):
+                LOGGER.warning(
+                    "Recoverable order placement error: %s. Skipping %s order at %s.",
+                    exc,
+                    side.upper(),
+                    price,
+                )
+                return
             raise
 
         self.state.open_orders[order_id] = LiveOrder(
@@ -331,6 +339,16 @@ class InfinityLadderGridStrategy:
         )
         LOGGER.info(
             f"Placed {side.upper()} order: {quantity} @ {price} (order_id={order_id})"
+        )
+
+    @staticmethod
+    def _is_recoverable_order_error(exc: RestError) -> bool:
+        message = str(exc).lower()
+        recoverable_fragments = ("bad userprovidedid",)
+        if not any(fragment in message for fragment in recoverable_fragments):
+            return False
+        return (
+            "http error 400" in message or "400" in message or "bad request" in message
         )
 
     def _build_buy_levels(self, mid_price: Decimal) -> list[tuple[str, Decimal]]:
