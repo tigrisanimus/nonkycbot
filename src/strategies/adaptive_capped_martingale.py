@@ -575,6 +575,19 @@ class AdaptiveCappedMartingaleStrategy:
                             max_retries,
                             exc,
                         )
+                except RestError as exc:
+                    if self._is_not_found_error(exc):
+                        LOGGER.info(
+                            "Order %s not found on exchange; removing from state.",
+                            order_id,
+                        )
+                        self.state.open_orders.pop(order_id, None)
+                        status_view = None
+                        break
+                    LOGGER.warning(
+                        "Error fetching order %s; skipping update: %s", order_id, exc
+                    )
+                    break
                 except Exception as exc:
                     LOGGER.warning(
                         "Error fetching order %s; skipping update: %s", order_id, exc
@@ -595,6 +608,10 @@ class AdaptiveCappedMartingaleStrategy:
                     self.state.open_orders.pop(order_id, None)
             else:
                 tracked.status = status_view.status
+
+    @staticmethod
+    def _is_not_found_error(exc: Exception) -> bool:
+        return isinstance(exc, RestError) and "HTTP error 404" in str(exc)
 
     def _apply_order_update(
         self, tracked: TrackedOrder, status: OrderStatusView
