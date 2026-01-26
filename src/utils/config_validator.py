@@ -244,17 +244,38 @@ def validate_infinity_grid_config(config: dict[str, Any]) -> None:
     validate_symbol(config)
     validate_url(config)
 
-    validate_positive_integer(config, "levels", required=True, minimum=2)
-    validate_positive_decimal(config, "step_pct", required=True)
-    validate_positive_decimal(config, "order_size", required=True)
+    step_mode = config.get("step_mode", "pct")
+    validate_choice(config, "step_mode", {"pct", "abs"}, required=False)
 
-    # Ensure step percentage is reasonable
-    if "step_pct" in config:
+    if step_mode == "pct":
+        validate_positive_decimal(config, "step_pct", required=True)
+        # Ensure step percentage is reasonable
         step_pct = Decimal(str(config["step_pct"]))
         if step_pct > Decimal("0.5"):
             raise ConfigValidationError(
                 f"step_pct should be < 0.5 (50%), got: {step_pct}"
             )
+    else:
+        validate_positive_decimal(config, "step_abs", required=True)
+
+    validate_positive_integer(config, "n_buy_levels", required=True, minimum=1)
+    validate_positive_integer(config, "initial_sell_levels", required=True, minimum=1)
+    validate_positive_decimal(config, "base_order_size", required=True)
+
+    validate_positive_decimal(config, "min_notional_quote", required=True)
+    validate_non_negative_decimal(config, "total_fee_rate", required=True)
+    validate_non_negative_decimal(config, "fee_buffer_pct", required=True)
+    validate_positive_decimal(config, "tick_size", required=True)
+    validate_positive_decimal(config, "step_size", required=True)
+
+    if "poll_interval_sec" in config:
+        validate_positive_decimal(config, "poll_interval_sec", required=False)
+    if "reconcile_interval_sec" in config:
+        validate_positive_decimal(config, "reconcile_interval_sec", required=False)
+    if "balance_refresh_sec" in config:
+        validate_positive_decimal(config, "balance_refresh_sec", required=False)
+    if "fetch_backoff_sec" in config:
+        validate_positive_decimal(config, "fetch_backoff_sec", required=False)
 
 
 def validate_triangular_arb_config(config: dict[str, Any]) -> None:

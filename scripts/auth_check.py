@@ -55,16 +55,16 @@ def test_authenticated_endpoint(api_key: str, api_secret: str):
     # Fix: Use string concatenation instead of urljoin to preserve base_url path
     full_url = base_url.rstrip("/") + "/" + endpoint.lstrip("/")
 
-    # Generate nonce (milliseconds since epoch)
-    # CRITICAL: Using 1e3 (1000) to convert seconds to milliseconds
-    nonce = str(int(time.time() * 1000))  # This should be 13 digits
+    # Generate nonce (milliseconds with extra precision)
+    # CRITICAL: NonKYC requires a 14-digit nonce (1e4 multiplier)
+    nonce = str(int(time.time() * 10000))  # This should be 14 digits
 
     # Security: Don't log actual API credentials
     print(f"API Key: [REDACTED] ({len(api_key)} chars)")
     print(f"Nonce: {nonce} ({len(nonce)} digits)")
 
-    if len(nonce) != 13:
-        print(f"⚠️  WARNING: Nonce should be 13 digits, got {len(nonce)}")
+    if len(nonce) != 14:
+        print(f"⚠️  WARNING: Nonce should be 14 digits, got {len(nonce)}")
 
     # Build signature
     # message = api_key + url + body + nonce
@@ -163,9 +163,9 @@ def main():
         print("\nTo test authentication, set your credentials:")
         print("  export NONKYC_API_KEY='your_key_here'")
         print("  export NONKYC_API_SECRET='your_secret_here'")
-        print("  python test_auth.py")
+        print("  python scripts/auth_check.py")
         print("\nAlternatively, pass them as arguments:")
-        print("  python test_auth.py YOUR_API_KEY YOUR_API_SECRET")
+        print("  python scripts/auth_check.py YOUR_API_KEY YOUR_API_SECRET")
 
         if len(sys.argv) == 3:
             api_key = sys.argv[1]
@@ -185,14 +185,14 @@ def main():
     if success:
         print("✅ All tests passed!")
         print("\nYour authentication is working correctly.")
-        print("The nonce fix (1e3 multiplier) is working as expected.")
+        print("The nonce fix (1e4 multiplier) is working as expected.")
         return 0
     else:
         print("❌ Authentication test failed")
         print("\nPlease verify:")
         print("  1. Your API key and secret are correct")
         print("  2. Your API key has the necessary permissions")
-        print("  3. Check the nonce value (should be 13 digits)")
+        print("  3. Check the nonce value (should be 14 digits)")
         return 1
 
 

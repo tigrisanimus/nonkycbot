@@ -69,6 +69,12 @@
 - [x] Document infinity grid fill-monitoring cadence and troubleshooting guidance.
 - [x] Ensure infinity ladder client IDs use UUIDs and add coverage.
 - [x] Continue infinity ladder seeding when recoverable 400 order errors occur.
+- [x] Document infinity grid implementation snapshot and rationale in the guide.
+- [x] Backup infinity grid bot sources and align config validation with current fields.
+- [x] Align auth tooling/docs with 14-digit nonce defaults across bots.
+- [x] Move symbol format check script out of pytest collection and update docs.
+- [x] Guard infinity ladder refill logs to reflect only successful placements.
+- [x] Refresh infinity grid backup snapshot and remove legacy helper module.
 
 ## Next
 - [ ] Define API client interfaces and error handling.

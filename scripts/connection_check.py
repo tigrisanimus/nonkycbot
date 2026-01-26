@@ -20,7 +20,7 @@ SIGNER_SORT_PARAMS = None
 SIGNER_SORT_BODY = None
 SIGN_ABSOLUTE_URL = True  # NonKYC requires full URL signing
 
-DEFAULT_NONCE_MULTIPLIER = 1e3  # 13 digits (milliseconds since epoch)
+DEFAULT_NONCE_MULTIPLIER = 1e4  # 14 digits (required by NonKYC)
 DEFAULT_SORT_PARAMS = False
 DEFAULT_SORT_BODY = False
 
@@ -187,10 +187,10 @@ def test_connection():
 if __name__ == "__main__":
     if API_KEY == "your_api_key_here" or API_SECRET == "your_api_secret_here":
         print("\n⚠️  WARNING: Please edit this file and add your API credentials!")
-        print("   Edit test_connection.py and replace:")
+        print("   Edit scripts/connection_check.py and replace:")
         print("   - API_KEY = 'your_api_key_here'")
         print("   - API_SECRET = 'your_api_secret_here'")
-        print("\n   Then run: python test_connection.py")
+        print("\n   Then run: python scripts/connection_check.py")
         sys.exit(1)
 
     test_connection()
