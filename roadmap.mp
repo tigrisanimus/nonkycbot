@@ -82,6 +82,9 @@
 - [x] Align adaptive capped martingale example config with standard header/comment conventions.
 - [x] Align orderbook snapshot requests to use ticker_id/depth params across REST fallbacks.
 - [x] Fetch/handle minimum order quantity for adaptive capped martingale orders.
+- [x] Treat 404 open-order endpoints as empty results for REST exchange adapters.
+- [x] Drop not-found adaptive martingale orders so cycles reseed after manual cancels.
+- [x] Start adaptive martingale cycles with market buys and limit follow-ups.
 
 ## Next
 - [ ] Define API client interfaces and error handling.

@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from decimal import Decimal
 from pathlib import Path
-
-import logging
 
 from engine.rest_client_factory import build_exchange_client, build_rest_client
 from nonkyc_client.rest import RestError, RestRequest
@@ -14,7 +13,6 @@ from strategies.adaptive_capped_martingale import (
     AdaptiveCappedMartingaleConfig,
     AdaptiveCappedMartingaleStrategy,
 )
-
 
 LOGGER = logging.getLogger("nonkyc_bot.engine.adaptive_capped_martingale_runner")
 

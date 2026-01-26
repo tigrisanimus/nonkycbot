@@ -317,6 +317,77 @@ class AdaptiveCappedMartingaleStrategy:
             order_id,
         )
 
+    def _place_market_order(
+        self,
+        *,
+        role: str,
+        side: str,
+        price_hint: Decimal,
+        quantity: Decimal,
+        now: float,
+        rounding: str = ROUND_DOWN,
+    ) -> None:
+        if self.state is None:
+            return
+        quantity = self._round_quantity(quantity, rounding=rounding)
+        if quantity <= 0:
+            return
+        if (
+            self.config.min_order_qty is not None
+            and quantity < self.config.min_order_qty
+        ):
+            LOGGER.info(
+                "Skipping %s order below min quantity: %s < %s",
+                role,
+                quantity,
+                self.config.min_order_qty,
+            )
+            return
+        notional = quantity * price_hint
+        if notional < self.config.min_order_notional:
+            LOGGER.info(
+                "Skipping %s order below min notional: %s < %s",
+                role,
+                notional,
+                self.config.min_order_notional,
+            )
+            return
+        client_id = f"acm-{role}-{uuid.uuid4().hex}"
+        try:
+            order_id = self.client.place_market(
+                self.config.symbol, side, quantity, client_id
+            )
+        except NotImplementedError as exc:
+            LOGGER.warning(
+                "Market orders not supported; falling back to limit base order: %s",
+                exc,
+            )
+            self._place_limit_order(
+                role=role,
+                side=side,
+                price=price_hint,
+                quantity=quantity,
+                now=now,
+                rounding=rounding,
+            )
+            return
+        self.state.open_orders[order_id] = TrackedOrder(
+            order_id=order_id,
+            client_id=client_id,
+            role=role,
+            side=side,
+            price=price_hint,
+            quantity=quantity,
+            created_at=now,
+        )
+        LOGGER.info(
+            "Placed %s market order: side=%s qty=%s id=%s",
+            role,
+            side,
+            quantity,
+            order_id,
+        )
+
     def _place_base_order(self, now: float) -> None:
         if self.state is None:
             return
@@ -335,10 +406,10 @@ class AdaptiveCappedMartingaleStrategy:
                 "Insufficient budget for base order after rounding: %s", notional
             )
             return
-        self._place_limit_order(
+        self._place_market_order(
             role="base",
             side="buy",
-            price=best_bid,
+            price_hint=best_bid,
             quantity=quantity,
             now=now,
             rounding=ROUND_UP,
@@ -575,6 +646,19 @@ class AdaptiveCappedMartingaleStrategy:
                             max_retries,
                             exc,
                         )
+                except RestError as exc:
+                    if self._is_not_found_error(exc):
+                        LOGGER.info(
+                            "Order %s not found on exchange; removing from state.",
+                            order_id,
+                        )
+                        self.state.open_orders.pop(order_id, None)
+                        status_view = None
+                        break
+                    LOGGER.warning(
+                        "Error fetching order %s; skipping update: %s", order_id, exc
+                    )
+                    break
                 except Exception as exc:
                     LOGGER.warning(
                         "Error fetching order %s; skipping update: %s", order_id, exc
@@ -595,6 +679,10 @@ class AdaptiveCappedMartingaleStrategy:
                     self.state.open_orders.pop(order_id, None)
             else:
                 tracked.status = status_view.status
+
+    @staticmethod
+    def _is_not_found_error(exc: Exception) -> bool:
+        return isinstance(exc, RestError) and "HTTP error 404" in str(exc)
 
     def _apply_order_update(
         self, tracked: TrackedOrder, status: OrderStatusView
