@@ -565,12 +565,11 @@ class AdaptiveCappedMartingaleStrategy:
             return "tp2"
         if mid_price >= tp1_price and not self.state.partial_exit_done:
             return "tp1"
-        if (
-            self.state.next_add_trigger is not None
-            and mid_price <= self.state.next_add_trigger
-            and self.state.add_count < self.config.max_adds
+        if self.state.next_add_trigger is not None and (
+            mid_price <= self.state.next_add_trigger or not self.state.open_orders
         ):
-            return "add"
+            if self.state.add_count < self.config.max_adds:
+                return "add"
         return None
 
     def _ensure_single_order(

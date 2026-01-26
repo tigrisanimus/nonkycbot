@@ -265,7 +265,25 @@ def test_restart_does_not_duplicate_orders(tmp_path) -> None:
     restart_strategy.load_state()
     restart_strategy.poll_once(now=1.0)
 
-    assert len(exchange.orders) == 1
+    assert len(exchange.orders) == 2
+    market_orders = [
+        order for order in exchange.orders.values() if order["order_type"] == "market"
+    ]
+    assert len(market_orders) == 1
+
+
+def test_add_order_seeded_after_base_buy(tmp_path) -> None:
+    exchange = FakeExchange()
+    strategy = _build_strategy(tmp_path, exchange)
+
+    strategy.poll_once(now=0.0)
+    strategy.poll_once(now=1.0)
+
+    assert len(strategy.state.open_orders) == 1
+    tracked = next(iter(strategy.state.open_orders.values()))
+    assert tracked.role == "add-1"
+    expected_trigger = exchange.mid_price * (Decimal("1") - strategy.config.step_pct)
+    assert tracked.price == expected_trigger
 
 
 def test_no_orders_after_base_buy_until_trigger(tmp_path) -> None:
