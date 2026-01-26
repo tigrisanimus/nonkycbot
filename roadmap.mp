@@ -85,6 +85,7 @@
 - [x] Treat 404 open-order endpoints as empty results for REST exchange adapters.
 - [x] Drop not-found adaptive martingale orders so cycles reseed after manual cancels.
 - [x] Start adaptive martingale cycles with market buys and limit follow-ups.
+- [x] Apply base market fills immediately to prevent repeated market buys.
 
 ## Next
 - [ ] Define API client interfaces and error handling.

@@ -131,11 +131,6 @@ def test_fee_aware_avg_entry_and_breakeven(tmp_path) -> None:
     strategy.poll_once(now=0.0)
     order_id = next(iter(exchange.orders))
     order = exchange.orders[order_id]
-    exchange.fill_order(
-        order_id, filled_qty=order["quantity"], avg_price=order["price"]
-    )
-
-    strategy.poll_once(now=1.0)
 
     avg_entry = strategy._avg_entry()
     assert avg_entry is not None
@@ -273,6 +268,26 @@ def test_restart_does_not_duplicate_orders(tmp_path) -> None:
     assert len(exchange.orders) == 1
 
 
+def test_market_base_followed_by_limit_tp1(tmp_path) -> None:
+    exchange = FakeExchange()
+    strategy = _build_strategy(tmp_path, exchange, tp1_pct=Decimal("0.01"))
+
+    strategy.poll_once(now=0.0)
+
+    assert strategy.state is not None
+    assert strategy.state.total_btc > 0
+    assert strategy.state.open_orders == {}
+
+    exchange.best_ask = Decimal("101.3")
+    exchange.mid_price = Decimal("101.3")
+    strategy.poll_once(now=1.0)
+
+    assert len(strategy.state.open_orders) == 1
+    tracked = next(iter(strategy.state.open_orders.values()))
+    assert tracked.role == "tp1"
+    assert exchange.orders[tracked.order_id]["order_type"] == "limit"
+
+
 def test_reconcile_drops_not_found_orders_and_reseeds(tmp_path) -> None:
     class NotFoundExchange(FakeExchange):
         def get_order(self, order_id: str) -> OrderStatusView:
@@ -297,6 +312,4 @@ def test_reconcile_drops_not_found_orders_and_reseeds(tmp_path) -> None:
     strategy.poll_once(now=1.0)
 
     assert len(exchange.orders) == 1
-    assert len(strategy.state.open_orders) == 1
-    tracked = next(iter(strategy.state.open_orders.values()))
-    assert tracked.role == "base"
+    assert strategy.state.open_orders == {}

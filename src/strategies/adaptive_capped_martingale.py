@@ -323,9 +323,11 @@ class AdaptiveCappedMartingaleStrategy:
         role: str,
         side: str,
         price_hint: Decimal,
+        fill_price: Decimal | None = None,
         quantity: Decimal,
         now: float,
         rounding: str = ROUND_DOWN,
+        apply_fill: bool = False,
     ) -> None:
         if self.state is None:
             return
@@ -371,6 +373,22 @@ class AdaptiveCappedMartingaleStrategy:
                 rounding=rounding,
             )
             return
+        if apply_fill:
+            resolved_fill = fill_price if fill_price is not None else price_hint
+            if side == "buy":
+                self._apply_buy_fill(quantity, resolved_fill)
+                if self.state.base_price is None and role == "base":
+                    self.state.base_price = resolved_fill
+            else:
+                self._apply_sell_fill(quantity, resolved_fill)
+            LOGGER.info(
+                "Placed %s market order (applied fill): side=%s qty=%s id=%s",
+                role,
+                side,
+                quantity,
+                order_id,
+            )
+            return
         self.state.open_orders[order_id] = TrackedOrder(
             order_id=order_id,
             client_id=client_id,
@@ -394,6 +412,7 @@ class AdaptiveCappedMartingaleStrategy:
         if self._has_open_role("base"):
             return
         best_bid, _ = self.client.get_orderbook_top(self.config.symbol)
+        mid_price = self.client.get_mid_price(self.config.symbol)
         notional = self._base_order_notional(best_bid)
         if not self._desired_budget_available(notional):
             LOGGER.warning("Insufficient budget for base order: %s", notional)
@@ -410,9 +429,11 @@ class AdaptiveCappedMartingaleStrategy:
             role="base",
             side="buy",
             price_hint=best_bid,
+            fill_price=mid_price,
             quantity=quantity,
             now=now,
             rounding=ROUND_UP,
+            apply_fill=True,
         )
 
     def _place_add_order(self, now: float, price: Decimal) -> None:
