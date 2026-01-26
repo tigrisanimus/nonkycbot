@@ -7,7 +7,7 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass, field
-from decimal import ROUND_DOWN, Decimal
+from decimal import ROUND_DOWN, ROUND_UP, Decimal
 from pathlib import Path
 
 from engine.exchange_client import ExchangeClient, OrderStatusView
@@ -30,6 +30,7 @@ class AdaptiveCappedMartingaleConfig:
     tp2_pct: Decimal = Decimal("0.014")
     fee_rate: Decimal = Decimal("0.002")
     min_order_notional: Decimal = Decimal("2")
+    min_order_qty: Decimal | None = None
     time_stop_seconds: float = 72 * 3600
     time_stop_exit_buffer_pct: Decimal = Decimal("0.001")
     poll_interval_sec: float = 5.0
@@ -209,34 +210,43 @@ class AdaptiveCappedMartingaleStrategy:
         fee_buffer = Decimal("0.004") + self.config.slippage_buffer_pct
         return avg_entry * (Decimal("1") + fee_buffer)
 
-    def _base_order_notional(self) -> Decimal:
+    def _min_required_notional(self, price: Decimal) -> Decimal:
+        min_notional = self.config.min_order_notional
+        if self.config.min_order_qty is None:
+            return min_notional
+        min_qty_notional = self.config.min_order_qty * price
+        return max(min_notional, min_qty_notional)
+
+    def _base_order_notional(self, price: Decimal) -> Decimal:
         target = self.config.cycle_budget * self.config.base_order_pct
-        return max(target, self.config.min_order_notional)
+        return max(target, self._min_required_notional(price))
 
     def _per_order_cap(self) -> Decimal:
         return self.config.cycle_budget * self.config.per_order_cap_pct
 
-    def _next_add_notional(self) -> Decimal:
+    def _next_add_notional(self, price: Decimal) -> Decimal:
         if self.state is None:
             return Decimal("0")
-        base = self._base_order_notional()
+        base = self._base_order_notional(price)
         raw = base * (self.config.multiplier**self.state.add_count)
         capped = min(raw, self._per_order_cap())
-        return max(capped, self.config.min_order_notional)
+        return max(capped, self._min_required_notional(price))
 
     def _desired_budget_available(self, notional: Decimal) -> bool:
         fee = notional * self.config.fee_rate
         return self._cycle_spent() + notional + fee <= self.config.cycle_budget
 
-    def _round_quantity(self, quantity: Decimal) -> Decimal:
+    def _round_quantity(
+        self, quantity: Decimal, *, rounding: str = ROUND_DOWN
+    ) -> Decimal:
         if quantity <= 0:
             return Decimal("0")
         if self.config.quantity_step is not None and self.config.quantity_step > 0:
             step = self.config.quantity_step
-            return (quantity / step).to_integral_value(rounding=ROUND_DOWN) * step
+            return (quantity / step).to_integral_value(rounding=rounding) * step
         if self.config.quantity_precision is not None:
             quantizer = Decimal("1").scaleb(-self.config.quantity_precision)
-            return quantity.quantize(quantizer, rounding=ROUND_DOWN)
+            return quantity.quantize(quantizer, rounding=rounding)
         return quantity
 
     def _place_limit_order(
@@ -247,11 +257,23 @@ class AdaptiveCappedMartingaleStrategy:
         price: Decimal,
         quantity: Decimal,
         now: float,
+        rounding: str = ROUND_DOWN,
     ) -> None:
         if self.state is None:
             return
-        quantity = self._round_quantity(quantity)
+        quantity = self._round_quantity(quantity, rounding=rounding)
         if quantity <= 0:
+            return
+        if (
+            self.config.min_order_qty is not None
+            and quantity < self.config.min_order_qty
+        ):
+            LOGGER.info(
+                "Skipping %s order below min quantity: %s < %s",
+                role,
+                quantity,
+                self.config.min_order_qty,
+            )
             return
         notional = quantity * price
         if notional < self.config.min_order_notional:
@@ -300,18 +322,26 @@ class AdaptiveCappedMartingaleStrategy:
             return
         if self._has_open_role("base"):
             return
-        notional = self._base_order_notional()
+        best_bid, _ = self.client.get_orderbook_top(self.config.symbol)
+        notional = self._base_order_notional(best_bid)
         if not self._desired_budget_available(notional):
             LOGGER.warning("Insufficient budget for base order: %s", notional)
             return
-        best_bid, _ = self.client.get_orderbook_top(self.config.symbol)
         quantity = notional / best_bid
+        quantity = self._round_quantity(quantity, rounding=ROUND_UP)
+        notional = quantity * best_bid
+        if not self._desired_budget_available(notional):
+            LOGGER.warning(
+                "Insufficient budget for base order after rounding: %s", notional
+            )
+            return
         self._place_limit_order(
             role="base",
             side="buy",
             price=best_bid,
             quantity=quantity,
             now=now,
+            rounding=ROUND_UP,
         )
 
     def _place_add_order(self, now: float, price: Decimal) -> None:
@@ -319,13 +349,18 @@ class AdaptiveCappedMartingaleStrategy:
             return
         if self.state.add_count >= self.config.max_adds:
             return
-        notional = self._next_add_notional()
+        best_bid, _ = self.client.get_orderbook_top(self.config.symbol)
+        bid_price = min(best_bid, price)
+        notional = self._next_add_notional(bid_price)
         if not self._desired_budget_available(notional):
             LOGGER.info("Skipping add: budget cap reached")
             return
-        best_bid, _ = self.client.get_orderbook_top(self.config.symbol)
-        bid_price = min(best_bid, price)
         quantity = notional / bid_price
+        quantity = self._round_quantity(quantity, rounding=ROUND_UP)
+        notional = quantity * bid_price
+        if not self._desired_budget_available(notional):
+            LOGGER.info("Skipping add: budget cap reached after rounding")
+            return
         role = f"add-{self.state.add_count + 1}"
         self._place_limit_order(
             role=role,
@@ -333,6 +368,7 @@ class AdaptiveCappedMartingaleStrategy:
             price=bid_price,
             quantity=quantity,
             now=now,
+            rounding=ROUND_UP,
         )
 
     def _place_tp1(self, now: float, price: Decimal) -> None:
@@ -342,6 +378,15 @@ class AdaptiveCappedMartingaleStrategy:
             return
         quantity = self.state.total_btc * Decimal("0.5")
         quantity = self._round_quantity(quantity)
+        if (
+            self.config.min_order_qty is not None
+            and quantity < self.config.min_order_qty
+        ):
+            if self.state.total_btc >= self.config.min_order_qty:
+                quantity = self._round_quantity(self.state.total_btc)
+            else:
+                LOGGER.info("Skipping TP1: position below min quantity")
+                return
         notional = quantity * price
         if notional < self.config.min_order_notional:
             total_notional = self.state.total_btc * price
@@ -365,6 +410,12 @@ class AdaptiveCappedMartingaleStrategy:
             return
         quantity = self._round_quantity(self.state.total_btc)
         if quantity <= 0:
+            return
+        if (
+            self.config.min_order_qty is not None
+            and quantity < self.config.min_order_qty
+        ):
+            LOGGER.info("Skipping exit: position below min quantity")
             return
         notional = quantity * price
         if notional < self.config.min_order_notional:

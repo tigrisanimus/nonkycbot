@@ -167,11 +167,28 @@ def test_capped_geometric_sizing(tmp_path) -> None:
     )
     strategy.state = CycleState(cycle_id="cycle", started_at=0.0)
 
-    assert strategy._next_add_notional() == Decimal("10")
+    assert strategy._next_add_notional(exchange.best_bid) == Decimal("10")
     strategy.state.add_count = 1
-    assert strategy._next_add_notional() == Decimal("15")
+    assert strategy._next_add_notional(exchange.best_bid) == Decimal("15")
     strategy.state.add_count = 2
-    assert strategy._next_add_notional() == Decimal("15")
+    assert strategy._next_add_notional(exchange.best_bid) == Decimal("15")
+
+
+def test_min_quantity_enforced_for_base_order(tmp_path) -> None:
+    exchange = FakeExchange()
+    exchange.best_bid = Decimal("88000")
+    strategy = _build_strategy(
+        tmp_path,
+        exchange,
+        cycle_budget=Decimal("66.10"),
+        min_order_qty=Decimal("0.000024"),
+    )
+
+    strategy.poll_once(now=0.0)
+
+    assert len(exchange.orders) == 1
+    order = next(iter(exchange.orders.values()))
+    assert order["quantity"] >= Decimal("0.000024")
 
 
 def test_time_stop_blocks_adds_and_exits_at_breakeven(tmp_path) -> None:

@@ -321,6 +321,7 @@ def validate_adaptive_capped_martingale_config(config: dict[str, Any]) -> None:
     validate_positive_decimal(config, "slippage_buffer_pct", required=False)
     validate_positive_decimal(config, "fee_rate", required=False)
     validate_positive_decimal(config, "min_order_notional", required=False)
+    validate_positive_decimal(config, "min_order_qty", required=False)
     if "time_stop_seconds" in config:
         validate_positive_decimal(config, "time_stop_seconds", required=False)
     if "poll_interval_sec" in config:
