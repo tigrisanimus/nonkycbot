@@ -3,10 +3,12 @@ from __future__ import annotations
 from decimal import Decimal
 
 from engine.exchange_client import OpenOrder, OrderStatusView
+from nonkyc_client.rest import RestError
 from strategies.adaptive_capped_martingale import (
     AdaptiveCappedMartingaleConfig,
     AdaptiveCappedMartingaleStrategy,
     CycleState,
+    TrackedOrder,
 )
 
 
@@ -40,6 +42,7 @@ class FakeExchange:
             "avg_price": price,
             "price": price,
             "quantity": quantity,
+            "order_type": "limit",
         }
         return order_id
 
@@ -58,6 +61,7 @@ class FakeExchange:
             "avg_price": self.mid_price,
             "price": self.mid_price,
             "quantity": quantity,
+            "order_type": "market",
         }
         return order_id
 
@@ -189,6 +193,7 @@ def test_min_quantity_enforced_for_base_order(tmp_path) -> None:
     assert len(exchange.orders) == 1
     order = next(iter(exchange.orders.values()))
     assert order["quantity"] >= Decimal("0.000024")
+    assert order["order_type"] == "market"
 
 
 def test_time_stop_blocks_adds_and_exits_at_breakeven(tmp_path) -> None:
@@ -257,6 +262,8 @@ def test_restart_does_not_duplicate_orders(tmp_path) -> None:
 
     strategy.poll_once(now=0.0)
     assert len(exchange.orders) == 1
+    first_order = next(iter(exchange.orders.values()))
+    assert first_order["order_type"] == "market"
     strategy.save_state()
 
     restart_strategy = _build_strategy(tmp_path, exchange)
@@ -264,3 +271,32 @@ def test_restart_does_not_duplicate_orders(tmp_path) -> None:
     restart_strategy.poll_once(now=1.0)
 
     assert len(exchange.orders) == 1
+
+
+def test_reconcile_drops_not_found_orders_and_reseeds(tmp_path) -> None:
+    class NotFoundExchange(FakeExchange):
+        def get_order(self, order_id: str) -> OrderStatusView:
+            raise RestError("HTTP error 404: Order not found")
+
+        def list_open_orders(self, symbol: str) -> list[OpenOrder]:
+            return []
+
+    exchange = NotFoundExchange()
+    strategy = _build_strategy(tmp_path, exchange)
+    strategy.state = CycleState(cycle_id="cycle", started_at=0.0)
+    strategy.state.open_orders["missing-order"] = TrackedOrder(
+        order_id="missing-order",
+        client_id="client-1",
+        role="base",
+        side="buy",
+        price=Decimal("100"),
+        quantity=Decimal("0.01"),
+        created_at=0.0,
+    )
+
+    strategy.poll_once(now=1.0)
+
+    assert len(exchange.orders) == 1
+    assert len(strategy.state.open_orders) == 1
+    tracked = next(iter(strategy.state.open_orders.values()))
+    assert tracked.role == "base"
