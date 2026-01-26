@@ -116,14 +116,19 @@ class NonkycRestExchangeClient(ExchangeClient):
             RestRequest(method="GET", path="/orders", params={"symbol": symbol}),
         ]
         last_error: Exception | None = None
+        last_non_404: Exception | None = None
         for request in endpoints:
             try:
                 response = self._rest.send(request)
                 return self._parse_open_orders(response, symbol)
             except RestError as exc:
                 last_error = exc
+                if not self._is_not_found_error(exc):
+                    last_non_404 = exc
+        if last_non_404 is not None:
+            raise last_non_404
         if last_error is not None:
-            raise last_error
+            return []
         return []
 
     def _parse_open_orders(
@@ -218,6 +223,10 @@ class NonkycRestExchangeClient(ExchangeClient):
                     except Exception:
                         return None
         return None
+
+    @staticmethod
+    def _is_not_found_error(exc: Exception) -> bool:
+        return isinstance(exc, RestError) and "HTTP error 404" in str(exc)
 
     @staticmethod
     def _extract_float(payload: Any, keys: tuple[str, ...]) -> float | None:
