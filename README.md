@@ -330,6 +330,20 @@ Maintains a target ratio between base and quote assets.
 **Runner**: `run_rebalance_bot.py`
 **Examples**: `examples/rebalance_bot.yml`
 
+### 6. Adaptive Capped Martingale (Spot)
+Fee-aware, spot-only mean reversion strategy that accumulates BTC with capped geometric adds.
+
+**Use case**: Accumulate BTC during pullbacks with capped exposure and staged exits
+**How it works**:
+- Places a base buy at the best bid and tracks fills with fee-aware average entry
+- Adds only when price drops by a fixed step and budget allows (capped sizing)
+- Takes partial profit at TP1 and exits remaining position at TP2
+- Uses a time stop to exit at breakeven after prolonged cycles
+**Config**: `symbol`, `cycle_budget`, `base_order_pct`, `multiplier`, `max_adds`, `step_pct`, `tp1_pct`, `tp2_pct`, `fee_rate`
+**Module**: `strategies.adaptive_capped_martingale`
+**Runner**: `run_adaptive_capped_martingale.py`
+**Examples**: `examples/adaptive_capped_martingale_btc_usdt.yml`
+
 See [examples/](examples/) directory for complete configuration examples with detailed usage instructions.
 
 ### Strategy Guides
@@ -377,6 +391,13 @@ Before running any bot, you need to have the appropriate assets in your nonkyc.i
   - As BTC price drops below $50k, bot buys BTC using the $10k USDT allocation
   - Lower limit calculated from USDT: with $10k USDT and 1% steps, can support dips to ~$40k
 - **Important**: More USDT allocated = lower the grid can extend = more dip-buying capacity
+
+### Adaptive Capped Martingale
+**Requires: quote asset for buys; base asset only after fills**
+
+- **What you need**: USDT (or quote currency) for base and add buys
+- **Why**: Strategy is spot-only and long-only; it accumulates BTC and sells portions for profit
+- **Example**: For a $500 cycle budget, the base order starts at ~$7.50 with capped adds up to $50 per order
 
 ### Triangular Arbitrage
 **Requires: Starting currency ONLY**
@@ -575,6 +596,7 @@ nonkycbot/
 │   │   └── risk.py             # Risk controls
 │   ├── strategies/             # Trading strategies
 │   │   ├── grid.py             # Ladder grid trading
+│   │   ├── adaptive_capped_martingale.py # Spot-only martingale strategy
 │   │   ├── infinity_ladder_grid.py # Infinity grid (no upper limit)
 │   │   ├── triangular_arb.py   # Triangular arbitrage
 │   │   ├── hybrid_triangular_arb.py # Hybrid arbitrage
@@ -588,6 +610,7 @@ nonkycbot/
 │       └── config.py           # Configuration loader
 ├── examples/                   # Example configurations
 │   ├── grid_cosa_pirate.yml    # Standard grid example
+│   ├── adaptive_capped_martingale_btc_usdt.yml # Adaptive martingale example
 │   ├── infinity_grid.yml       # Infinity grid example (general)
 │   ├── infinity_grid_small_balance.yml # Small balance config
 │   ├── infinity_grid_tight.yml # Tight spacing (0.5%) config
@@ -597,6 +620,7 @@ nonkycbot/
 ├── tests/                      # Unit tests
 │   └── test_strategies.py      # Strategy tests
 ├── run_grid.py                 # Grid bot runner script
+├── run_adaptive_capped_martingale.py # Adaptive martingale runner script
 ├── run_infinity_grid.py        # Infinity grid bot runner script
 ├── run_arb_bot.py              # Arbitrage bot runner script
 ├── run_hybrid_arb_bot.py       # Hybrid arbitrage runner script

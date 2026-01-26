@@ -14,6 +14,7 @@ from typing import Any, Callable
 from engine.grid_runner import run_grid
 from engine.state import EngineState
 from strategies import (
+    adaptive_capped_martingale_describe,
     grid_describe,
     infinity_grid_describe,
     rebalance_describe,
@@ -25,6 +26,7 @@ from utils.logging_config import setup_logging
 LOGGER = logging.getLogger("nonkyc_bot.cli")
 
 STRATEGY_DESCRIPTIONS: dict[str, Callable[[], str]] = {
+    "adaptive_capped_martingale": adaptive_capped_martingale_describe,
     "grid": grid_describe,
     "infinity_grid": infinity_grid_describe,
     "rebalance": rebalance_describe,

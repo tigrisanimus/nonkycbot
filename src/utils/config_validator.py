@@ -51,10 +51,11 @@ def validate_symbol(config: dict[str, Any]) -> None:
     if not isinstance(symbol, str) or not symbol.strip():
         raise ConfigValidationError("symbol must be a non-empty string")
 
-    # Check for common symbol formats like BTC/USDT or BTC-USDT
-    if not re.match(r"^[A-Z0-9]+[/-][A-Z0-9]+$", symbol, re.IGNORECASE):
+    # Check for common symbol formats like BTC/USDT, BTC-USDT, or BTC_USDT
+    if not re.match(r"^[A-Z0-9]+[/-_][A-Z0-9]+$", symbol, re.IGNORECASE):
         raise ConfigValidationError(
-            f"symbol '{symbol}' does not match expected format (e.g., BTC/USDT or BTC-USDT)"
+            "symbol '{symbol}' does not match expected format (e.g., BTC/USDT, "
+            "BTC-USDT, or BTC_USDT)".format(symbol=symbol)
         )
 
 
@@ -303,6 +304,29 @@ def validate_triangular_arb_config(config: dict[str, Any]) -> None:
             )
 
 
+def validate_adaptive_capped_martingale_config(config: dict[str, Any]) -> None:
+    """Validate configuration for adaptive capped martingale strategy."""
+    validate_api_credentials(config, allow_missing=True)
+    validate_symbol(config)
+    validate_url(config)
+
+    validate_positive_decimal(config, "cycle_budget", required=True)
+    validate_positive_decimal(config, "base_order_pct", required=False)
+    validate_positive_decimal(config, "multiplier", required=False)
+    validate_positive_integer(config, "max_adds", required=False, minimum=0)
+    validate_positive_decimal(config, "per_order_cap_pct", required=False)
+    validate_positive_decimal(config, "step_pct", required=False)
+    validate_positive_decimal(config, "tp1_pct", required=False)
+    validate_positive_decimal(config, "tp2_pct", required=False)
+    validate_positive_decimal(config, "slippage_buffer_pct", required=False)
+    validate_positive_decimal(config, "fee_rate", required=False)
+    validate_positive_decimal(config, "min_order_notional", required=False)
+    if "time_stop_seconds" in config:
+        validate_positive_decimal(config, "time_stop_seconds", required=False)
+    if "poll_interval_sec" in config:
+        validate_positive_decimal(config, "poll_interval_sec", required=False)
+
+
 def validate_config(config: dict[str, Any], strategy: str | None = None) -> None:
     """
     Validate configuration for a specific strategy.
@@ -333,6 +357,8 @@ def validate_config(config: dict[str, Any], strategy: str | None = None) -> None
         validate_infinity_grid_config(config)
     elif strategy == "triangular_arb":
         validate_triangular_arb_config(config)
+    elif strategy == "adaptive_capped_martingale":
+        validate_adaptive_capped_martingale_config(config)
     elif strategy is not None:
         # For other strategies, at least validate basic fields
         if "symbol" in config:

@@ -1,0 +1,29 @@
+# Adaptive Capped Martingale strategy example for BTC/USDT
+exchange: nonkyc
+symbol: BTC_USDT
+api_key: "YOUR_API_KEY"
+api_secret: "YOUR_API_SECRET"
+base_url: "https://api.nonkyc.io/api/v2"
+
+# Budgeting
+cycle_budget: "500" # total USDT budget per cycle
+base_order_pct: "0.015" # 1.5% of cycle budget
+multiplier: "1.45"
+max_adds: 8
+per_order_cap_pct: "0.10" # cap each add at 10% of cycle budget
+
+# Spacing + exits
+step_pct: "0.012"
+slippage_buffer_pct: "0.001"
+tp1_pct: "0.008"
+tp2_pct: "0.014"
+
+# Fees and minimums
+fee_rate: "0.002"
+min_order_notional: "2"
+
+# Timing
+poll_interval_sec: 5
+time_stop_seconds: 259200 # 72 hours
+
+timestamp: true

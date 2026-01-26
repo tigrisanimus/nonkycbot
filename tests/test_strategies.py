@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from strategies import grid, infinity_ladder_grid, rebalance, triangular_arb
+from strategies import (
+    adaptive_capped_martingale,
+    grid,
+    infinity_ladder_grid,
+    rebalance,
+    triangular_arb,
+)
 
 
 def test_infinity_ladder_description() -> None:
@@ -68,3 +74,8 @@ def test_triangular_arb_rejects_unprofitable_cycle_with_fees() -> None:
 
 def test_grid_description() -> None:
     assert "grid" in grid.describe().lower() or "Grid" in grid.describe()
+
+
+def test_adaptive_capped_martingale_description() -> None:
+    description = adaptive_capped_martingale.describe().lower()
+    assert "martingale" in description

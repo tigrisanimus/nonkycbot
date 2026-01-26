@@ -1,0 +1,646 @@
+"""Adaptive capped martingale strategy for spot mean reversion."""
+
+from __future__ import annotations
+
+import json
+import logging
+import time
+import uuid
+from dataclasses import dataclass, field
+from decimal import ROUND_DOWN, Decimal
+from pathlib import Path
+
+from engine.exchange_client import ExchangeClient, OrderStatusView
+from nonkyc_client.rest import RestError, TransientApiError
+
+LOGGER = logging.getLogger("nonkyc_bot.strategy.adaptive_capped_martingale")
+
+
+@dataclass(frozen=True)
+class AdaptiveCappedMartingaleConfig:
+    symbol: str
+    cycle_budget: Decimal
+    base_order_pct: Decimal = Decimal("0.015")
+    multiplier: Decimal = Decimal("1.45")
+    max_adds: int = 8
+    per_order_cap_pct: Decimal = Decimal("0.10")
+    step_pct: Decimal = Decimal("0.012")
+    slippage_buffer_pct: Decimal = Decimal("0.001")
+    tp1_pct: Decimal = Decimal("0.008")
+    tp2_pct: Decimal = Decimal("0.014")
+    fee_rate: Decimal = Decimal("0.002")
+    min_order_notional: Decimal = Decimal("2")
+    time_stop_seconds: float = 72 * 3600
+    time_stop_exit_buffer_pct: Decimal = Decimal("0.001")
+    poll_interval_sec: float = 5.0
+    quantity_step: Decimal | None = None
+    quantity_precision: int | None = None
+
+
+@dataclass
+class TrackedOrder:
+    order_id: str
+    client_id: str
+    role: str
+    side: str
+    price: Decimal
+    quantity: Decimal
+    filled_qty: Decimal = Decimal("0")
+    status: str = "Open"
+    created_at: float = 0.0
+
+
+@dataclass
+class CycleState:
+    cycle_id: str
+    started_at: float
+    base_price: Decimal | None = None
+    total_btc: Decimal = Decimal("0")
+    total_buy_quote: Decimal = Decimal("0")
+    total_buy_fees_quote: Decimal = Decimal("0")
+    last_fill_price: Decimal | None = None
+    next_add_trigger: Decimal | None = None
+    add_count: int = 0
+    partial_exit_done: bool = False
+    time_stop_triggered: bool = False
+    fills: list[dict[str, str]] = field(default_factory=list)
+    open_orders: dict[str, TrackedOrder] = field(default_factory=dict)
+
+
+class AdaptiveCappedMartingaleStrategy:
+    def __init__(
+        self,
+        client: ExchangeClient,
+        config: AdaptiveCappedMartingaleConfig,
+        *,
+        state_path: Path | None = None,
+    ) -> None:
+        self.client = client
+        self.config = config
+        self.state_path = state_path
+        self.state: CycleState | None = None
+
+    def load_state(self) -> None:
+        if self.state_path is None or not self.state_path.exists():
+            return
+        data = json.loads(self.state_path.read_text(encoding="utf-8"))
+        orders = {}
+        for order_id, payload in data.get("open_orders", {}).items():
+            orders[order_id] = TrackedOrder(
+                order_id=order_id,
+                client_id=payload["client_id"],
+                role=payload["role"],
+                side=payload["side"],
+                price=Decimal(payload["price"]),
+                quantity=Decimal(payload["quantity"]),
+                filled_qty=Decimal(payload.get("filled_qty", "0")),
+                status=payload.get("status", "Open"),
+                created_at=payload.get("created_at", 0.0),
+            )
+        cycle_id = data.get("cycle_id")
+        if cycle_id is None:
+            return
+        self.state = CycleState(
+            cycle_id=cycle_id,
+            started_at=float(data["started_at"]),
+            base_price=(
+                Decimal(data["base_price"]) if data.get("base_price") else None
+            ),
+            total_btc=Decimal(str(data.get("total_btc", "0"))),
+            total_buy_quote=Decimal(str(data.get("total_buy_quote", "0"))),
+            total_buy_fees_quote=Decimal(str(data.get("total_buy_fees_quote", "0"))),
+            last_fill_price=(
+                Decimal(data["last_fill_price"])
+                if data.get("last_fill_price")
+                else None
+            ),
+            next_add_trigger=(
+                Decimal(data["next_add_trigger"])
+                if data.get("next_add_trigger")
+                else None
+            ),
+            add_count=int(data.get("add_count", 0)),
+            partial_exit_done=bool(data.get("partial_exit_done", False)),
+            time_stop_triggered=bool(data.get("time_stop_triggered", False)),
+            fills=list(data.get("fills", [])),
+            open_orders=orders,
+        )
+
+    def save_state(self) -> None:
+        if self.state_path is None or self.state is None:
+            return
+        payload = {
+            "cycle_id": self.state.cycle_id,
+            "started_at": self.state.started_at,
+            "base_price": str(self.state.base_price) if self.state.base_price else None,
+            "total_btc": str(self.state.total_btc),
+            "total_buy_quote": str(self.state.total_buy_quote),
+            "total_buy_fees_quote": str(self.state.total_buy_fees_quote),
+            "last_fill_price": (
+                str(self.state.last_fill_price) if self.state.last_fill_price else None
+            ),
+            "next_add_trigger": (
+                str(self.state.next_add_trigger)
+                if self.state.next_add_trigger is not None
+                else None
+            ),
+            "add_count": self.state.add_count,
+            "partial_exit_done": self.state.partial_exit_done,
+            "time_stop_triggered": self.state.time_stop_triggered,
+            "fills": list(self.state.fills),
+            "remaining_budget": str(self.config.cycle_budget - self._cycle_spent()),
+            "open_orders": {
+                order_id: {
+                    "client_id": order.client_id,
+                    "role": order.role,
+                    "side": order.side,
+                    "price": str(order.price),
+                    "quantity": str(order.quantity),
+                    "filled_qty": str(order.filled_qty),
+                    "status": order.status,
+                    "created_at": order.created_at,
+                }
+                for order_id, order in self.state.open_orders.items()
+            },
+        }
+        self.state_path.write_text(
+            json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
+        )
+
+    def poll_once(self, *, now: float | None = None) -> None:
+        if now is None:
+            now = time.time()
+        self._reconcile(now)
+        if self.state is None:
+            self._start_cycle(now)
+            self.save_state()
+            return
+        if self.state.total_btc == 0 and not self.state.open_orders:
+            self._start_cycle(now)
+            self.save_state()
+            return
+        self._apply_time_stop(now)
+        mid_price = self.client.get_mid_price(self.config.symbol)
+        desired = self._determine_next_action(mid_price)
+        self._ensure_single_order(desired, mid_price, now)
+        self.save_state()
+
+    def _start_cycle(self, now: float) -> None:
+        self.state = CycleState(cycle_id=uuid.uuid4().hex, started_at=now)
+        self._place_base_order(now)
+
+    def _cycle_spent(self) -> Decimal:
+        if self.state is None:
+            return Decimal("0")
+        return self.state.total_buy_quote + self.state.total_buy_fees_quote
+
+    def _avg_entry(self) -> Decimal | None:
+        if self.state is None or self.state.total_btc <= 0:
+            return None
+        total_cost = self.state.total_buy_quote + self.state.total_buy_fees_quote
+        if total_cost <= 0:
+            return None
+        return total_cost / self.state.total_btc
+
+    def _breakeven_price(self) -> Decimal | None:
+        avg_entry = self._avg_entry()
+        if avg_entry is None:
+            return None
+        fee_buffer = Decimal("0.004") + self.config.slippage_buffer_pct
+        return avg_entry * (Decimal("1") + fee_buffer)
+
+    def _base_order_notional(self) -> Decimal:
+        target = self.config.cycle_budget * self.config.base_order_pct
+        return max(target, self.config.min_order_notional)
+
+    def _per_order_cap(self) -> Decimal:
+        return self.config.cycle_budget * self.config.per_order_cap_pct
+
+    def _next_add_notional(self) -> Decimal:
+        if self.state is None:
+            return Decimal("0")
+        base = self._base_order_notional()
+        raw = base * (self.config.multiplier**self.state.add_count)
+        capped = min(raw, self._per_order_cap())
+        return max(capped, self.config.min_order_notional)
+
+    def _desired_budget_available(self, notional: Decimal) -> bool:
+        fee = notional * self.config.fee_rate
+        return self._cycle_spent() + notional + fee <= self.config.cycle_budget
+
+    def _round_quantity(self, quantity: Decimal) -> Decimal:
+        if quantity <= 0:
+            return Decimal("0")
+        if self.config.quantity_step is not None and self.config.quantity_step > 0:
+            step = self.config.quantity_step
+            return (quantity / step).to_integral_value(rounding=ROUND_DOWN) * step
+        if self.config.quantity_precision is not None:
+            quantizer = Decimal("1").scaleb(-self.config.quantity_precision)
+            return quantity.quantize(quantizer, rounding=ROUND_DOWN)
+        return quantity
+
+    def _place_limit_order(
+        self,
+        *,
+        role: str,
+        side: str,
+        price: Decimal,
+        quantity: Decimal,
+        now: float,
+    ) -> None:
+        if self.state is None:
+            return
+        quantity = self._round_quantity(quantity)
+        if quantity <= 0:
+            return
+        notional = quantity * price
+        if notional < self.config.min_order_notional:
+            LOGGER.info(
+                "Skipping %s order below min notional: %s < %s",
+                role,
+                notional,
+                self.config.min_order_notional,
+            )
+            return
+        client_id = f"acm-{role}-{uuid.uuid4().hex}"
+        try:
+            order_id = self.client.place_limit(
+                self.config.symbol, side, price, quantity, client_id
+            )
+        except RestError as exc:
+            if self._is_recoverable_order_error(exc):
+                LOGGER.warning(
+                    "Recoverable order placement error: %s. Skipping %s order at %s.",
+                    exc,
+                    role,
+                    price,
+                )
+                return
+            raise
+        self.state.open_orders[order_id] = TrackedOrder(
+            order_id=order_id,
+            client_id=client_id,
+            role=role,
+            side=side,
+            price=price,
+            quantity=quantity,
+            created_at=now,
+        )
+        LOGGER.info(
+            "Placed %s order: side=%s price=%s qty=%s id=%s",
+            role,
+            side,
+            price,
+            quantity,
+            order_id,
+        )
+
+    def _place_base_order(self, now: float) -> None:
+        if self.state is None:
+            return
+        if self._has_open_role("base"):
+            return
+        notional = self._base_order_notional()
+        if not self._desired_budget_available(notional):
+            LOGGER.warning("Insufficient budget for base order: %s", notional)
+            return
+        best_bid, _ = self.client.get_orderbook_top(self.config.symbol)
+        quantity = notional / best_bid
+        self._place_limit_order(
+            role="base",
+            side="buy",
+            price=best_bid,
+            quantity=quantity,
+            now=now,
+        )
+
+    def _place_add_order(self, now: float, price: Decimal) -> None:
+        if self.state is None:
+            return
+        if self.state.add_count >= self.config.max_adds:
+            return
+        notional = self._next_add_notional()
+        if not self._desired_budget_available(notional):
+            LOGGER.info("Skipping add: budget cap reached")
+            return
+        best_bid, _ = self.client.get_orderbook_top(self.config.symbol)
+        bid_price = min(best_bid, price)
+        quantity = notional / bid_price
+        role = f"add-{self.state.add_count + 1}"
+        self._place_limit_order(
+            role=role,
+            side="buy",
+            price=bid_price,
+            quantity=quantity,
+            now=now,
+        )
+
+    def _place_tp1(self, now: float, price: Decimal) -> None:
+        if self.state is None:
+            return
+        if self.state.partial_exit_done:
+            return
+        quantity = self.state.total_btc * Decimal("0.5")
+        quantity = self._round_quantity(quantity)
+        notional = quantity * price
+        if notional < self.config.min_order_notional:
+            total_notional = self.state.total_btc * price
+            if total_notional >= self.config.min_order_notional:
+                quantity = self._round_quantity(self.state.total_btc)
+            else:
+                LOGGER.info("Skipping TP1: position below min notional")
+                return
+        _, best_ask = self.client.get_orderbook_top(self.config.symbol)
+        target_price = max(price, best_ask)
+        self._place_limit_order(
+            role="tp1",
+            side="sell",
+            price=target_price,
+            quantity=quantity,
+            now=now,
+        )
+
+    def _place_exit(self, now: float, price: Decimal) -> None:
+        if self.state is None:
+            return
+        quantity = self._round_quantity(self.state.total_btc)
+        if quantity <= 0:
+            return
+        notional = quantity * price
+        if notional < self.config.min_order_notional:
+            LOGGER.info("Skipping exit: position below min notional")
+            return
+        _, best_ask = self.client.get_orderbook_top(self.config.symbol)
+        target_price = max(price, best_ask)
+        self._place_limit_order(
+            role="tp2",
+            side="sell",
+            price=target_price,
+            quantity=quantity,
+            now=now,
+        )
+
+    def _has_open_role(self, role_prefix: str) -> bool:
+        if self.state is None:
+            return False
+        return any(
+            order.role.startswith(role_prefix)
+            for order in self.state.open_orders.values()
+        )
+
+    def _apply_time_stop(self, now: float) -> None:
+        if self.state is None or self.state.time_stop_triggered:
+            return
+        if now - self.state.started_at >= self.config.time_stop_seconds:
+            self.state.time_stop_triggered = True
+            self._cancel_roles("add")
+
+    def _determine_next_action(self, mid_price: Decimal) -> str | None:
+        if self.state is None:
+            return None
+        if self.state.total_btc <= 0:
+            if not self.state.open_orders:
+                return "base"
+            return None
+        avg_entry = self._avg_entry()
+        if avg_entry is None:
+            return None
+        tp1_price = avg_entry * (Decimal("1") + self.config.tp1_pct)
+        tp2_price = avg_entry * (Decimal("1") + self.config.tp2_pct)
+        if self.state.time_stop_triggered:
+            breakeven = self._breakeven_price()
+            if breakeven is None:
+                return None
+            target = breakeven * (Decimal("1") + self.config.time_stop_exit_buffer_pct)
+            if mid_price >= target:
+                return "tp2"
+            return None
+        if mid_price >= tp2_price:
+            return "tp2"
+        if mid_price >= tp1_price and not self.state.partial_exit_done:
+            return "tp1"
+        if (
+            self.state.next_add_trigger is not None
+            and mid_price <= self.state.next_add_trigger
+            and self.state.add_count < self.config.max_adds
+        ):
+            return "add"
+        return None
+
+    def _ensure_single_order(
+        self, desired_role: str | None, mid_price: Decimal, now: float
+    ) -> None:
+        if self.state is None:
+            return
+        if not self.state.open_orders and desired_role is None:
+            return
+        if desired_role is None:
+            return
+        desired_prefix = desired_role
+        if any(
+            order.role.startswith(desired_prefix)
+            for order in self.state.open_orders.values()
+        ):
+            self._cancel_unrelated(desired_prefix)
+            return
+        if self.state.open_orders:
+            self._cancel_all_open()
+        if desired_role == "base":
+            self._place_base_order(now)
+        elif desired_role == "add":
+            self._place_add_order(now, mid_price)
+        elif desired_role == "tp1":
+            self._place_tp1(now, mid_price)
+        elif desired_role == "tp2":
+            self._place_exit(now, mid_price)
+
+    def _cancel_roles(self, role_prefix: str) -> None:
+        if self.state is None:
+            return
+        to_cancel = [
+            order_id
+            for order_id, order in self.state.open_orders.items()
+            if order.role.startswith(role_prefix)
+        ]
+        for order_id in to_cancel:
+            self.client.cancel_order(order_id)
+            self.state.open_orders.pop(order_id, None)
+
+    def _cancel_unrelated(self, desired_prefix: str) -> None:
+        if self.state is None:
+            return
+        to_cancel = [
+            order_id
+            for order_id, order in self.state.open_orders.items()
+            if not order.role.startswith(desired_prefix)
+        ]
+        for order_id in to_cancel:
+            self.client.cancel_order(order_id)
+            self.state.open_orders.pop(order_id, None)
+
+    def _cancel_all_open(self) -> None:
+        if self.state is None:
+            return
+        for order_id in list(self.state.open_orders.keys()):
+            self.client.cancel_order(order_id)
+            self.state.open_orders.pop(order_id, None)
+
+    def _reconcile(self, now: float) -> None:
+        if self.state is None:
+            return
+        try:
+            open_ids = {
+                order.order_id
+                for order in self.client.list_open_orders(self.config.symbol)
+            }
+        except Exception as exc:
+            LOGGER.warning("Error fetching open orders; skipping reconcile: %s", exc)
+            return
+        for order_id, tracked in list(self.state.open_orders.items()):
+            status_view = None
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    status_view = self.client.get_order(order_id)
+                    break
+                except TransientApiError as exc:
+                    if attempt < max_retries - 1:
+                        backoff = 1.0 * (2**attempt)
+                        LOGGER.debug(
+                            "Transient error fetching order %s (attempt %d/%d), "
+                            "retrying in %.1fs: %s",
+                            order_id,
+                            attempt + 1,
+                            max_retries,
+                            backoff,
+                            exc,
+                        )
+                        time.sleep(backoff)
+                    else:
+                        LOGGER.warning(
+                            "Transient error fetching order %s after %d attempts; "
+                            "skipping update: %s",
+                            order_id,
+                            max_retries,
+                            exc,
+                        )
+                except Exception as exc:
+                    LOGGER.warning(
+                        "Error fetching order %s; skipping update: %s", order_id, exc
+                    )
+                    break
+            if status_view is None:
+                continue
+            self._apply_order_update(tracked, status_view)
+            if order_id not in open_ids:
+                if status_view.status.lower() in {"filled", "closed", "done"}:
+                    self._finalize_order(tracked)
+                    self.state.open_orders.pop(order_id, None)
+                elif status_view.status.lower() in {
+                    "canceled",
+                    "cancelled",
+                    "rejected",
+                }:
+                    self.state.open_orders.pop(order_id, None)
+            else:
+                tracked.status = status_view.status
+
+    def _apply_order_update(
+        self, tracked: TrackedOrder, status: OrderStatusView
+    ) -> None:
+        filled_qty = status.filled_qty or Decimal("0")
+        if filled_qty <= tracked.filled_qty:
+            return
+        delta = filled_qty - tracked.filled_qty
+        fill_price = status.avg_price or tracked.price
+        tracked.filled_qty = filled_qty
+        tracked.status = status.status
+        if tracked.side == "buy":
+            self._apply_buy_fill(delta, fill_price)
+            if tracked.role == "base" and self.state and self.state.base_price is None:
+                self.state.base_price = fill_price
+        else:
+            self._apply_sell_fill(delta, fill_price)
+
+        if (
+            tracked.side == "buy"
+            and self.state
+            and tracked.role.startswith("add")
+            and tracked.filled_qty >= tracked.quantity
+        ):
+            self.state.add_count += 1
+
+    def _apply_buy_fill(self, quantity: Decimal, price: Decimal) -> None:
+        if self.state is None:
+            return
+        quote = quantity * price
+        fee = quote * self.config.fee_rate
+        self.state.total_buy_quote += quote
+        self.state.total_buy_fees_quote += fee
+        self.state.total_btc += quantity
+        self.state.last_fill_price = price
+        self.state.next_add_trigger = price * (Decimal("1") - self.config.step_pct)
+        self.state.fills.append(
+            {
+                "side": "buy",
+                "price": str(price),
+                "quantity": str(quantity),
+                "quote": str(quote),
+                "fee": str(fee),
+            }
+        )
+
+    def _apply_sell_fill(self, quantity: Decimal, price: Decimal) -> None:
+        if self.state is None:
+            return
+        if self.state.total_btc <= 0:
+            return
+        current_total = self.state.total_btc
+        ratio = quantity / current_total if current_total > 0 else Decimal("0")
+        self.state.total_buy_quote -= self.state.total_buy_quote * ratio
+        self.state.total_buy_fees_quote -= self.state.total_buy_fees_quote * ratio
+        self.state.total_btc -= quantity
+        self.state.fills.append(
+            {
+                "side": "sell",
+                "price": str(price),
+                "quantity": str(quantity),
+            }
+        )
+        if self.state.total_btc <= 0:
+            self.state.total_btc = Decimal("0")
+            self.state.total_buy_quote = Decimal("0")
+            self.state.total_buy_fees_quote = Decimal("0")
+            self.state.last_fill_price = None
+            self.state.next_add_trigger = None
+            self.state.partial_exit_done = False
+
+    def _finalize_order(self, tracked: TrackedOrder) -> None:
+        if self.state is None:
+            return
+        if tracked.role == "tp1" and tracked.filled_qty >= tracked.quantity:
+            self.state.partial_exit_done = True
+        if tracked.role == "tp2" and tracked.filled_qty >= tracked.quantity:
+            self.state.total_btc = Decimal("0")
+            self.state.total_buy_quote = Decimal("0")
+            self.state.total_buy_fees_quote = Decimal("0")
+            self.state.last_fill_price = None
+            self.state.next_add_trigger = None
+            self.state.partial_exit_done = False
+
+    @staticmethod
+    def _is_recoverable_order_error(exc: RestError) -> bool:
+        message = str(exc).lower()
+        recoverable_fragments = ("bad userprovidedid",)
+        if not any(fragment in message for fragment in recoverable_fragments):
+            return False
+        return (
+            "http error 400" in message or "400" in message or "bad request" in message
+        )
+
+
+def describe() -> str:
+    return (
+        "Adaptive capped martingale (spot-only mean reversion) with fee-aware "
+        "cycle tracking, capped geometric adds, and staged take-profit exits."
+    )
