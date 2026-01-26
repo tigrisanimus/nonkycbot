@@ -86,6 +86,7 @@
 - [x] Drop not-found adaptive martingale orders so cycles reseed after manual cancels.
 - [x] Start adaptive martingale cycles with market buys and limit follow-ups.
 - [x] Apply base market fills immediately to prevent repeated market buys.
+- [x] Log adaptive capped martingale TP/add levels after buy fills.
 
 ## Next
 - [ ] Define API client interfaces and error handling.

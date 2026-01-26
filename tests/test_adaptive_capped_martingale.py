@@ -268,6 +268,30 @@ def test_restart_does_not_duplicate_orders(tmp_path) -> None:
     assert len(exchange.orders) == 1
 
 
+def test_no_orders_after_base_buy_until_trigger(tmp_path) -> None:
+    exchange = FakeExchange()
+    strategy = _build_strategy(tmp_path, exchange)
+
+    strategy.poll_once(now=0.0)
+    strategy.poll_once(now=1.0)
+
+    assert strategy.state.open_orders == {}
+
+
+def test_add_order_used_when_price_below_trigger(tmp_path) -> None:
+    exchange = FakeExchange()
+    strategy = _build_strategy(tmp_path, exchange)
+
+    strategy.poll_once(now=0.0)
+    exchange.mid_price = Decimal("95")
+    exchange.best_bid = Decimal("95")
+    strategy.poll_once(now=1.0)
+
+    assert len(strategy.state.open_orders) == 1
+    tracked = next(iter(strategy.state.open_orders.values()))
+    assert tracked.role == "add-1"
+
+
 def test_market_base_followed_by_limit_tp1(tmp_path) -> None:
     exchange = FakeExchange()
     strategy = _build_strategy(tmp_path, exchange, tp1_pct=Decimal("0.01"))
