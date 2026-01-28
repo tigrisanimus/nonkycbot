@@ -275,6 +275,22 @@ class AdaptiveCappedMartingaleStrategy:
                 self.config.min_order_qty,
             )
             return
+        if side.lower() == "sell":
+            quantity = self._cap_sell_quantity_to_available(quantity)
+            if quantity <= 0:
+                LOGGER.info("Skipping %s order: no available balance to sell.", role)
+                return
+            if (
+                self.config.min_order_qty is not None
+                and quantity < self.config.min_order_qty
+            ):
+                LOGGER.info(
+                    "Skipping %s order below min quantity after balance check: %s < %s",
+                    role,
+                    quantity,
+                    self.config.min_order_qty,
+                )
+                return
         notional = quantity * price
         if notional < self.config.min_order_notional:
             LOGGER.info(
@@ -857,6 +873,31 @@ class AdaptiveCappedMartingaleStrategy:
             return available_quote >= price * quantity
         available_base = balances.get(base_asset, (Decimal("0"), Decimal("0")))[0]
         return available_base >= quantity
+
+    def _cap_sell_quantity_to_available(self, quantity: Decimal) -> Decimal:
+        try:
+            balances = self.client.get_balances()
+        except Exception as exc:
+            LOGGER.warning(
+                "Unable to fetch balances before sell placement; "
+                "keeping requested quantity: %s",
+                exc,
+            )
+            return quantity
+        base_asset, _ = self._split_symbol(self.config.symbol)
+        if base_asset not in balances:
+            return quantity
+        available_base = balances[base_asset][0]
+        if available_base <= 0:
+            return Decimal("0")
+        if available_base < quantity:
+            LOGGER.warning(
+                "Reducing sell quantity to available balance: %s -> %s",
+                quantity,
+                available_base,
+            )
+            return available_base
+        return quantity
 
     @staticmethod
     def _split_symbol(symbol: str) -> tuple[str, str]:

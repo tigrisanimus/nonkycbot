@@ -337,6 +337,28 @@ def test_insufficient_funds_error_raises_with_available_balance(tmp_path) -> Non
         strategy.poll_once(now=0.0)
 
 
+def test_tp1_uses_available_balance_when_partial_funds(tmp_path) -> None:
+    exchange = FakeExchange()
+    exchange.balances = {"BTC": (Decimal("0.00002316"), Decimal("0"))}
+    strategy = _build_strategy(tmp_path, exchange, tp1_pct=Decimal("0.01"))
+    strategy.state = CycleState(
+        cycle_id="cycle",
+        started_at=0.0,
+        total_btc=Decimal("0.000024"),
+        total_buy_quote=Decimal("2.11323168"),
+        total_buy_fees_quote=Decimal("0.00422646336"),
+    )
+    exchange.mid_price = Decimal("89389.34")
+    exchange.best_ask = Decimal("89389.34")
+
+    strategy.poll_once(now=1.0)
+
+    assert len(strategy.state.open_orders) == 1
+    tracked = next(iter(strategy.state.open_orders.values()))
+    assert tracked.role == "tp1"
+    assert tracked.quantity == exchange.balances["BTC"][0]
+
+
 def test_restart_does_not_duplicate_orders(tmp_path) -> None:
     exchange = FakeExchange()
     strategy = _build_strategy(tmp_path, exchange)
