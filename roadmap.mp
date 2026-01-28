@@ -87,6 +87,7 @@
 - [x] Start adaptive martingale cycles with market buys and limit follow-ups.
 - [x] Apply base market fills immediately to prevent repeated market buys.
 - [x] Log adaptive capped martingale TP/add levels after buy fills.
+- [x] Skip adaptive capped martingale orders only when balances confirm insufficient funds.
 
 ## Next
 - [ ] Define API client interfaces and error handling.
