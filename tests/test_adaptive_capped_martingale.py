@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+import pytest
+
 from engine.exchange_client import OpenOrder, OrderStatusView
 from nonkyc_client.rest import RestError
 from strategies.adaptive_capped_martingale import (
@@ -19,6 +21,7 @@ class FakeExchange:
         self.best_ask = Decimal("101")
         self.orders: dict[str, dict[str, Decimal | str]] = {}
         self._counter = 0
+        self.balances: dict[str, tuple[Decimal, Decimal]] = {}
 
     def get_mid_price(self, symbol: str) -> Decimal:
         return self.mid_price
@@ -97,7 +100,7 @@ class FakeExchange:
         return open_orders
 
     def get_balances(self) -> dict[str, tuple[Decimal, Decimal]]:
-        return {}
+        return dict(self.balances)
 
     def fill_order(
         self, order_id: str, *, filled_qty: Decimal, avg_price: Decimal | None = None
@@ -110,6 +113,48 @@ class FakeExchange:
             payload["status"] = "Filled"
         else:
             payload["status"] = "PartiallyFilled"
+
+
+class InsufficientFundsExchange(FakeExchange):
+    def __init__(
+        self,
+        *,
+        fail_on: str,
+        balances: dict[str, tuple[Decimal, Decimal]] | None = None,
+    ) -> None:
+        super().__init__()
+        self.fail_on = fail_on
+        if balances is not None:
+            self.balances = balances
+
+    def place_limit(
+        self,
+        symbol: str,
+        side: str,
+        price: Decimal,
+        quantity: Decimal,
+        client_id: str | None = None,
+    ) -> str:
+        if self.fail_on == "limit":
+            raise RestError(
+                'HTTP error 400: {"error":{"message":"Insufficient funds for order '
+                'creation"}}'
+            )
+        return super().place_limit(symbol, side, price, quantity, client_id)
+
+    def place_market(
+        self,
+        symbol: str,
+        side: str,
+        quantity: Decimal,
+        client_id: str | None = None,
+    ) -> str:
+        if self.fail_on == "market":
+            raise RestError(
+                'HTTP error 400: {"error":{"message":"Insufficient funds for order '
+                'creation"}}'
+            )
+        return super().place_market(symbol, side, quantity, client_id)
 
 
 def _build_strategy(tmp_path, exchange: FakeExchange, **overrides):
@@ -251,6 +296,69 @@ def test_partial_exit_then_full_exit(tmp_path) -> None:
     assert tp2_order.role == "tp2"
 
 
+def test_market_order_insufficient_funds_skips(tmp_path) -> None:
+    exchange = InsufficientFundsExchange(
+        fail_on="market", balances={"USDT": (Decimal("0"), Decimal("0"))}
+    )
+    strategy = _build_strategy(tmp_path, exchange)
+
+    strategy.poll_once(now=0.0)
+
+    assert exchange.orders == {}
+    assert strategy.state is not None
+    assert strategy.state.open_orders == {}
+
+
+def test_limit_order_insufficient_funds_skips(tmp_path) -> None:
+    exchange = InsufficientFundsExchange(
+        fail_on="limit", balances={"BTC": (Decimal("0"), Decimal("0"))}
+    )
+    strategy = _build_strategy(tmp_path, exchange, tp1_pct=Decimal("0.01"))
+    strategy.state = CycleState(
+        cycle_id="cycle",
+        started_at=0.0,
+        total_btc=Decimal("1"),
+        total_buy_quote=Decimal("100"),
+    )
+    exchange.mid_price = Decimal("101.5")
+
+    strategy.poll_once(now=1.0)
+
+    assert strategy.state.open_orders == {}
+
+
+def test_insufficient_funds_error_raises_with_available_balance(tmp_path) -> None:
+    exchange = InsufficientFundsExchange(
+        fail_on="market", balances={"USDT": (Decimal("10000"), Decimal("0"))}
+    )
+    strategy = _build_strategy(tmp_path, exchange)
+
+    with pytest.raises(RestError):
+        strategy.poll_once(now=0.0)
+
+
+def test_tp1_uses_available_balance_when_partial_funds(tmp_path) -> None:
+    exchange = FakeExchange()
+    exchange.balances = {"BTC": (Decimal("0.00002316"), Decimal("0"))}
+    strategy = _build_strategy(tmp_path, exchange, tp1_pct=Decimal("0.01"))
+    strategy.state = CycleState(
+        cycle_id="cycle",
+        started_at=0.0,
+        total_btc=Decimal("0.000024"),
+        total_buy_quote=Decimal("2.11323168"),
+        total_buy_fees_quote=Decimal("0.00422646336"),
+    )
+    exchange.mid_price = Decimal("89389.34")
+    exchange.best_ask = Decimal("89389.34")
+
+    strategy.poll_once(now=1.0)
+
+    assert len(strategy.state.open_orders) == 1
+    tracked = next(iter(strategy.state.open_orders.values()))
+    assert tracked.role == "tp1"
+    assert tracked.quantity == exchange.balances["BTC"][0]
+
+
 def test_restart_does_not_duplicate_orders(tmp_path) -> None:
     exchange = FakeExchange()
     strategy = _build_strategy(tmp_path, exchange)
@@ -286,9 +394,9 @@ def test_add_order_seeded_after_base_buy(tmp_path) -> None:
     assert tracked.price == expected_trigger
 
 
-def test_no_orders_after_base_buy_until_trigger(tmp_path) -> None:
+def test_no_orders_after_base_buy_when_adds_disabled(tmp_path) -> None:
     exchange = FakeExchange()
-    strategy = _build_strategy(tmp_path, exchange)
+    strategy = _build_strategy(tmp_path, exchange, max_adds=0)
 
     strategy.poll_once(now=0.0)
     strategy.poll_once(now=1.0)
