@@ -290,6 +290,16 @@ class AdaptiveCappedMartingaleStrategy:
                 self.config.symbol, side, price, quantity, client_id
             )
         except RestError as exc:
+            if self._is_insufficient_funds_error(exc):
+                if not self._has_sufficient_balance_for_order(
+                    side=side, price=price, quantity=quantity
+                ):
+                    LOGGER.warning(
+                        "Insufficient funds for %s order; skipping placement at %s.",
+                        role,
+                        price,
+                    )
+                    return
             if self._is_recoverable_order_error(exc):
                 LOGGER.warning(
                     "Recoverable order placement error: %s. Skipping %s order at %s.",
@@ -373,6 +383,24 @@ class AdaptiveCappedMartingaleStrategy:
                 rounding=rounding,
             )
             return
+        except RestError as exc:
+            if self._is_insufficient_funds_error(exc):
+                if not self._has_sufficient_balance_for_order(
+                    side=side, price=price_hint, quantity=quantity
+                ):
+                    LOGGER.warning(
+                        "Insufficient funds for %s market order; skipping placement.",
+                        role,
+                    )
+                    return
+            if self._is_recoverable_order_error(exc):
+                LOGGER.warning(
+                    "Recoverable order placement error: %s. Skipping %s market order.",
+                    exc,
+                    role,
+                )
+                return
+            raise
         if apply_fill:
             resolved_fill = fill_price if fill_price is not None else price_hint
             if side == "buy":
@@ -810,6 +838,37 @@ class AdaptiveCappedMartingaleStrategy:
         return (
             "http error 400" in message or "400" in message or "bad request" in message
         )
+
+    @staticmethod
+    def _is_insufficient_funds_error(exc: RestError) -> bool:
+        return "insufficient funds" in str(exc).lower()
+
+    def _has_sufficient_balance_for_order(
+        self, *, side: str, price: Decimal, quantity: Decimal
+    ) -> bool:
+        try:
+            balances = self.client.get_balances()
+        except Exception as exc:
+            LOGGER.warning("Unable to fetch balances after order error: %s", exc)
+            return True
+        base_asset, quote_asset = self._split_symbol(self.config.symbol)
+        if side.lower() == "buy":
+            available_quote = balances.get(quote_asset, (Decimal("0"), Decimal("0")))[0]
+            return available_quote >= price * quantity
+        available_base = balances.get(base_asset, (Decimal("0"), Decimal("0")))[0]
+        return available_base >= quantity
+
+    @staticmethod
+    def _split_symbol(symbol: str) -> tuple[str, str]:
+        if "/" in symbol:
+            base, quote = symbol.split("/", 1)
+        elif "-" in symbol:
+            base, quote = symbol.split("-", 1)
+        elif "_" in symbol:
+            base, quote = symbol.split("_", 1)
+        else:
+            raise ValueError(f"Unsupported symbol format: {symbol}")
+        return base, quote
 
 
 def describe() -> str:
