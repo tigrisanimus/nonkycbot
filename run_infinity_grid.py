@@ -76,6 +76,7 @@ def build_config(raw_config: dict) -> InfinityLadderGridConfig:
         rebalance_max_attempts=int(raw_config.get("rebalance_max_attempts", 2)),
         reconcile_interval_sec=float(raw_config.get("reconcile_interval_sec", 60.0)),
         balance_refresh_sec=float(raw_config.get("balance_refresh_sec", 60.0)),
+        mode=raw_config.get("mode", "live"),
     )
 
 

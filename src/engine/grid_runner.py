@@ -79,6 +79,7 @@ def build_strategy(config: dict, state_path: Path) -> LadderGridStrategy:
         rebalance_max_attempts=int(normalized.get("rebalance_max_attempts", 2)),
         reconcile_interval_sec=float(normalized.get("reconcile_interval_sec", 60)),
         balance_refresh_sec=float(normalized.get("balance_refresh_sec", 60)),
+        mode=normalized.get("mode", "live"),
     )
     exchange = build_exchange_client(normalized)
     return LadderGridStrategy(exchange, ladder_config, state_path=state_path)

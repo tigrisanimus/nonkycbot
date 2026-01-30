@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+import uuid
 from dataclasses import dataclass, field
 from decimal import ROUND_DOWN, Decimal
 from pathlib import Path
@@ -43,6 +44,7 @@ class LadderGridConfig:
     rebalance_max_attempts: int = 2
     reconcile_interval_sec: float = 60.0
     balance_refresh_sec: float = 60.0
+    mode: str = "live"  # "live", "dry-run", or "monitor"
 
 
 @dataclass
@@ -436,6 +438,34 @@ class LadderGridStrategy:
             return
         price = self._quantize_price(price)
         quantity = self._resolve_order_quantity(price, base_quantity)
+
+        # Check mode - skip actual placement in monitor/dry-run modes
+        if self.config.mode == "monitor":
+            LOGGER.info(
+                "MONITOR MODE: Would place %s order at %s for %s (not executed)",
+                side.upper(),
+                price,
+                quantity,
+            )
+            return
+        if self.config.mode == "dry-run":
+            LOGGER.info(
+                "DRY RUN: Simulating %s order at %s for %s",
+                side.upper(),
+                price,
+                quantity,
+            )
+            # In dry-run, we still track the order locally but don't place it
+            client_id = f"dryrun-{side}-{uuid.uuid4().hex}"
+            fake_order_id = f"dryrun-{uuid.uuid4().hex}"
+            self.state.open_orders[fake_order_id] = LiveOrder(
+                side=side,
+                price=price,
+                quantity=quantity,
+                client_id=client_id,
+                created_at=time.time(),
+            )
+            return
 
         # Check minimum balance
         if not self._has_sufficient_balance(side, price, quantity):
