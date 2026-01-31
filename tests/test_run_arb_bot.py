@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from bots.run_arb_bot import get_price
 from nonkyc_client.models import MarketTicker
-from run_arb_bot import get_price
 
 
 class _StubClient:

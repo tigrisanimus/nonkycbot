@@ -8,13 +8,13 @@ away, creating a "ladder" effect that profits from price oscillations.
 
 Usage:
     # Monitor mode (no execution, just logging)
-    python run_grid.py examples/grid.yml --monitor-only
+    python bots/run_grid.py examples/grid.yml --monitor-only
 
     # Live trading mode
-    python run_grid.py examples/grid.yml
+    python bots/run_grid.py examples/grid.yml
 
     # Dry run mode (simulated execution)
-    python run_grid.py examples/grid.yml --dry-run
+    python bots/run_grid.py examples/grid.yml --dry-run
 """
 
 from __future__ import annotations
@@ -25,10 +25,8 @@ from pathlib import Path
 
 import yaml
 
-sys.path.insert(0, str(Path(__file__).parent / "src"))
-
-from engine.grid_runner import run_grid
-from utils.logging_config import setup_logging
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT / "src"))
 
 
 def load_config(config_file: str) -> dict:
@@ -37,13 +35,19 @@ def load_config(config_file: str) -> dict:
 
 
 def run_grid_from_file(config_file: str) -> None:
+    from engine.grid_runner import run_grid
+
     config = load_config(config_file)
-    state_path = Path(config.get("state_path", "state.json"))
+    state_path = Path(config.get("state_path", "state/grid_state.json"))
+    state_path.parent.mkdir(parents=True, exist_ok=True)
     run_grid(config, state_path)
 
 
 def main() -> None:
     """Main entry point."""
+    from engine.grid_runner import run_grid
+    from utils.logging_config import setup_logging
+
     parser = argparse.ArgumentParser(description="Grid trading bot (ladder strategy)")
     parser.add_argument("config", help="Path to configuration file (YAML)")
     parser.add_argument(
@@ -76,7 +80,8 @@ def main() -> None:
     else:
         config["mode"] = config.get("mode", "live")
 
-    state_path = Path(config.get("state_path", "state.json"))
+    state_path = Path(config.get("state_path", "state/grid_state.json"))
+    state_path.parent.mkdir(parents=True, exist_ok=True)
     run_grid(config, state_path)
 
 

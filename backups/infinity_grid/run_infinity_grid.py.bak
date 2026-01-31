@@ -9,7 +9,7 @@ Like standard ladder grid but with unlimited upside:
 - Continuously extends the sell ladder as price rises
 
 Usage:
-    python run_infinity_grid.py examples/infinity_grid.yml
+    python bots/run_infinity_grid.py examples/infinity_grid.yml
 """
 
 from __future__ import annotations
@@ -24,7 +24,8 @@ from pathlib import Path
 import yaml
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from engine.rest_client_factory import build_exchange_client
 from strategies.infinity_ladder_grid import (
@@ -128,7 +129,8 @@ def run_infinity_grid_from_file(config_path: str) -> None:
     """Load config and run infinity grid."""
     with open(config_path) as f:
         config = yaml.safe_load(f)
-    state_path = config.get("state_path", "infinity_grid_state.json")
+    state_path = config.get("state_path", "state/infinity_grid_state.json")
+    Path(state_path).parent.mkdir(parents=True, exist_ok=True)
     run_infinity_grid(config, state_path)
 
 

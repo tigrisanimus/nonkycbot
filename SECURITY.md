@@ -152,7 +152,7 @@ When we receive a security bug report, we will:
 
 | Date | Type | Result | Auditor |
 |------|------|--------|---------|
-| 2026-01 | Internal Code Audit | See SECURITY_AND_CODE_AUDIT_REPORT.md | Claude/Anthropic |
+| 2026-01 | Internal Code Audit | See docs/audits/SECURITY_AND_CODE_AUDIT_REPORT.md | Claude/Anthropic |
 
 ## Bug Bounty Program
 

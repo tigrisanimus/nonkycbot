@@ -4,7 +4,7 @@ This bot includes **TWO different grid strategies** that work in very different 
 
 ---
 
-## 1. Ladder Grid (run_grid.py)
+## 1. Ladder Grid (bots/run_grid.py)
 
 ### How It Works
 - **Creates a ladder of open orders** at multiple price levels
@@ -38,16 +38,16 @@ BUY:  $48,500 (3% below)
 - Capturing bid-ask spread repeatedly
 
 ### Config File
-`examples/grid_cosa_pirate.yml`
+`examples/grid.yml`
 
 ### Command
 ```bash
-python run_grid.py examples/grid_cosa_pirate.yml
+python bots/run_grid.py examples/grid.yml
 ```
 
 ---
 
-## 2. Infinity Grid (run_infinity_grid.py)
+## 2. Infinity Grid (bots/run_infinity_grid.py)
 
 ### How It Works
 - **Rebalance-style strategy** (NO ladder of orders)
@@ -85,7 +85,7 @@ Price: $50,500 (-1%) → BUY BTC using quote to restore $50k value
 
 ### Command
 ```bash
-python run_infinity_grid.py examples/infinity_grid.yml
+python bots/run_infinity_grid.py examples/infinity_grid.yml
 ```
 
 ---
@@ -165,7 +165,7 @@ This means the bot is **working perfectly** - it's just waiting for enough price
 ### Test Ladder Grid
 ```bash
 # Should see multiple orders created immediately
-python run_grid.py examples/grid_cosa_pirate.yml
+python bots/run_grid.py examples/grid.yml
 
 # Check order book on NonKYC - you should see your orders
 ```
@@ -173,7 +173,7 @@ python run_grid.py examples/grid_cosa_pirate.yml
 ### Test Infinity Grid
 ```bash
 # Should see "No rebalance needed" (this is normal!)
-python run_infinity_grid.py examples/infinity_grid.yml
+python bots/run_infinity_grid.py examples/infinity_grid.yml
 
 # Wait for price to move by step_pct, then order will trigger
 ```
@@ -198,7 +198,7 @@ python run_infinity_grid.py examples/infinity_grid.yml
 
 ## Configuration Examples
 
-### Ladder Grid (grid_cosa_pirate.yml)
+### Ladder Grid (grid.yml)
 ```yaml
 symbol: "COSA_USDT"
 step_pct: "0.01"           # 1% between levels

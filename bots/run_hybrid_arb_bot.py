@@ -7,13 +7,13 @@ mixing limit orders and AMM swaps.
 
 Usage:
     # Monitor mode (no execution, just logging)
-    python run_hybrid_arb_bot.py config.yml --monitor-only
+    python bots/run_hybrid_arb_bot.py config.yml --monitor-only
 
     # Live trading mode
-    python run_hybrid_arb_bot.py config.yml
+    python bots/run_hybrid_arb_bot.py config.yml
 
     # Dry run mode (simulated execution)
-    python run_hybrid_arb_bot.py config.yml --dry-run
+    python bots/run_hybrid_arb_bot.py config.yml --dry-run
 """
 
 from __future__ import annotations
@@ -24,34 +24,26 @@ import sys
 import time
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+if TYPE_CHECKING:
+    from strategies.hybrid_triangular_arb import ArbitrageCycle, TradeLeg
 
-from engine.rest_client_factory import build_rest_client
-from nonkyc_client.models import OrderRequest
-from strategies.hybrid_triangular_arb import (
-    ArbitrageCycle,
-    LegType,
-    TradeLeg,
-    TradeSide,
-    create_orderbook_leg,
-    create_pool_swap_leg,
-    evaluate_cycle,
-    find_best_cycle,
-    format_cycle_summary,
-    is_cycle_profitable,
-)
-from utils.amm_pricing import (
-    PoolReserves,
-    get_swap_quote,
-)
-from utils.logging_config import setup_logging
+# Add src to path
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT / "src"))
 
 logger = logging.getLogger(__name__)
+
+
+def build_rest_client(config: dict[str, Any]):
+    from engine.rest_client_factory import (
+        build_rest_client as factory_build_rest_client,
+    )
+
+    return factory_build_rest_client(config)
 
 
 class HybridArbBot:
@@ -214,6 +206,14 @@ class HybridArbBot:
         - Cycle 3: BTC → COSA (buy) → PIRATE (pool swap) → BTC (sell)
         - Cycle 4: BTC → PIRATE (buy) → COSA (pool swap) → BTC (sell)
         """
+        from strategies.hybrid_triangular_arb import (
+            TradeSide,
+            create_orderbook_leg,
+            create_pool_swap_leg,
+            evaluate_cycle,
+        )
+        from utils.amm_pricing import PoolReserves, get_swap_quote
+
         cycles = []
 
         # Extract pool tokens (underscore format)
@@ -364,6 +364,8 @@ class HybridArbBot:
         Returns:
             True if execution succeeded, False otherwise
         """
+        from strategies.hybrid_triangular_arb import format_cycle_summary
+
         if self.mode == "monitor":
             logger.info("MONITOR MODE: Would execute cycle but skipping")
             return False
@@ -409,6 +411,9 @@ class HybridArbBot:
 
     def _execute_leg(self, leg: TradeLeg) -> bool:
         """Execute a single leg of the cycle."""
+        from nonkyc_client.models import OrderRequest
+        from strategies.hybrid_triangular_arb import LegType, TradeSide
+
         if leg.input_amount is None or leg.output_amount is None:
             logger.error("Leg missing amount information")
             return False
@@ -464,6 +469,11 @@ class HybridArbBot:
 
     def run_cycle(self) -> None:
         """Run one iteration of the arbitrage detection cycle."""
+        from strategies.hybrid_triangular_arb import (
+            find_best_cycle,
+            is_cycle_profitable,
+        )
+
         try:
             # Fetch all market data
             logger.debug("Fetching market data...")
@@ -569,6 +579,8 @@ def load_config(config_path: str) -> dict[str, Any]:
 
 def main() -> None:
     """Main entry point."""
+    from utils.logging_config import setup_logging
+
     parser = argparse.ArgumentParser(description="Hybrid triangular arbitrage bot")
     parser.add_argument("config", help="Path to configuration file")
     parser.add_argument(

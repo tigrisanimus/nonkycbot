@@ -19,7 +19,7 @@ Common issues and solutions for NonKYC trading bots.
 
 1. **Check your balance requirements:**
    ```bash
-   python check_grid_balances.py examples/grid_cosa_pirate.yml
+   python scripts/check_grid_balances.py examples/grid.yml
    ```
 
 2. **Fix the issue (choose one):**
@@ -44,18 +44,18 @@ Common issues and solutions for NonKYC trading bots.
 
 3. **Delete state file if exists:**
    ```bash
-   rm state.json
+   rm state/grid_state.json
    ```
 
 4. **Run the bot again:**
    ```bash
-   python run_grid.py examples/grid_cosa_pirate.yml
+   python bots/run_grid.py examples/grid.yml
    ```
 
 ### How to Prevent
 - Always check balance requirements before starting
 - Start with small order sizes to test
-- Use the diagnostic tool: `check_grid_balances.py`
+- Use the diagnostic tool: `scripts/check_grid_balances.py`
 
 ---
 
@@ -72,7 +72,7 @@ RestError: Not Authorized
 #### 1. Invalid Credentials
 **Test:**
 ```bash
-python debug_auth.py
+python scripts/debug_auth.py
 ```
 
 **Solution:**
@@ -165,19 +165,19 @@ See `GRID_STRATEGIES_EXPLAINED.md` for full details.
 
 1. **Balance sufficient?**
    ```bash
-   python check_grid_balances.py examples/grid_cosa_pirate.yml
+   python scripts/check_grid_balances.py examples/grid.yml
    ```
    - If insufficient: Deposit funds or reduce order size
 
-2. **Check state.json:**
+2. **Check state/grid_state.json:**
    ```bash
-   cat state.json
+   cat state/grid_state.json
    ```
    - If `needs_rebalance: true`: Delete file and restart
 
 3. **Check logs:**
    ```bash
-   python run_grid.py examples/grid_cosa_pirate.yml
+   python bots/run_grid.py examples/grid.yml
    ```
    - Look for "Insufficient balance" warnings
    - Look for "Only placed X/Y orders"
@@ -198,12 +198,12 @@ See `GRID_STRATEGIES_EXPLAINED.md` for full details.
 python scripts/auth_check.py
 
 # Comprehensive test (all signing variations)
-python debug_auth.py
+python scripts/debug_auth.py
 ```
 
 ### Test Balance Requirements
 ```bash
-python check_grid_balances.py examples/grid_cosa_pirate.yml
+python scripts/check_grid_balances.py examples/grid.yml
 ```
 
 ### Test Symbol Formats
@@ -214,10 +214,10 @@ python scripts/symbol_format_check.py
 ### Dry Run Mode
 ```bash
 # Test ladder grid without real trades
-python run_grid.py examples/grid_cosa_pirate.yml --dry-run
+python bots/run_grid.py examples/grid.yml --dry-run
 
 # Test infinity grid without real trades
-python run_infinity_grid.py examples/infinity_grid.yml --dry-run
+python bots/run_infinity_grid.py examples/infinity_grid.yml --dry-run
 ```
 
 ---
@@ -283,8 +283,8 @@ export NONKYC_API_SECRET="your_secret"
 
 ### Debug Tools
 - `scripts/auth_check.py` - Test authentication
-- `debug_auth.py` - Comprehensive auth testing
-- `check_grid_balances.py` - Balance diagnostics
+- `scripts/debug_auth.py` - Comprehensive auth testing
+- `scripts/check_grid_balances.py` - Balance diagnostics
 - `scripts/symbol_format_check.py` - Symbol format testing
 
 ### Enable Debug Output
@@ -296,7 +296,7 @@ debug_auth: true  # WARNING: Shows sensitive data, development only!
 ```bash
 # Or via environment
 export NONKYC_DEBUG_AUTH=1
-python run_grid.py config.yml
+python bots/run_grid.py config.yml
 ```
 
 ---
@@ -306,7 +306,7 @@ python run_grid.py config.yml
 Before starting any bot:
 - [ ] Credentials set and tested (`python scripts/auth_check.py`)
 - [ ] IP whitelisted on NonKYC
-- [ ] Balance sufficient (`python check_grid_balances.py`)
+- [ ] Balance sufficient (`python scripts/check_grid_balances.py`)
 - [ ] Symbol format correct (use underscore: `COSA_USDT`)
 - [ ] Order size reasonable for your balance
 - [ ] Config file valid YAML syntax
@@ -316,8 +316,8 @@ Before starting any bot:
 ## Summary
 
 Most issues are:
-1. **Insufficient balance** → Use `check_grid_balances.py`
-2. **Authentication** → Use `debug_auth.py`
+1. **Insufficient balance** → Use `scripts/check_grid_balances.py`
+2. **Authentication** → Use `scripts/debug_auth.py`
 3. **Confusion about strategies** → Read `GRID_STRATEGIES_EXPLAINED.md`
 
 **All bots are working correctly** - most "bugs" are actually configuration or balance issues! 🎯

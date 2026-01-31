@@ -59,7 +59,7 @@ instance_dir.mkdir(parents=True, exist_ok=True)
 **Usage**:
 ```bash
 # Store credentials (works on all platforms)
-python nonkyc_store_credentials.py --api-key "your_key" --api-secret "your_secret"
+python scripts/nonkyc_store_credentials.py --api-key "your_key" --api-secret "your_secret"
 ```
 
 **Platform-specific notes**:

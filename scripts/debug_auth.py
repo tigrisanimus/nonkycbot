@@ -89,7 +89,7 @@ def main():
             print("\nUsage:")
             print("  export NONKYC_API_KEY='your_key'")
             print("  export NONKYC_API_SECRET='your_secret'")
-            print("  python debug_auth.py")
+            print("  python scripts/debug_auth.py")
             return 1
 
     print(f"\nAPI Key: {api_key[:8]}... ({len(api_key)} chars)")

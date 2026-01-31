@@ -3,13 +3,13 @@
 #
 # HOW TO USE:
 # 1. Store your API credentials securely in the OS keychain (RECOMMENDED):
-#    python nonkyc_store_credentials.py --api-key "your_key" --api-secret "your_secret"
+#    python scripts/nonkyc_store_credentials.py --api-key "your_key" --api-secret "your_secret"
 #
 #    The bot will automatically load credentials from the keychain.
 #    DO NOT edit api_key/api_secret below - leave them commented out!
 #
 # 2. Run the bot:
-#    python run_grid.py examples/grid.yml
+#    python bots/run_grid.py examples/grid.yml
 #
 # WHAT THIS BOT DOES:
 # - Places buy orders below current price and sell orders above
@@ -60,4 +60,4 @@ rest_retries: 3
 #                                   # If unset, defaults to None (API client decides)
 
 # State persistence
-state_path: "state.json"         # Saves grid state between restarts
+state_path: "state/grid_state.json"         # Saves grid state between restarts

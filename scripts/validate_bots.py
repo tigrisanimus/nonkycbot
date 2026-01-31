@@ -216,12 +216,12 @@ def validate_file(filepath: Path) -> Tuple[bool, str]:
 
 def main():
     """Main validation entry point."""
-    root = Path(__file__).parent
+    root = Path(__file__).resolve().parents[1]
 
     # Files to validate
-    bot_runners = list(root.glob("run_*.py"))
+    bot_runners = list((root / "bots").glob("run_*.py"))
     strategies = list((root / "src" / "strategies").glob("*.py"))
-    test_files = list(root.glob("test_*.py"))
+    test_files = list((root / "tests").glob("test_*.py"))
 
     # Remove __init__.py and deprecated files
     strategies = [s for s in strategies if s.name != "__init__.py"]

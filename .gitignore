@@ -39,6 +39,7 @@ instances/
 *.pid
 state.json
 **/state.json
+state/*.json
 
 # Sensitive data and credentials
 *.env

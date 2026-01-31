@@ -1,14 +1,11 @@
 #!/usr/bin/env python
 """Debug script to check trading pair formats and API responses"""
 
-import os
 import sys
+from pathlib import Path
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
-
-from nonkyc_client.auth import ApiCredentials
-from nonkyc_client.constants import default_rest_base_url
-from nonkyc_client.rest import RestClient
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT / "src"))
 
 # Add your credentials here
 API_KEY = "your_api_key_here"
@@ -17,6 +14,10 @@ API_SECRET = "your_api_secret_here"
 
 def check_pair(pair_name):
     """Check what data we get for a trading pair."""
+    from nonkyc_client.auth import ApiCredentials
+    from nonkyc_client.constants import default_rest_base_url
+    from nonkyc_client.rest import RestClient
+
     print(f"\n{'=' * 60}")
     print(f"Checking: {pair_name}")
     print("=" * 60)
