@@ -23,6 +23,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from nonkyc_client.auth import ApiCredentials
+from nonkyc_client.constants import default_rest_base_url
 from nonkyc_client.rest import RestClient, RestRequest
 
 
@@ -179,7 +180,7 @@ def main() -> None:
         print(f"\n✅ Found API credentials (key: {api_key[:8]}...)\n")
 
     # Create REST client
-    base_url = os.getenv("NONKYC_BASE_URL", "https://api.nonkyc.io/api/v2")
+    base_url = os.getenv("NONKYC_BASE_URL", default_rest_base_url())
     rest_client = RestClient(base_url=base_url, credentials=credentials)
 
     print(f"🌐 Using base URL: {base_url}\n")

@@ -7,6 +7,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 from nonkyc_client.auth import ApiCredentials
+from nonkyc_client.constants import default_rest_base_url
 from nonkyc_client.rest import RestClient
 
 # Add your credentials here
@@ -21,7 +22,7 @@ def check_pair(pair_name):
     print("=" * 60)
 
     creds = ApiCredentials(api_key=API_KEY, api_secret=API_SECRET)
-    client = RestClient(base_url="https://api.nonkyc.io", credentials=creds)
+    client = RestClient(base_url=default_rest_base_url(), credentials=creds)
 
     try:
         ticker = client.get_market_data(pair_name)

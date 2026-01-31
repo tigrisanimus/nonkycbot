@@ -88,6 +88,7 @@
 - [x] Apply base market fills immediately to prevent repeated market buys.
 - [x] Log adaptive capped martingale TP/add levels after buy fills.
 - [x] Cap adaptive capped martingale sell sizes to available balance before placing TP orders.
+- [x] Align bot API interface defaults with Hummingbot reference constants.
 
 ## Next
 - [ ] Define API client interfaces and error handling.

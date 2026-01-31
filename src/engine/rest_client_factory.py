@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 from nonkyc_client.auth import AuthSigner
+from nonkyc_client.constants import default_rest_base_url
 from nonkyc_client.rest import RestClient
 from nonkyc_client.rest_exchange import NonkycRestExchangeClient
 from utils.credentials import DEFAULT_SERVICE_NAME, load_api_credentials
@@ -52,7 +53,7 @@ def build_rest_client(config: dict[str, Any]) -> RestClient:
     signing_enabled = config.get("sign_requests", True)
 
     # API endpoint
-    base_url = config.get("base_url", "https://api.nonkyc.io/api/v2")
+    base_url = config.get("base_url", default_rest_base_url())
 
     # CRITICAL: NonKYC requires these exact settings
     # DO NOT CHANGE without testing with debug_auth.py first!

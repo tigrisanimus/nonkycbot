@@ -13,8 +13,9 @@ import yaml
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from nonkyc_client.auth import ApiCredentials
-from nonkyc_client.rest import AuthSigner, RestClient
+from nonkyc_client.auth import ApiCredentials, AuthSigner
+from nonkyc_client.constants import default_rest_base_url
+from nonkyc_client.rest import RestClient, RestRequest
 
 
 def load_config(config_path: str) -> dict:
@@ -41,9 +42,9 @@ def main():
 
     # Create client
     credentials = ApiCredentials(api_key=api_key, api_secret=api_secret)
-    signer = AuthSigner(nonce_multiplier=1e3)
+    signer = AuthSigner(nonce_multiplier=1e4)
     client = RestClient(
-        base_url="https://api.nonkyc.io/api/v2",
+        base_url=default_rest_base_url(),
         credentials=credentials,
         signer=signer,
     )
@@ -81,9 +82,9 @@ def main():
 
     # Get mid price
     try:
-        from nonkyc_client.rest_exchange import RestExchangeClient
+        from nonkyc_client.rest_exchange import NonkycRestExchangeClient
 
-        exchange = RestExchangeClient(client)
+        exchange = NonkycRestExchangeClient(client)
         mid_price = exchange.get_mid_price(symbol)
         print(f"Current mid price: {mid_price}")
     except Exception as exc:
@@ -97,7 +98,7 @@ def main():
     print("=" * 80)
 
     try:
-        response = client.send(client.RestRequest(method="GET", path="/balances"))
+        response = client.send(RestRequest(method="GET", path="/balances"))
         balances = {}
         for item in response:
             asset = item.get("asset")

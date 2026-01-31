@@ -569,10 +569,10 @@ class InfinityLadderGridStrategy:
             filled_statuses = {"filled", "closed", "partly filled"}
             cancelled_statuses = {"cancelled", "canceled", "rejected", "expired"}
 
-            if (
-                normalized_status in filled_statuses
-                or status.status in {"Filled", "Partly Filled"}
-            ):
+            if normalized_status in filled_statuses or status.status in {
+                "Filled",
+                "Partly Filled",
+            }:
                 LOGGER.info(
                     "Order filled: %s %s @ %s (order_id=%s)",
                     order.side.upper(),
@@ -591,10 +591,10 @@ class InfinityLadderGridStrategy:
                         revenue,
                         self.state.total_profit_quote,
                     )
-            elif (
-                normalized_status in cancelled_statuses
-                or status.status in {"Cancelled", "Canceled"}
-            ):
+            elif normalized_status in cancelled_statuses or status.status in {
+                "Cancelled",
+                "Canceled",
+            }:
                 LOGGER.info(
                     "Order cancelled/expired: %s %s @ %s (order_id=%s)",
                     order.side.upper(),

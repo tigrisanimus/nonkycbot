@@ -7,6 +7,8 @@ import time
 from typing import Any, Callable
 from urllib.request import Request, urlopen
 
+from nonkyc_client.constants import SERVER_TIME_URL
+
 
 class TimeSynchronizer:
     """Fetches exchange time and maintains a local offset."""
@@ -14,7 +16,7 @@ class TimeSynchronizer:
     def __init__(
         self,
         *,
-        server_time_url: str = "https://nonkyc.io/api/v2/getservertime",
+        server_time_url: str = SERVER_TIME_URL,
         max_age: float = 60.0,
         time_provider: Callable[[], float] | None = None,
         timeout: float = 10.0,
