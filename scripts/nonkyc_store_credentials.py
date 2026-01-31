@@ -9,17 +9,17 @@ import os
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent / "src"))
-
-from utils.credentials import (  # noqa: E402
-    DEFAULT_API_KEY_ENV,
-    DEFAULT_API_SECRET_ENV,
-    DEFAULT_SERVICE_NAME,
-    store_api_credentials,
-)
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT / "src"))
 
 
 def build_parser() -> argparse.ArgumentParser:
+    from utils.credentials import (
+        DEFAULT_API_KEY_ENV,
+        DEFAULT_API_SECRET_ENV,
+        DEFAULT_SERVICE_NAME,
+    )
+
     parser = argparse.ArgumentParser(
         description="Store NonKYC API credentials in the OS keychain."
     )
@@ -40,6 +40,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    from utils.credentials import (
+        DEFAULT_API_KEY_ENV,
+        DEFAULT_API_SECRET_ENV,
+        store_api_credentials,
+    )
+
     parser = build_parser()
     args = parser.parse_args()
     api_key = args.api_key or os.getenv(DEFAULT_API_KEY_ENV)

@@ -3,13 +3,13 @@
 #
 # HOW TO USE:
 # 1. Store your API credentials securely in the OS keychain (RECOMMENDED):
-#    python nonkyc_store_credentials.py --api-key "your_key" --api-secret "your_secret"
+#    python scripts/nonkyc_store_credentials.py --api-key "your_key" --api-secret "your_secret"
 #
 #    The bot will automatically load credentials from the keychain.
 #    DO NOT edit api_key/api_secret below - leave them commented out!
 #
 # 2. Run the bot:
-#    python run_adaptive_capped_martingale.py examples/adaptive_capped_martingale_btc_usdt.yml
+#    python bots/run_adaptive_capped_martingale.py examples/adaptive_capped_martingale_btc_usdt.yml
 #
 # WHAT THIS BOT DOES:
 # - Starts a cycle with a base order sized as a % of cycle budget

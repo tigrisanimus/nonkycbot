@@ -3,13 +3,13 @@
 #
 # HOW TO USE:
 # 1. Store your API credentials securely in the OS keychain (RECOMMENDED):
-#    python nonkyc_store_credentials.py --api-key "your_key" --api-secret "your_secret"
+#    python scripts/nonkyc_store_credentials.py --api-key "your_key" --api-secret "your_secret"
 #
 #    The bot will automatically load credentials from the keychain.
 #    DO NOT edit api_key/api_secret below - leave them commented out!
 #
 # 2. Run the bot:
-#    python run_infinity_grid.py examples/infinity_grid_small_balance.yml
+#    python bots/run_infinity_grid.py examples/infinity_grid_small_balance.yml
 #
 # WHAT THIS BOT DOES:
 # - Designed for balances under $100 total
@@ -63,7 +63,7 @@ rest_timeout_sec: 30.0
 rest_retries: 3
 
 # State file
-state_path: "infinity_grid_small_state.json"
+state_path: "state/infinity_grid_small_state.json"
 
 # EXPECTED BEHAVIOR:
 # - Bot places 3 buy orders (~$16 USDT total)

@@ -90,6 +90,8 @@
 - [x] Cap adaptive capped martingale sell sizes to available balance before placing TP orders.
 - [x] Align bot API interface defaults with Hummingbot reference constants.
 - [x] Default REST/WS client URLs now derive from shared API constants.
+- [x] Reorganize repository layout with dedicated bots, scripts, docs, and state directories.
+- [x] Replace lint suppressions with lazy imports to keep bot/script runners lint-clean.
 
 ## Next
 - [ ] Define API client interfaces and error handling.

@@ -2,7 +2,7 @@
 
 from decimal import Decimal
 
-import run_arb_bot
+import bots.run_arb_bot as run_arb_bot
 
 
 def test_evaluate_profitability_executes_without_prompt(monkeypatch) -> None:

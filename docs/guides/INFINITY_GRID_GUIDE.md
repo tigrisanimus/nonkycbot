@@ -50,7 +50,7 @@ This creates a **self-perpetuating cycle** that climbs with price!
 ## Implementation Snapshot (Current Version)
 
 This section captures the **actual live behavior** of the infinity grid bot as
-implemented in `run_infinity_grid.py` and `src/strategies/infinity_ladder_grid.py`.
+implemented in `bots/run_infinity_grid.py` and `src/strategies/infinity_ladder_grid.py`.
 
 ### Core Mechanics
 
@@ -208,7 +208,7 @@ rest_timeout_sec: 30.0
 rest_retries: 3
 
 # State file
-state_path: "infinity_grid_state.json"
+state_path: "state/infinity_grid_state.json"
 ```
 
 ---
@@ -376,7 +376,7 @@ step_pct: "0.01"  # Use 1% or higher
 1. View NonKYC order book - orders should be there
 2. Check bot logs for "Successfully placed all X orders"
 3. Verify balance is sufficient
-4. Check `state.json` for `open_orders`
+4. Check `state/infinity_grid_state.json` for `open_orders`
 
 ### Fills Logged but No Replacement Orders
 
@@ -408,12 +408,12 @@ total_fee_rate: "0.002"
 tick_size: "0.01"
 step_size: "0.00000001"
 poll_interval_sec: 60
-state_path: "infinity_grid_state.json"
+state_path: "state/infinity_grid_state.json"
 ```
 
 **Run:**
 ```bash
-python run_infinity_grid.py examples/infinity_grid.yml
+python bots/run_infinity_grid.py examples/infinity_grid.yml
 ```
 
 **Expected result:**

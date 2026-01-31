@@ -17,18 +17,20 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from nonkyc_client.rest import RestClient
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent / "src"))
-
-from nonkyc_client.auth import ApiCredentials
-from nonkyc_client.constants import default_rest_base_url
-from nonkyc_client.rest import RestClient, RestRequest
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT / "src"))
 
 
 def discover_markets(rest_client: RestClient) -> list[dict[str, Any]]:
     """Fetch all available markets from the exchange."""
+    from nonkyc_client.rest import RestRequest
+
     endpoints = [
         "/markets",
         "/public/markets",
@@ -56,6 +58,8 @@ def discover_markets(rest_client: RestClient) -> list[dict[str, Any]]:
 
 def discover_pools(rest_client: RestClient) -> list[dict[str, Any]]:
     """Fetch all available liquidity pools from the exchange."""
+    from nonkyc_client.rest import RestRequest
+
     endpoints = [
         "/pools",
         "/liquiditypools",
@@ -162,6 +166,10 @@ def print_pools(pools: list[dict[str, Any]], title: str) -> None:
 
 def main() -> None:
     """Main discovery process."""
+    from nonkyc_client.auth import ApiCredentials
+    from nonkyc_client.constants import default_rest_base_url
+    from nonkyc_client.rest import RestClient
+
     print("=" * 80)
     print("NonKYC Market & Pool Discovery Tool")
     print("=" * 80)
@@ -217,7 +225,7 @@ def main() -> None:
 
     if filtered_markets or filtered_pools:
         print("Based on the discovered markets, update your config file:\n")
-        print("# examples/hybrid_arb_cosa_pirate.yml")
+        print("# examples/hybrid_arb.yml")
         print("orderbook_pairs:")
 
         orderbook_symbols = [

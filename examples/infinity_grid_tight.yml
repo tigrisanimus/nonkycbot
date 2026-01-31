@@ -3,13 +3,13 @@
 #
 # HOW TO USE:
 # 1. Store your API credentials securely in the OS keychain (RECOMMENDED):
-#    python nonkyc_store_credentials.py --api-key "your_key" --api-secret "your_secret"
+#    python scripts/nonkyc_store_credentials.py --api-key "your_key" --api-secret "your_secret"
 #
 #    The bot will automatically load credentials from the keychain.
 #    DO NOT edit api_key/api_secret below - leave them commented out!
 #
 # 2. Run the bot:
-#    python run_infinity_grid.py examples/infinity_grid_tight.yml
+#    python bots/run_infinity_grid.py examples/infinity_grid_tight.yml
 #
 # WHAT THIS BOT DOES:
 # - Uses the minimum profitable spacing (0.5%) for maximum trading opportunities
@@ -58,7 +58,7 @@ rest_timeout_sec: 30.0
 rest_retries: 3
 
 # State
-state_path: "infinity_grid_tight_state.json"
+state_path: "state/infinity_grid_tight_state.json"
 
 # WHAT TO EXPECT:
 # - 15 buy orders from $90k down to ~$83,500 (0.5% steps)

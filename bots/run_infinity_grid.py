@@ -10,13 +10,13 @@ Like standard ladder grid but with unlimited upside:
 
 Usage:
     # Monitor mode (no execution, just logging)
-    python run_infinity_grid.py examples/infinity_grid.yml --monitor-only
+    python bots/run_infinity_grid.py examples/infinity_grid.yml --monitor-only
 
     # Live trading mode
-    python run_infinity_grid.py examples/infinity_grid.yml
+    python bots/run_infinity_grid.py examples/infinity_grid.yml
 
     # Dry run mode (simulated execution)
-    python run_infinity_grid.py examples/infinity_grid.yml --dry-run
+    python bots/run_infinity_grid.py examples/infinity_grid.yml --dry-run
 """
 
 from __future__ import annotations
@@ -31,20 +31,16 @@ from pathlib import Path
 import yaml
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent / "src"))
-
-from engine.rest_client_factory import build_exchange_client
-from strategies.infinity_ladder_grid import (
-    InfinityLadderGridConfig,
-    InfinityLadderGridStrategy,
-)
-from utils.logging_config import setup_logging
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT / "src"))
 
 LOGGER = logging.getLogger("nonkyc_bot.infinity_grid")
 
 
-def build_config(raw_config: dict) -> InfinityLadderGridConfig:
+def build_config(raw_config: dict):
     """Build config from raw dict."""
+    from strategies.infinity_ladder_grid import InfinityLadderGridConfig
+
     symbol = raw_config.get("symbol", "BTC_USDT")
     step_mode = raw_config.get("step_mode", "pct")
     step_pct = Decimal(str(raw_config["step_pct"])) if step_mode == "pct" else None
@@ -82,6 +78,9 @@ def build_config(raw_config: dict) -> InfinityLadderGridConfig:
 
 def run_infinity_grid(config: dict, state_path: str) -> None:
     """Run infinity grid bot."""
+    from engine.rest_client_factory import build_exchange_client
+    from strategies.infinity_ladder_grid import InfinityLadderGridStrategy
+
     # Build exchange client using centralized factory
     client = build_exchange_client(config)
 
@@ -136,12 +135,15 @@ def run_infinity_grid_from_file(config_path: str) -> None:
     """Load config and run infinity grid."""
     with open(config_path) as f:
         config = yaml.safe_load(f)
-    state_path = config.get("state_path", "infinity_grid_state.json")
+    state_path = config.get("state_path", "state/infinity_grid_state.json")
+    Path(state_path).parent.mkdir(parents=True, exist_ok=True)
     run_infinity_grid(config, state_path)
 
 
 def main() -> None:
     """Main entry point."""
+    from utils.logging_config import setup_logging
+
     parser = argparse.ArgumentParser(description="Infinity Grid trading bot")
     parser.add_argument("config", help="Path to configuration file (YAML)")
     parser.add_argument(
@@ -176,7 +178,8 @@ def main() -> None:
     else:
         config["mode"] = config.get("mode", "live")
 
-    state_path = config.get("state_path", "infinity_grid_state.json")
+    state_path = config.get("state_path", "state/infinity_grid_state.json")
+    Path(state_path).parent.mkdir(parents=True, exist_ok=True)
     run_infinity_grid(config, state_path)
 
 

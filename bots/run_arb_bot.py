@@ -6,13 +6,13 @@ Monitors order books to find profitable arbitrage opportunities using market ord
 
 Usage:
     # Monitor mode (no execution, just logging)
-    python run_arb_bot.py config.yml --monitor-only
+    python bots/run_arb_bot.py config.yml --monitor-only
 
     # Live trading mode
-    python run_arb_bot.py config.yml
+    python bots/run_arb_bot.py config.yml
 
     # Dry run mode (simulated execution)
-    python run_arb_bot.py config.yml --dry-run
+    python bots/run_arb_bot.py config.yml --dry-run
 """
 
 from __future__ import annotations
@@ -30,17 +30,8 @@ from typing import Any
 import yaml
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent / "src"))
-
-from engine.rest_client_factory import build_rest_client
-from nonkyc_client.models import OrderRequest
-from nonkyc_client.pricing import (
-    effective_notional,
-    min_quantity_for_notional,
-    round_up_to_step,
-)
-from utils.logging_config import setup_logging
-from utils.notional import resolve_quantity_rounding
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT / "src"))
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +45,8 @@ def load_config(config_file):
 
 
 def _round_quantity(value, step_size, precision):
+    from nonkyc_client.pricing import round_up_to_step
+
     if step_size is not None:
         return round_up_to_step(value, Decimal(str(step_size)))
     if precision is None:
@@ -63,6 +56,8 @@ def _round_quantity(value, step_size, precision):
 
 
 def _min_quantities_for_cycle(config, prices, step_size, precision):
+    from nonkyc_client.pricing import min_quantity_for_notional
+
     min_notional = Decimal(str(config.get("min_notional_usd", "1.0")))
     fee_rate = _resolve_fee_rate(config)
     min_quantities = {}
@@ -103,6 +98,8 @@ def _simulate_fee_adjusted_cycle(config, prices, start_amount, min_quantities):
 
 
 def _should_skip_notional(config, symbol, side, quantity, price, order_type):
+    from nonkyc_client.pricing import effective_notional
+
     min_notional = Decimal(str(config.get("min_notional_usd", "1.0")))
     fee_rate = _resolve_fee_rate(config)
     notional = effective_notional(quantity, price, fee_rate)
@@ -294,6 +291,9 @@ def execute_arbitrage(client, config, prices, start_amount, mode="live"):
     Returns:
         Decimal: Final USDT amount if successful, None if failed
     """
+    from nonkyc_client.models import OrderRequest
+    from utils.notional import resolve_quantity_rounding
+
     if mode == "monitor":
         logger.info("MONITOR MODE: Would execute cycle but skipping")
         return None
@@ -452,6 +452,8 @@ def evaluate_profitability_and_execute(
     Returns:
         Decimal: New balance if successful profitable trade, None otherwise
     """
+    from utils.notional import resolve_quantity_rounding
+
     # Calculate conversion rates
     rates = calculate_conversion_rates(config, prices)
 
@@ -526,6 +528,8 @@ def evaluate_profitability_and_execute(
 
 def run_arbitrage_bot(config: dict[str, Any]) -> None:
     """Main bot loop."""
+    from engine.rest_client_factory import build_rest_client
+
     mode = config.get("mode", "monitor")
 
     logger.info("=" * 80)
@@ -650,6 +654,8 @@ def run_arbitrage_bot(config: dict[str, Any]) -> None:
 
 def main() -> None:
     """Main entry point."""
+    from utils.logging_config import setup_logging
+
     parser = argparse.ArgumentParser(
         description="USDT/ETH/BTC triangular arbitrage bot"
     )

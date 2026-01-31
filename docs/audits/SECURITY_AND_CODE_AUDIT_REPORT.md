@@ -209,7 +209,7 @@ HTTP clients don't explicitly configure TLS certificate verification. While Pyth
 ### 1.3 Medium Priority Security Issues
 
 #### 🟡 MEDIUM-001: Order Placement Uses Market Orders Without Slippage Protection
-**Location:** `run_arb_bot.py:335-343`, `run_arb_bot.py:365-373`
+**Location:** `bots/run_arb_bot.py:335-343`, `bots/run_arb_bot.py:365-373`
 
 **Issue:**
 Arbitrage bot uses market orders without maximum slippage limits:
@@ -477,7 +477,7 @@ Catch specific exceptions; log stack traces for unexpected errors
 
 **Example Duplication:**
 ```python
-# run_arb_bot.py:156-167 and similar in other runners
+# bots/run_arb_bot.py:156-167 and similar in other runners
 def _coerce_price_value(value):
     if value is None:
         return None
@@ -495,12 +495,12 @@ Extract common utilities to `src/utils/pricing_helpers.py`
 
 | File | Complexity Issue | Recommendation |
 |------|------------------|----------------|
-| `run_arb_bot.py` | 620 lines, multiple concerns | Split into modules |
+| `bots/run_arb_bot.py` | 620 lines, multiple concerns | Split into modules |
 | `ladder_grid.py` | 491 lines, high cyclomatic complexity | Extract helper classes |
 | `rest.py` | 509 lines, error handling logic | Separate error handling |
 
 **Most Complex Function:**
-- `execute_arbitrage()` in `run_arb_bot.py` (117 lines)
+- `execute_arbitrage()` in `bots/run_arb_bot.py` (117 lines)
 - Cyclomatic complexity: ~15
 - Recommendation: Split into smaller functions
 
@@ -566,7 +566,7 @@ Some concrete dependencies (e.g., `RestClient` directly instantiated in runners)
 
 **Example Issues:**
 ```python
-# run_arb_bot.py:252
+# bots/run_arb_bot.py:252
 print(f"  {pair}: {price}")  # ⚠️ Should use logging
 
 # src/nonkyc_client/rest.py:156
@@ -750,7 +750,7 @@ Add automated vulnerability scanning:
 ### 8.1 Performance Considerations
 
 #### Issue: Synchronous Sleep in Arbitrage Bot
-**Location:** `run_arb_bot.py:351`, `run_arb_bot.py:380`, `run_arb_bot.py:586`
+**Location:** `bots/run_arb_bot.py:351`, `bots/run_arb_bot.py:380`, `bots/run_arb_bot.py:586`
 
 ```python
 time.sleep(2)  # ⚠️ Blocks entire thread
@@ -782,7 +782,7 @@ Use HTTP connection pooling (already available in aiohttp)
 ### 8.2 Potential Bugs
 
 #### BUG-001: Division by Zero in Profit Calculation
-**Location:** `run_arb_bot.py:456`
+**Location:** `bots/run_arb_bot.py:456`
 
 ```python
 profit_ratio = profit / start_amount  # ⚠️ No check for start_amount == 0
@@ -824,7 +824,7 @@ Use locks or atomic operations for thread safety
 ### 8.3 Code Smells
 
 #### SMELL-001: God Object Pattern
-**Location:** `run_arb_bot.py`
+**Location:** `bots/run_arb_bot.py`
 
 **Issue:**
 Single file handles config loading, price fetching, order execution, profit tracking, and main loop.
@@ -925,7 +925,7 @@ Use enums or configuration objects for clarity
 ### 9.3 Medium-Term Actions
 
 1. **Refactor Large Files**
-   - Split `run_arb_bot.py` into modules
+   - Split `bots/run_arb_bot.py` into modules
    - Extract `LadderGridStrategy` helper classes
 
 2. **Add Structured Logging**

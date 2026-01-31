@@ -9,13 +9,13 @@ a time limit to avoid runaway exposure.
 
 Usage:
     # Monitor mode (no execution, just logging)
-    python run_adaptive_capped_martingale.py examples/adaptive_capped_martingale_btc_usdt.yml --monitor-only
+    python bots/run_adaptive_capped_martingale.py examples/adaptive_capped_martingale_btc_usdt.yml --monitor-only
 
     # Live trading mode
-    python run_adaptive_capped_martingale.py examples/adaptive_capped_martingale_btc_usdt.yml
+    python bots/run_adaptive_capped_martingale.py examples/adaptive_capped_martingale_btc_usdt.yml
 
     # Dry run mode (simulated execution)
-    python run_adaptive_capped_martingale.py examples/adaptive_capped_martingale_btc_usdt.yml --dry-run
+    python bots/run_adaptive_capped_martingale.py examples/adaptive_capped_martingale_btc_usdt.yml --dry-run
 """
 
 from __future__ import annotations
@@ -26,10 +26,8 @@ from pathlib import Path
 
 import yaml
 
-sys.path.insert(0, str(Path(__file__).parent / "src"))
-
-from engine.adaptive_capped_martingale_runner import run_adaptive_capped_martingale
-from utils.logging_config import setup_logging
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT / "src"))
 
 
 def load_config(config_file: str) -> dict:
@@ -39,6 +37,9 @@ def load_config(config_file: str) -> dict:
 
 def main() -> None:
     """Main entry point."""
+    from engine.adaptive_capped_martingale_runner import run_adaptive_capped_martingale
+    from utils.logging_config import setup_logging
+
     parser = argparse.ArgumentParser(
         description="Adaptive Capped Martingale trading bot"
     )
@@ -73,7 +74,8 @@ def main() -> None:
     else:
         config["mode"] = config.get("mode", "live")
 
-    state_path = Path(config.get("state_path", "martingale_state.json"))
+    state_path = Path(config.get("state_path", "state/martingale_state.json"))
+    state_path.parent.mkdir(parents=True, exist_ok=True)
     run_adaptive_capped_martingale(config, state_path)
 
 

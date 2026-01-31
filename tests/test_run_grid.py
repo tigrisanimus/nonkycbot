@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-import run_grid
+import bots.run_grid as run_grid
 
 
 def test_load_config_from_yaml_file(tmp_path):
@@ -79,7 +79,7 @@ def test_run_grid_accepts_valid_config(tmp_path):
 
 
 def test_grid_config_has_state_path_default(tmp_path):
-    """Test that state_path defaults to state.json if not specified."""
+    """Test that state_path defaults to state/grid_state.json if not specified."""
     config_file = tmp_path / "minimal_grid.yml"
     config_content = {
         "trading_pair": "BTC/USDT",
@@ -93,5 +93,5 @@ def test_grid_config_has_state_path_default(tmp_path):
     config = run_grid.load_config(str(config_file))
 
     # Default should be used if not specified
-    state_path = Path(config.get("state_path", "state.json"))
-    assert state_path.name == "state.json"
+    state_path = Path(config.get("state_path", "state/grid_state.json"))
+    assert state_path.as_posix().endswith("state/grid_state.json")

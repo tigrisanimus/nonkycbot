@@ -3,13 +3,13 @@
 #
 # HOW TO USE:
 # 1. Store your API credentials securely in the OS keychain (RECOMMENDED):
-#    python nonkyc_store_credentials.py --api-key "your_key" --api-secret "your_secret"
+#    python scripts/nonkyc_store_credentials.py --api-key "your_key" --api-secret "your_secret"
 #
 #    The bot will automatically load credentials from the keychain.
 #    DO NOT edit api_key/api_secret below - leave them commented out!
 #
 # 2. Run the bot:
-#    python run_infinity_grid.py examples/infinity_grid.yml
+#    python bots/run_infinity_grid.py examples/infinity_grid.yml
 #
 # WHAT THIS BOT DOES:
 # - GRID STRATEGY: Places standing orders on the order book (like ladder grid)
@@ -74,4 +74,4 @@ rest_timeout_sec: 30.0
 rest_retries: 3
 
 # State persistence
-state_path: "infinity_grid_state.json"  # Saves grid state between restarts
+state_path: "state/infinity_grid_state.json"  # Saves grid state between restarts

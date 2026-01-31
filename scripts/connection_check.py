@@ -1,14 +1,19 @@
 #!/usr/bin/env python
 """Test script to verify NonKYC API connection and authentication."""
 
+from __future__ import annotations
+
 import os
 import sys
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from nonkyc_client.auth import AuthSigner
 
 # Add src to path so we can import the modules
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
-
-from nonkyc_client.auth import ApiCredentials, AuthSigner
-from nonkyc_client.rest import RestClient
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT / "src"))
 
 # Replace with your actual API credentials
 API_KEY = "your_api_key_here"
@@ -71,6 +76,8 @@ def _resolve_bool(
 
 
 def _resolve_signer_settings() -> tuple[AuthSigner, float, bool, bool, bool, list[str]]:
+    from nonkyc_client.auth import AuthSigner
+
     warnings: list[str] = []
     nonce_multiplier = _resolve_float(
         "NONKYC_NONCE_MULTIPLIER",
@@ -106,6 +113,9 @@ def _resolve_signer_settings() -> tuple[AuthSigner, float, bool, bool, bool, lis
 
 def test_connection():
     """Test the nonkyc.io API connection."""
+    from nonkyc_client.auth import ApiCredentials
+    from nonkyc_client.rest import RestClient
+
     print("=" * 60)
     print("nonkyc bot - Connection Test")
     print("=" * 60)

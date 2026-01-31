@@ -3,13 +3,13 @@
 #
 # HOW TO USE:
 # 1. Store your API credentials securely in the OS keychain (RECOMMENDED):
-#    python nonkyc_store_credentials.py --api-key "your_key" --api-secret "your_secret"
+#    python scripts/nonkyc_store_credentials.py --api-key "your_key" --api-secret "your_secret"
 #
 #    The bot will automatically load credentials from the keychain.
 #    DO NOT edit api_key/api_secret below - leave them commented out!
 #
 # 2. Run the bot in monitor mode first to check for opportunities:
-#    python run_hybrid_arb_bot.py examples/hybrid_arb.yml
+#    python bots/run_hybrid_arb_bot.py examples/hybrid_arb.yml
 #
 # 3. When ready to trade, set mode to "live" in this config
 #
@@ -111,13 +111,13 @@ log_file: "logs/hybrid_arb.log"
 # ============================================================================
 #
 # 1. Monitor mode (recommended for first run):
-#    python run_hybrid_arb_bot.py examples/hybrid_arb.yml --monitor-only
+#    python bots/run_hybrid_arb_bot.py examples/hybrid_arb.yml --monitor-only
 #
 # 2. Dry run mode (test execution logic):
-#    python run_hybrid_arb_bot.py examples/hybrid_arb.yml --dry-run
+#    python bots/run_hybrid_arb_bot.py examples/hybrid_arb.yml --dry-run
 #
 # 3. Live trading (REAL MONEY):
-#    python run_hybrid_arb_bot.py examples/hybrid_arb.yml
+#    python bots/run_hybrid_arb_bot.py examples/hybrid_arb.yml
 #
 # ============================================================================
 # SAFETY NOTES

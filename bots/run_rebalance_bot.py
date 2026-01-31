@@ -7,13 +7,13 @@ beyond the configured threshold.
 
 Usage:
     # Monitor mode (no execution, just logging)
-    python run_rebalance_bot.py config.yml --monitor-only
+    python bots/run_rebalance_bot.py config.yml --monitor-only
 
     # Live trading mode
-    python run_rebalance_bot.py config.yml
+    python bots/run_rebalance_bot.py config.yml
 
     # Dry run mode (simulated execution)
-    python run_rebalance_bot.py config.yml --dry-run
+    python bots/run_rebalance_bot.py config.yml --dry-run
 """
 
 from __future__ import annotations
@@ -29,14 +29,18 @@ from typing import Any
 import yaml
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent / "src"))
-
-from engine.rest_client_factory import build_rest_client
-from nonkyc_client.models import OrderRequest
-from strategies.rebalance import calculate_rebalance_order
-from utils.logging_config import setup_logging
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT / "src"))
 
 logger = logging.getLogger(__name__)
+
+
+def build_rest_client(config: dict[str, Any]):
+    from engine.rest_client_factory import (
+        build_rest_client as factory_build_rest_client,
+    )
+
+    return factory_build_rest_client(config)
 
 
 class RebalanceBot:
@@ -156,6 +160,8 @@ class RebalanceBot:
         Returns:
             True if successful, False otherwise
         """
+        from nonkyc_client.models import OrderRequest
+
         # Check minimum notional value (dollar amount)
         notional_value = amount * price
         if notional_value < self.min_notional_quote:
@@ -197,6 +203,8 @@ class RebalanceBot:
 
     def run_cycle(self) -> None:
         """Run one iteration of the rebalance check."""
+        from strategies.rebalance import calculate_rebalance_order
+
         try:
             self.checks_performed += 1
 
@@ -330,6 +338,8 @@ def load_config(config_path: str) -> dict[str, Any]:
 
 def main() -> None:
     """Main entry point."""
+    from utils.logging_config import setup_logging
+
     parser = argparse.ArgumentParser(description="Portfolio rebalance bot")
     parser.add_argument("config", help="Path to configuration file")
     parser.add_argument(

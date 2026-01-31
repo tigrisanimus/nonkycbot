@@ -25,7 +25,7 @@ Price discrepancies create arbitrage opportunities when:
 
 ```bash
 # Just watch for opportunities without trading
-python run_hybrid_arb_bot.py examples/hybrid_arb_cosa_pirate.yml --monitor-only
+python bots/run_hybrid_arb_bot.py examples/hybrid_arb.yml --monitor-only
 ```
 
 This will:
@@ -38,7 +38,7 @@ This will:
 
 ```bash
 # Simulate execution without real money
-python run_hybrid_arb_bot.py examples/hybrid_arb_cosa_pirate.yml --dry-run
+python bots/run_hybrid_arb_bot.py examples/hybrid_arb.yml --dry-run
 ```
 
 This will:
@@ -51,14 +51,14 @@ This will:
 
 ```bash
 # REAL TRADING - USE WITH CAUTION
-python run_hybrid_arb_bot.py examples/hybrid_arb_cosa_pirate.yml
+python bots/run_hybrid_arb_bot.py examples/hybrid_arb.yml
 ```
 
 **WARNING**: This executes real trades with real money!
 
 ## Configuration
 
-Edit `examples/hybrid_arb_cosa_pirate.yml`:
+Edit `examples/hybrid_arb.yml`:
 
 ```yaml
 # API credentials
@@ -287,7 +287,7 @@ pool_fee: "0.0025"      # 0.25% pool fee
 To trade with both USDT and BTC:
 
 ```python
-# Edit run_hybrid_arb_bot.py:
+# Edit bots/run_hybrid_arb_bot.py:
 # Change line ~280:
 for base in [self.base_currency]:
 # To:
@@ -379,7 +379,7 @@ If you improve this bot, consider contributing:
 
 For questions or issues:
 1. Check the main README.md
-2. Review SECURITY_AUDIT_REPORT.md for security considerations
+2. Review `../audits/AUDIT_REPORT.md` for security considerations
 3. Open an issue on GitHub
 
 ---

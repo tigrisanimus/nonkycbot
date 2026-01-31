@@ -64,7 +64,7 @@ pip install -r requirements.txt
 
 ```bash
 # Store credentials securely (uses the OS keychain via keyring)
-python nonkyc_store_credentials.py --api-key "$NONKYC_API_KEY" --api-secret "$NONKYC_API_SECRET"
+python scripts/nonkyc_store_credentials.py --api-key "$NONKYC_API_KEY" --api-secret "$NONKYC_API_SECRET"
 ```
 
 This stores two entries under the `nonkyc-bot` service name with usernames `api_key` and `api_secret`.
@@ -118,7 +118,7 @@ This will verify:
 
 **Option A: Using standalone bot scripts (recommended for beginners)**
 ```bash
-python run_rebalance_bot.py examples/rebalance_bot.yml
+python bots/run_rebalance_bot.py examples/rebalance_bot.yml
 ```
 
 **Option B: Using the CLI**
@@ -127,7 +127,7 @@ python run_rebalance_bot.py examples/rebalance_bot.yml
 PYTHONPATH=src python -m cli.main start --strategy rebalance --config config.yml --log-level INFO
 ```
 
-The standalone scripts (`run_*.py`) are simpler and include strategy-specific options.
+The standalone scripts (`bots/run_*.py`) are simpler and include strategy-specific options.
 
 ## Configuration
 
@@ -270,8 +270,8 @@ Fill-driven grid with ladder behavior that automatically refills orders as they 
 **How it works**: Places buy orders below and sell orders above current price. When an order fills, automatically places a new order on the opposite side.
 **Config**: `symbol`, `step_pct`, `n_buy_levels`, `n_sell_levels`, `base_order_size`, `total_fee_rate`
 **Module**: `strategies.grid`
-**Runner**: `run_grid.py`
-**Examples**: `examples/grid_cosa_pirate.yml`
+**Runner**: `bots/run_grid.py`
+**Examples**: `examples/grid.yml`
 
 **Profitability rule**: Spacing must exceed fees so that each buy/sell cycle clears costs.
 - `step_pct` mode requires `step_pct > total_fee_rate`.
@@ -289,16 +289,16 @@ Grid trading with NO upper limit - continuously extends sell ladder as price ris
 - Continuously profits from upward price movement without bound
 **Config**: `symbol`, `step_pct`, `n_buy_levels`, `initial_sell_levels`, `base_order_size`, `total_fee_rate`
 **Module**: `strategies.infinity_ladder_grid`
-**Runner**: `run_infinity_grid.py`
+**Runner**: `bots/run_infinity_grid.py`
 **Examples**: `examples/infinity_grid.yml`, `examples/infinity_grid_small_balance.yml`, `examples/infinity_grid_tight.yml`
-**Documentation**: See [INFINITY_GRID_GUIDE.md](INFINITY_GRID_GUIDE.md) and [GRID_SPACING_GUIDE.md](GRID_SPACING_GUIDE.md) for complete setup guide
+**Documentation**: See [docs/guides/INFINITY_GRID_GUIDE.md](docs/guides/INFINITY_GRID_GUIDE.md) and [docs/guides/GRID_SPACING_GUIDE.md](docs/guides/GRID_SPACING_GUIDE.md) for complete setup guide
 
 **Key features**:
 - **No upper limit**: Sell ladder extends infinitely upward as price rises
 - **Lower limit**: Buy orders have a floor based on available USDT
 - **Grid strategy**: Places standing orders on the book (not reactive trades)
 - **Best for bull markets**: Optimized for trending upward markets
-- **Optimal spacing**: Use 0.5-2% spacing (see [GRID_SPACING_GUIDE.md](GRID_SPACING_GUIDE.md) for calculations)
+- **Optimal spacing**: Use 0.5-2% spacing (see [docs/guides/GRID_SPACING_GUIDE.md](docs/guides/GRID_SPACING_GUIDE.md) for calculations)
 
 ### 3. Triangular Arbitrage
 Identifies and executes arbitrage opportunities across three trading pairs.
@@ -307,8 +307,8 @@ Identifies and executes arbitrage opportunities across three trading pairs.
 **How it works**: Monitors three pairs for profitable cycles and executes market orders when opportunities arise
 **Config**: `asset_a`, `asset_b`, `asset_c`, `pair_ab`, `pair_bc`, `pair_ac`, `trade_amount_a`, `min_profitability`
 **Module**: `strategies.triangular_arb`
-**Runner**: `run_arb_bot.py`
-**Examples**: `examples/arb_usdt_eth_btc.yml`, `examples/nonkyc_triangular_arbitrage.yml`
+**Runner**: `bots/run_arb_bot.py`
+**Examples**: `examples/triangular_arb.yml`
 
 ### 4. Hybrid Arbitrage
 Combines order book trading with liquidity pool swaps for arbitrage.
@@ -317,8 +317,8 @@ Combines order book trading with liquidity pool swaps for arbitrage.
 **How it works**: Monitors both order book pairs and liquidity pools, executing profitable cycles
 **Config**: `orderbook_pairs`, `pool_pair`, `base_currency`, `trade_amount`, `min_profit_pct`
 **Module**: `strategies.hybrid_triangular_arb`
-**Runner**: `run_hybrid_arb_bot.py`
-**Examples**: `examples/hybrid_arb_cosa_pirate.yml`
+**Runner**: `bots/run_hybrid_arb_bot.py`
+**Examples**: `examples/hybrid_arb.yml`
 
 ### 5. Rebalance Strategy
 Maintains a target ratio between base and quote assets.
@@ -327,7 +327,7 @@ Maintains a target ratio between base and quote assets.
 **How it works**: Monitors portfolio drift and places rebalancing trades when threshold is exceeded
 **Config**: `target_base_percent`, `rebalance_threshold_percent`, `poll_interval_seconds`
 **Module**: `strategies.rebalance`
-**Runner**: `run_rebalance_bot.py`
+**Runner**: `bots/run_rebalance_bot.py`
 **Examples**: `examples/rebalance_bot.yml`
 
 ### 6. Adaptive Capped Martingale (Spot)
@@ -341,7 +341,7 @@ Fee-aware, spot-only mean reversion strategy that accumulates BTC with capped ge
 - Uses a time stop to exit at breakeven after prolonged cycles
 **Config**: `symbol`, `cycle_budget`, `base_order_pct`, `multiplier`, `max_adds`, `step_pct`, `tp1_pct`, `tp2_pct`, `fee_rate`
 **Module**: `strategies.adaptive_capped_martingale`
-**Runner**: `run_adaptive_capped_martingale.py`
+**Runner**: `bots/run_adaptive_capped_martingale.py`
 **Examples**: `examples/adaptive_capped_martingale_btc_usdt.yml`
 
 See [examples/](examples/) directory for complete configuration examples with detailed usage instructions.
@@ -350,14 +350,14 @@ See [examples/](examples/) directory for complete configuration examples with de
 
 Comprehensive guides are available for complex strategies:
 
-- **[INFINITY_GRID_GUIDE.md](INFINITY_GRID_GUIDE.md)** - Complete setup guide for infinity grid including:
+- **[docs/guides/INFINITY_GRID_GUIDE.md](docs/guides/INFINITY_GRID_GUIDE.md)** - Complete setup guide for infinity grid including:
   - How infinity grid works (standing orders vs reactive trades)
   - Lower limit calculation and behavior
   - Order size calculation for your balance
   - Configuration examples for different balance sizes
   - Troubleshooting common issues
 
-- **[GRID_SPACING_GUIDE.md](GRID_SPACING_GUIDE.md)** - Grid spacing optimization guide including:
+- **[docs/guides/GRID_SPACING_GUIDE.md](docs/guides/GRID_SPACING_GUIDE.md)** - Grid spacing optimization guide including:
   - Minimum profitable spacing calculations (0.42% minimum with 0.2% fees)
   - Recommended spacing for different balance sizes
   - Comparison of tight (0.5%), medium (1-2%), and wide (5%) grids
@@ -476,8 +476,8 @@ NonKYC uses **full URL signing** with a **14-digit nonce**:
 Use the included debug script to test all authentication variations:
 
 ```bash
-# Edit debug_auth.py with your credentials
-python debug_auth.py
+# Edit scripts/debug_auth.py with your credentials
+python scripts/debug_auth.py
 
 # This will test:
 # ✓ Path-only signing
@@ -490,11 +490,11 @@ python debug_auth.py
 ### All Bots Support This
 
 Every bot runner automatically supports these settings:
-- `run_grid.py`
-- `run_infinity_grid.py`
-- `run_arb_bot.py`
-- `run_hybrid_arb_bot.py`
-- `run_rebalance_bot.py`
+- `bots/run_grid.py`
+- `bots/run_infinity_grid.py`
+- `bots/run_arb_bot.py`
+- `bots/run_hybrid_arb_bot.py`
+- `bots/run_rebalance_bot.py`
 
 Just add `sign_absolute_url` and `nonce_multiplier` to your config file and all bots will use them.
 
@@ -534,7 +534,7 @@ If you see `HTTP error 401: Not Authorized` errors:
   ```
 - **Debug authentication**: Use the provided debug script:
   ```bash
-  python debug_auth.py
+  python scripts/debug_auth.py
   ```
   This tests all signing variations and shows which one works.
 
@@ -565,7 +565,7 @@ The repository includes a validation script that checks all bots for common issu
 
 ```bash
 # Run validation on all bots and strategies
-python validate_bots.py
+python scripts/validate_bots.py
 ```
 
 This automatically checks for:
@@ -609,29 +609,35 @@ nonkycbot/
 │       ├── main.py             # CLI entry point
 │       └── config.py           # Configuration loader
 ├── examples/                   # Example configurations
-│   ├── grid_cosa_pirate.yml    # Standard grid example
 │   ├── adaptive_capped_martingale_btc_usdt.yml # Adaptive martingale example
 │   ├── infinity_grid.yml       # Infinity grid example (general)
 │   ├── infinity_grid_small_balance.yml # Small balance config
 │   ├── infinity_grid_tight.yml # Tight spacing (0.5%) config
-│   ├── arb_usdt_eth_btc.yml    # Triangular arbitrage example
-│   ├── hybrid_arb_cosa_pirate.yml # Hybrid arbitrage example
-│   └── rebalance_bot.yml       # Rebalance strategy config
+│   ├── grid.yml                # Standard grid example
+│   ├── hybrid_arb.yml          # Hybrid arbitrage example
+│   ├── rebalance_bot.yml       # Rebalance strategy config
+│   └── triangular_arb.yml      # Triangular arbitrage example
 ├── tests/                      # Unit tests
 │   └── test_strategies.py      # Strategy tests
-├── run_grid.py                 # Grid bot runner script
-├── run_adaptive_capped_martingale.py # Adaptive martingale runner script
-├── run_infinity_grid.py        # Infinity grid bot runner script
-├── run_arb_bot.py              # Arbitrage bot runner script
-├── run_hybrid_arb_bot.py       # Hybrid arbitrage runner script
-├── run_rebalance_bot.py        # Rebalance bot runner script
-├── scripts/connection_check.py  # Manual API test script
-├── debug_auth.py               # Authentication debugging tool
-├── validate_bots.py            # Bot code validation (prevent regressions)
-├── check_grid_balances.py      # Grid balance diagnostics tool
-├── INFINITY_GRID_GUIDE.md      # Complete infinity grid setup guide
-├── GRID_SPACING_GUIDE.md       # Grid spacing optimization guide
-├── COMPATIBILITY_AUDIT.md      # API compatibility documentation
+├── bots/                      # Bot runner scripts
+│   ├── run_grid.py            # Grid bot runner script
+│   ├── run_adaptive_capped_martingale.py # Adaptive martingale runner script
+│   ├── run_infinity_grid.py   # Infinity grid bot runner script
+│   ├── run_arb_bot.py         # Arbitrage bot runner script
+│   ├── run_hybrid_arb_bot.py  # Hybrid arbitrage runner script
+│   └── run_rebalance_bot.py   # Rebalance bot runner script
+├── scripts/                   # Utility and validation tools
+│   ├── connection_check.py    # Manual API test script
+│   ├── debug_auth.py          # Authentication debugging tool
+│   ├── validate_bots.py       # Bot code validation (prevent regressions)
+│   └── check_grid_balances.py # Grid balance diagnostics tool
+├── docs/                      # Documentation
+│   ├── guides/                # How-to guides
+│   │   ├── INFINITY_GRID_GUIDE.md # Complete infinity grid setup guide
+│   │   └── GRID_SPACING_GUIDE.md  # Grid spacing optimization guide
+│   └── audits/                # Compatibility & audit docs
+│       └── COMPATIBILITY_AUDIT.md # API compatibility documentation
+├── state/                     # Bot state files (runtime)
 ├── requirements.txt            # Python dependencies
 ├── pyproject.toml             # Build configuration
 └── README.md                  # This file
@@ -639,7 +645,7 @@ nonkycbot/
 
 ## API Compatibility
 
-This bot is designed for **NonKYC.io** exchange. See [COMPATIBILITY_AUDIT.md](COMPATIBILITY_AUDIT.md) for detailed analysis.
+This bot is designed for **NonKYC.io** exchange. See [docs/audits/COMPATIBILITY_AUDIT.md](docs/audits/COMPATIBILITY_AUDIT.md) for detailed analysis.
 
 ### Current Status
 
@@ -671,7 +677,7 @@ This bot is designed for **NonKYC.io** exchange. See [COMPATIBILITY_AUDIT.md](CO
 - WebSocket client in `src/nonkyc_client/ws.py` supports login, subscriptions, and reconnects
 - Recommended for high-frequency strategies
 
-See [COMPATIBILITY_AUDIT.md](COMPATIBILITY_AUDIT.md) for full details and implementation guidance.
+See [docs/audits/COMPATIBILITY_AUDIT.md](docs/audits/COMPATIBILITY_AUDIT.md) for full details and implementation guidance.
 
 ## Development
 
@@ -774,7 +780,7 @@ See the [NOTICE](NOTICE) file for complete attribution information and third-par
 ## Support
 
 - **Issues**: [GitHub Issues](https://github.com/tigrisanimus/nonkycbot/issues)
-- **Documentation**: See [COMPATIBILITY_AUDIT.md](COMPATIBILITY_AUDIT.md)
+- **Documentation**: See [docs/audits/COMPATIBILITY_AUDIT.md](docs/audits/COMPATIBILITY_AUDIT.md)
 - **NonKYC Exchange**: [https://nonkyc.io](https://nonkyc.io)
 
 ## Disclaimer

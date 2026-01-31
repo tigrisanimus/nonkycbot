@@ -11,11 +11,8 @@ from pathlib import Path
 import yaml
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent / "src"))
-
-from nonkyc_client.auth import ApiCredentials, AuthSigner
-from nonkyc_client.constants import default_rest_base_url
-from nonkyc_client.rest import RestClient, RestRequest
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT / "src"))
 
 
 def load_config(config_path: str) -> dict:
@@ -25,8 +22,12 @@ def load_config(config_path: str) -> dict:
 
 
 def main():
+    from nonkyc_client.auth import ApiCredentials, AuthSigner
+    from nonkyc_client.constants import default_rest_base_url
+    from nonkyc_client.rest import RestClient, RestRequest
+
     if len(sys.argv) < 2:
-        print("Usage: python check_grid_balances.py <config.yml>")
+        print("Usage: python scripts/check_grid_balances.py <config.yml>")
         return 1
 
     config_path = sys.argv[1]
@@ -175,8 +176,8 @@ def main():
         print("  4. Enable startup_rebalance: true (if you have one asset)")
     print("=" * 80)
 
-    # Check state.json
-    state_path = config.get("state_path", "state.json")
+    # Check state file
+    state_path = config.get("state_path", "state/grid_state.json")
     if os.path.exists(state_path):
         import json
 
@@ -184,9 +185,9 @@ def main():
             state = json.load(f)
         needs_rebalance = state.get("needs_rebalance", False)
         if needs_rebalance:
-            print("\n⚠️  state.json shows needs_rebalance=True")
+            print("\n⚠️  State file shows needs_rebalance=True")
             print("This means the bot previously detected insufficient balance.")
-            print("Delete state.json to retry, or enable startup_rebalance.")
+            print("Delete the state file to retry, or enable startup_rebalance.")
 
     return 0
 
