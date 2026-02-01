@@ -60,6 +60,8 @@ implemented in `bots/run_infinity_grid.py` and `src/strategies/infinity_ladder_g
   losing the ladder context.
 - **Startup order sync**: If the state file is empty, the bot fetches open orders
   from the exchange and repopulates its in-memory ladder before placing anything.
+- **Buy ladder extension**: On restart, you can optionally extend buy levels lower
+  (without cancelling existing orders) to deploy newly added quote balance.
 - **Grid spacing & profitability guard**: Before seeding orders, it computes the
   minimum profitable spacing based on total fees + buffer and refuses to place a
   grid that would lose money after fees.
@@ -202,6 +204,9 @@ step_size: "0.00000001"          # Quantity precision (8 decimals for BTC)
 # Timing
 poll_interval_sec: 60            # Check every 60 seconds
 reconcile_interval_sec: 60       # Reconcile every 60 seconds
+
+# Restart behavior
+extend_buy_levels_on_restart: false  # Add lower buy levels without cancelling orders
 
 # REST API
 rest_timeout_sec: 30.0

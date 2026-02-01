@@ -277,6 +277,12 @@ def validate_infinity_grid_config(config: dict[str, Any]) -> None:
         validate_positive_decimal(config, "balance_refresh_sec", required=False)
     if "fetch_backoff_sec" in config:
         validate_positive_decimal(config, "fetch_backoff_sec", required=False)
+    if "extend_buy_levels_on_restart" in config and not isinstance(
+        config["extend_buy_levels_on_restart"], bool
+    ):
+        raise ConfigValidationError(
+            "extend_buy_levels_on_restart must be a boolean if provided."
+        )
 
 
 def validate_triangular_arb_config(config: dict[str, Any]) -> None:

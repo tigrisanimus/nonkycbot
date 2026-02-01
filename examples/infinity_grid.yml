@@ -63,6 +63,7 @@ fetch_backoff_sec: 15            # Backoff on API errors
 # Startup options
 startup_cancel_all: false        # Cancel all existing orders on startup
 startup_rebalance: false         # Auto-rebalance to 50/50 on startup (if one-sided)
+extend_buy_levels_on_restart: false  # Add lower buy levels without cancelling orders
 
 # Rebalancing (if startup_rebalance=true)
 rebalance_target_base_pct: "0.5"   # Target 50% base, 50% quote

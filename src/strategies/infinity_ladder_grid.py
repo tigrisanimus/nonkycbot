@@ -56,6 +56,7 @@ class InfinityLadderGridConfig:
     reconcile_interval_sec: float = 60.0
     balance_refresh_sec: float = 60.0
     mode: str = "live"  # "live", "dry-run", or "monitor"
+    extend_buy_levels_on_restart: bool = False
 
 
 @dataclass
@@ -454,10 +455,13 @@ class InfinityLadderGridStrategy:
     def seed_ladder(self) -> None:
         """Initialize the infinity grid with orders."""
         if self.state.open_orders:
-            LOGGER.info(
-                "Open orders already tracked (%d); skipping seed.",
-                len(self.state.open_orders),
-            )
+            if not self.config.extend_buy_levels_on_restart:
+                LOGGER.info(
+                    "Open orders already tracked (%d); skipping seed.",
+                    len(self.state.open_orders),
+                )
+                return
+            self._extend_buy_levels()
             return
         self._halt_placements = False
         self._refresh_balances(time.time())
@@ -523,6 +527,67 @@ class InfinityLadderGridStrategy:
             self.state.highest_sell_price = max(sell_prices)
 
         self.save_state()
+
+    def _extend_buy_levels(self) -> None:
+        """Extend buy ladder lower without canceling existing orders."""
+        self._halt_placements = False
+        now = time.time()
+        self._refresh_balances(now)
+
+        mid_price = self.client.get_mid_price(self.config.symbol)
+        self.state.last_mid = mid_price
+
+        self._validate_profitability(mid_price)
+
+        existing_buy_prices = {
+            self._quantize_price(order.price)
+            for order in self.state.open_orders.values()
+            if order.side == "buy"
+        }
+        self._sync_client_order_counter(list(self.state.open_orders.keys()))
+        step = self._get_step_size(mid_price)
+        target_levels = [
+            self._quantize_price(mid_price * (Decimal("1") - step * i))
+            for i in range(1, self.config.n_buy_levels + 1)
+            if mid_price * (Decimal("1") - step * i) < self.state.lowest_buy_price
+        ]
+        levels_to_add = [
+            price for price in target_levels if price not in existing_buy_prices
+        ]
+
+        if not levels_to_add:
+            LOGGER.info(
+                "No additional buy levels needed on restart. "
+                "lowest_buy=%s target_lowest=%s",
+                self.state.lowest_buy_price,
+                min(target_levels) if target_levels else self.state.lowest_buy_price,
+            )
+            return
+
+        LOGGER.info(
+            "Extending buy ladder: current_lowest=%s target_lowest=%s levels=%d",
+            self.state.lowest_buy_price,
+            min(levels_to_add),
+            len(levels_to_add),
+        )
+
+        placed_prices: list[Decimal] = []
+        for price in sorted(levels_to_add, reverse=True):
+            if self._place_order("buy", price, self.config.base_order_size):
+                placed_prices.append(self._quantize_price(price))
+            if self._halt_placements:
+                break
+
+        if placed_prices:
+            self.state.lowest_buy_price = min(
+                self.state.lowest_buy_price, min(placed_prices)
+            )
+            self.save_state()
+        else:
+            LOGGER.warning(
+                "Failed to place additional buy levels on restart. "
+                "Deposit more funds or adjust configuration."
+            )
 
     def reconcile(self, now: float) -> None:
         """Check for filled orders and refill the grid."""

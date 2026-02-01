@@ -73,6 +73,9 @@ def build_config(raw_config: dict):
         reconcile_interval_sec=float(raw_config.get("reconcile_interval_sec", 60.0)),
         balance_refresh_sec=float(raw_config.get("balance_refresh_sec", 60.0)),
         mode=raw_config.get("mode", "live"),
+        extend_buy_levels_on_restart=bool(
+            raw_config.get("extend_buy_levels_on_restart", False)
+        ),
     )
 
 

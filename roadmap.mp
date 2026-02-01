@@ -92,6 +92,7 @@
 - [x] Default REST/WS client URLs now derive from shared API constants.
 - [x] Reorganize repository layout with dedicated bots, scripts, docs, and state directories.
 - [x] Replace lint suppressions with lazy imports to keep bot/script runners lint-clean.
+- [x] Allow infinity grid restarts to extend buy levels lower without cancelling orders.
 
 ## Next
 - [ ] Define API client interfaces and error handling.
