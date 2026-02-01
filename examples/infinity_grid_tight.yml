@@ -39,6 +39,16 @@ initial_sell_levels: 20          # 20 sells (using ~0.00022 BTC)
 # At BTC=$90k: 0.000012 BTC = $1.08
 base_order_size: "0.000012"      # ~$1.08 per order
 
+# Order sizing modes (buy vs sell independent)
+buy_sizing_mode: "fixed"         # Default: fixed base size for buys
+sell_sizing_mode: "dynamic"      # Default: dynamic sells to preserve upside inventory
+
+# Sizing parameters (optional overrides)
+# fixed_base_order_qty: "0.000012" # Fixed base size override (defaults to base_order_size)
+# target_quote_per_order: "1.08"   # Quote value per order for dynamic/hybrid sizing
+# min_base_order_qty: "0.000006"   # Hybrid floor for base quantity
+# min_order_qty: "0.00001"         # Exchange min base quantity (optional)
+
 # Exchange requirements
 min_notional_quote: "1.0"
 total_fee_rate: "0.002"          # 0.2% fees

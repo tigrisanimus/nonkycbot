@@ -15,6 +15,7 @@ class FakeExchange:
     def __init__(self) -> None:
         self._order_count = 0
         self.last_client_id: str | None = None
+        self.placed_orders: list[tuple[str, Decimal, Decimal]] = []
 
     def get_mid_price(self, symbol: str) -> Decimal:
         return Decimal("100")
@@ -32,6 +33,7 @@ class FakeExchange:
     ) -> str:
         self._order_count += 1
         self.last_client_id = client_id
+        self.placed_orders.append((side, price, quantity))
         return f"order-{self._order_count}"
 
     def place_market(
@@ -113,7 +115,7 @@ def test_place_order_uses_uuid_client_id(tmp_path) -> None:
     client = FakeExchange()
     strategy = InfinityLadderGridStrategy(config, client, tmp_path / "state.json")
 
-    strategy._place_order("buy", Decimal("100"), Decimal("1"))
+    strategy._place_order("buy", Decimal("100"))
 
     assert client.last_client_id is not None
     assert re.match(r"^infinity-buy-[0-9a-f]{32}$", client.last_client_id)
@@ -262,3 +264,264 @@ def test_seed_ladder_extends_buy_levels_on_restart(tmp_path) -> None:
     )
     assert buy_prices[0] == Decimal("72.00")
     assert len(buy_prices) == 6
+
+
+def test_default_sizing_modes_buy_fixed_sell_dynamic(tmp_path) -> None:
+    config = InfinityLadderGridConfig(
+        symbol="BTC/USDT",
+        step_mode="pct",
+        step_pct=Decimal("0.01"),
+        step_abs=None,
+        n_buy_levels=1,
+        initial_sell_levels=1,
+        base_order_size=Decimal("1"),
+        min_notional_quote=Decimal("1"),
+        fee_buffer_pct=Decimal("0"),
+        total_fee_rate=Decimal("0"),
+        tick_size=Decimal("0.01"),
+        step_size=Decimal("0.001"),
+        poll_interval_sec=1.0,
+    )
+    client = FakeExchange()
+    strategy = InfinityLadderGridStrategy(config, client, tmp_path / "state.json")
+
+    strategy.seed_ladder()
+
+    buy_orders = [o for o in strategy.state.open_orders.values() if o.side == "buy"]
+    sell_orders = [o for o in strategy.state.open_orders.values() if o.side == "sell"]
+    assert buy_orders
+    assert sell_orders
+    assert buy_orders[0].quantity == Decimal("1")
+    assert sell_orders[0].quantity < buy_orders[0].quantity
+    assert sell_orders[0].quantity == Decimal("0.990")
+
+
+def test_fixed_mode_reproduces_legacy_behavior(tmp_path) -> None:
+    config = InfinityLadderGridConfig(
+        symbol="BTC/USDT",
+        step_mode="pct",
+        step_pct=Decimal("0.01"),
+        step_abs=None,
+        n_buy_levels=1,
+        initial_sell_levels=1,
+        base_order_size=Decimal("1"),
+        buy_sizing_mode="fixed",
+        sell_sizing_mode="fixed",
+        min_notional_quote=Decimal("1"),
+        fee_buffer_pct=Decimal("0"),
+        total_fee_rate=Decimal("0"),
+        tick_size=Decimal("0.01"),
+        step_size=Decimal("0.001"),
+        poll_interval_sec=1.0,
+    )
+    client = FakeExchange()
+    strategy = InfinityLadderGridStrategy(config, client, tmp_path / "state.json")
+
+    strategy._place_order("sell", Decimal("101"))
+
+    placed_order = next(iter(strategy.state.open_orders.values()))
+    assert placed_order.quantity == Decimal("1")
+
+
+def test_hybrid_mode_clamps_to_min_base_qty(tmp_path) -> None:
+    config = InfinityLadderGridConfig(
+        symbol="BTC/USDT",
+        step_mode="pct",
+        step_pct=Decimal("0.01"),
+        step_abs=None,
+        n_buy_levels=1,
+        initial_sell_levels=1,
+        base_order_size=Decimal("1"),
+        sell_sizing_mode="hybrid",
+        target_quote_per_order=Decimal("10"),
+        min_base_order_qty=Decimal("0.5"),
+        min_notional_quote=Decimal("1"),
+        fee_buffer_pct=Decimal("0"),
+        total_fee_rate=Decimal("0"),
+        tick_size=Decimal("0.01"),
+        step_size=Decimal("0.01"),
+        poll_interval_sec=1.0,
+    )
+    client = FakeExchange()
+    strategy = InfinityLadderGridStrategy(config, client, tmp_path / "state.json")
+
+    strategy._place_order("sell", Decimal("100"))
+
+    placed_order = next(iter(strategy.state.open_orders.values()))
+    assert placed_order.quantity == Decimal("0.5")
+
+
+def test_min_constraints_skip_orders(tmp_path) -> None:
+    config = InfinityLadderGridConfig(
+        symbol="BTC/USDT",
+        step_mode="pct",
+        step_pct=Decimal("0.01"),
+        step_abs=None,
+        n_buy_levels=1,
+        initial_sell_levels=1,
+        base_order_size=Decimal("1"),
+        min_order_qty=Decimal("2"),
+        min_notional_quote=Decimal("1"),
+        fee_buffer_pct=Decimal("0"),
+        total_fee_rate=Decimal("0"),
+        tick_size=Decimal("0.01"),
+        step_size=Decimal("0.001"),
+        poll_interval_sec=1.0,
+    )
+    client = FakeExchange()
+    strategy = InfinityLadderGridStrategy(config, client, tmp_path / "state.json")
+
+    strategy._place_order("buy", Decimal("100"))
+
+    assert not strategy.state.open_orders
+
+
+def test_min_notional_skip_is_deterministic(tmp_path) -> None:
+    config = InfinityLadderGridConfig(
+        symbol="BTC/USDT",
+        step_mode="pct",
+        step_pct=Decimal("0.01"),
+        step_abs=None,
+        n_buy_levels=1,
+        initial_sell_levels=1,
+        base_order_size=Decimal("1"),
+        min_notional_quote=Decimal("500"),
+        fee_buffer_pct=Decimal("0"),
+        total_fee_rate=Decimal("0"),
+        tick_size=Decimal("0.01"),
+        step_size=Decimal("0.001"),
+        poll_interval_sec=1.0,
+    )
+    client = FakeExchange()
+    strategy = InfinityLadderGridStrategy(config, client, tmp_path / "state.json")
+
+    strategy._place_order("sell", Decimal("100"))
+
+    assert not strategy.state.open_orders
+
+
+def test_dynamic_sell_qty_decreases_with_price(tmp_path) -> None:
+    config = InfinityLadderGridConfig(
+        symbol="BTC/USDT",
+        step_mode="pct",
+        step_pct=Decimal("0.01"),
+        step_abs=None,
+        n_buy_levels=1,
+        initial_sell_levels=1,
+        base_order_size=Decimal("1"),
+        min_notional_quote=Decimal("1"),
+        fee_buffer_pct=Decimal("0"),
+        total_fee_rate=Decimal("0"),
+        tick_size=Decimal("0.01"),
+        step_size=Decimal("0.001"),
+        poll_interval_sec=1.0,
+    )
+    strategy = InfinityLadderGridStrategy(
+        config, FakeExchange(), tmp_path / "state.json"
+    )
+
+    qty_low = strategy._resolve_order_quantity("sell", Decimal("100"))
+    qty_high = strategy._resolve_order_quantity("sell", Decimal("120"))
+
+    assert qty_low is not None
+    assert qty_high is not None
+    assert qty_high < qty_low
+
+
+def test_profit_accounting_uses_variable_sell_sizes(tmp_path) -> None:
+    config = InfinityLadderGridConfig(
+        symbol="BTC/USDT",
+        step_mode="pct",
+        step_pct=Decimal("0.01"),
+        step_abs=None,
+        n_buy_levels=1,
+        initial_sell_levels=1,
+        base_order_size=Decimal("1"),
+        min_notional_quote=Decimal("1"),
+        fee_buffer_pct=Decimal("0"),
+        total_fee_rate=Decimal("0"),
+        tick_size=Decimal("0.01"),
+        step_size=Decimal("0.001"),
+        poll_interval_sec=1.0,
+    )
+    client = FakeExchange()
+    strategy = InfinityLadderGridStrategy(config, client, tmp_path / "state.json")
+    strategy.state.open_orders = {
+        "order-1": LiveOrder(
+            side="sell",
+            price=Decimal("100"),
+            quantity=Decimal("0.5"),
+            client_id="client-1",
+            created_at=0.0,
+        ),
+        "order-2": LiveOrder(
+            side="sell",
+            price=Decimal("105"),
+            quantity=Decimal("0.25"),
+            client_id="client-2",
+            created_at=0.0,
+        ),
+    }
+
+    strategy.reconcile(now=0.0)
+
+    assert strategy.state.total_profit_quote == Decimal("76.25")
+
+
+def test_dynamic_sell_reduces_inventory_depletion(tmp_path) -> None:
+    config = InfinityLadderGridConfig(
+        symbol="BTC/USDT",
+        step_mode="pct",
+        step_pct=Decimal("0.01"),
+        step_abs=None,
+        n_buy_levels=1,
+        initial_sell_levels=1,
+        base_order_size=Decimal("1"),
+        min_notional_quote=Decimal("1"),
+        fee_buffer_pct=Decimal("0"),
+        total_fee_rate=Decimal("0"),
+        tick_size=Decimal("0.01"),
+        step_size=Decimal("0.001"),
+        poll_interval_sec=1.0,
+    )
+    prices = [
+        Decimal("100"),
+        Decimal("105"),
+        Decimal("103"),
+        Decimal("110"),
+        Decimal("108"),
+        Decimal("115"),
+    ]
+
+    dynamic_strategy = InfinityLadderGridStrategy(
+        config, FakeExchange(), tmp_path / "a.json"
+    )
+    fixed_config = InfinityLadderGridConfig(
+        **{**config.__dict__, "sell_sizing_mode": "fixed"}
+    )
+    fixed_strategy = InfinityLadderGridStrategy(
+        fixed_config, FakeExchange(), tmp_path / "b.json"
+    )
+
+    starting_base = Decimal("3")
+    remaining_dynamic = starting_base
+    remaining_fixed = starting_base
+    dynamic_fills = 0
+    fixed_fills = 0
+
+    for price in prices:
+        buy_qty = dynamic_strategy._resolve_order_quantity("buy", price)
+        assert buy_qty == Decimal("1")
+
+        dynamic_qty = dynamic_strategy._resolve_order_quantity("sell", price)
+        if dynamic_qty is not None and remaining_dynamic >= dynamic_qty:
+            remaining_dynamic -= dynamic_qty
+            dynamic_fills += 1
+
+        fixed_qty = fixed_strategy._resolve_order_quantity("sell", price)
+        if fixed_qty is not None and remaining_fixed >= fixed_qty:
+            remaining_fixed -= fixed_qty
+            fixed_fills += 1
+
+    assert dynamic_fills >= fixed_fills
+    assert remaining_dynamic >= remaining_fixed

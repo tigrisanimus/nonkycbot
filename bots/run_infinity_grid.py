@@ -54,6 +54,28 @@ def build_config(raw_config: dict):
         n_buy_levels=int(raw_config.get("n_buy_levels", 10)),
         initial_sell_levels=int(raw_config.get("initial_sell_levels", 10)),
         base_order_size=Decimal(str(raw_config.get("base_order_size", "0.001"))),
+        buy_sizing_mode=raw_config.get("buy_sizing_mode", "fixed"),
+        sell_sizing_mode=raw_config.get("sell_sizing_mode", "dynamic"),
+        fixed_base_order_qty=(
+            Decimal(str(raw_config["fixed_base_order_qty"]))
+            if "fixed_base_order_qty" in raw_config
+            else None
+        ),
+        target_quote_per_order=(
+            Decimal(str(raw_config["target_quote_per_order"]))
+            if "target_quote_per_order" in raw_config
+            else None
+        ),
+        min_base_order_qty=(
+            Decimal(str(raw_config["min_base_order_qty"]))
+            if "min_base_order_qty" in raw_config
+            else None
+        ),
+        min_order_qty=(
+            Decimal(str(raw_config["min_order_qty"]))
+            if "min_order_qty" in raw_config
+            else None
+        ),
         min_notional_quote=Decimal(str(raw_config.get("min_notional_quote", "1.0"))),
         fee_buffer_pct=Decimal(str(raw_config.get("fee_buffer_pct", "0.0001"))),
         total_fee_rate=Decimal(str(raw_config.get("total_fee_rate", "0.002"))),

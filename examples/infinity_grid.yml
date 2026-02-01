@@ -39,6 +39,16 @@ n_buy_levels: 5                  # Number of buy orders below entry (lower limit
 initial_sell_levels: 5           # Initial sell orders above entry (more added as price rises!)
 base_order_size: "0.0001"        # Amount of base asset (BTC) per order (~$9 at BTC=$90k)
 
+# Order sizing modes (buy vs sell independent)
+buy_sizing_mode: "fixed"         # Default: fixed base size for buys
+sell_sizing_mode: "dynamic"      # Default: dynamic sells to preserve upside inventory
+
+# Sizing parameters (optional overrides)
+# fixed_base_order_qty: "0.0001"   # Fixed base size override (defaults to base_order_size)
+# target_quote_per_order: "9.0"    # Quote value per order for dynamic/hybrid sizing
+# min_base_order_qty: "0.00005"    # Hybrid floor for base quantity
+# min_order_qty: "0.00001"         # Exchange min base quantity (optional)
+
 # Minimum order size (exchange requirement)
 min_notional_quote: "1.0"        # Minimum order value in quote currency
 

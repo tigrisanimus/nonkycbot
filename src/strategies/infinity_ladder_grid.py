@@ -6,6 +6,10 @@ Like standard ladder grid but with unlimited upside:
 - When sell order fills, places new sell order above highest
 - When buy order fills, refills at that level
 - Continuously extends the sell ladder as price rises
+
+Sizing behavior (default):
+- BUY orders stay fixed in base size (legacy behavior)
+- SELL orders size dynamically from a quote target, shrinking as price rises
 """
 
 from __future__ import annotations
@@ -47,6 +51,12 @@ class InfinityLadderGridConfig:
     tick_size: Decimal
     step_size: Decimal
     poll_interval_sec: float
+    buy_sizing_mode: str = "fixed"
+    sell_sizing_mode: str = "dynamic"
+    fixed_base_order_qty: Decimal | None = None
+    target_quote_per_order: Decimal | None = None
+    min_base_order_qty: Decimal | None = None
+    min_order_qty: Decimal | None = None
     fetch_backoff_sec: float = 15.0
     startup_cancel_all: bool = False
     startup_rebalance: bool = False
@@ -232,6 +242,74 @@ class InfinityLadderGridStrategy:
             Decimal("1"), rounding=ROUND_DOWN
         ) * self.config.step_size
 
+    def _resolve_sizing_mode(self, side: str) -> str:
+        """Resolve sizing mode for a given side."""
+        if side.lower() == "buy":
+            return self.config.buy_sizing_mode
+        return self.config.sell_sizing_mode
+
+    def _resolve_fixed_base_order_qty(self) -> Decimal:
+        """Resolve fixed base quantity, preserving legacy base_order_size."""
+        if self.config.fixed_base_order_qty is not None:
+            return self.config.fixed_base_order_qty
+        return self.config.base_order_size
+
+    def _resolve_target_quote_per_order(self) -> Decimal:
+        """Resolve quote-denominated target used for dynamic sizing."""
+        if self.config.target_quote_per_order is not None:
+            return self.config.target_quote_per_order
+        return self._resolve_fixed_base_order_qty() * self.state.entry_price
+
+    def _resolve_min_base_order_qty(self) -> Decimal | None:
+        """Resolve minimum base quantity for hybrid sizing."""
+        if self.config.min_base_order_qty is not None:
+            return self.config.min_base_order_qty
+        return None
+
+    def _resolve_order_quantity(self, side: str, price: Decimal) -> Decimal | None:
+        """Resolve order quantity using side-specific sizing and exchange guards."""
+        sizing_mode = self._resolve_sizing_mode(side).lower()
+        fixed_base_qty = self._resolve_fixed_base_order_qty()
+
+        if sizing_mode == "fixed":
+            quantity = fixed_base_qty
+        else:
+            target_quote = self._resolve_target_quote_per_order()
+            if price <= 0:
+                return None
+            quantity = target_quote / price
+            if sizing_mode == "hybrid":
+                min_base = self._resolve_min_base_order_qty()
+                if min_base is None:
+                    raise ValueError(
+                        "min_base_order_qty is required for hybrid sizing mode."
+                    )
+                quantity = max(min_base, quantity)
+
+        quantity = self._quantize_quantity(quantity)
+        if quantity <= 0:
+            return None
+        if (
+            self.config.min_order_qty is not None
+            and quantity < self.config.min_order_qty
+        ):
+            LOGGER.warning(
+                "Skipping %s order below min_qty: %s < %s",
+                side.upper(),
+                quantity,
+                self.config.min_order_qty,
+            )
+            return None
+        if price * quantity < self.config.min_notional_quote:
+            LOGGER.warning(
+                "Skipping %s order below min_notional: %s < %s",
+                side.upper(),
+                price * quantity,
+                self.config.min_notional_quote,
+            )
+            return None
+        return quantity
+
     def _refresh_balances(self, now: float) -> None:
         """Refresh balance cache."""
         if now - self._last_balance_refresh < self.config.balance_refresh_sec:
@@ -272,13 +350,15 @@ class InfinityLadderGridStrategy:
         available = self._balances.get(base, (Decimal("0"), Decimal("0")))[0]
         return available >= quantity
 
-    def _place_order(self, side: str, price: Decimal, base_quantity: Decimal) -> bool:
+    def _place_order(self, side: str, price: Decimal) -> bool:
         """Place a single order."""
         if self._halt_placements:
             return False
 
         price = self._quantize_price(price)
-        quantity = self._quantize_quantity(base_quantity)
+        quantity = self._resolve_order_quantity(side, price)
+        if quantity is None:
+            return False
 
         # Check mode - skip actual placement in monitor/dry-run modes
         if self.config.mode == "monitor":
@@ -504,7 +584,7 @@ class InfinityLadderGridStrategy:
 
         # Place all orders
         for side, price in buy_levels + sell_levels:
-            self._place_order(side, price, self.config.base_order_size)
+            self._place_order(side, price)
 
         orders_placed = len(self.state.open_orders)
         total_levels = len(buy_levels) + len(sell_levels)
@@ -573,7 +653,7 @@ class InfinityLadderGridStrategy:
 
         placed_prices: list[Decimal] = []
         for price in sorted(levels_to_add, reverse=True):
-            if self._place_order("buy", price, self.config.base_order_size):
+            if self._place_order("buy", price):
                 placed_prices.append(self._quantize_price(price))
             if self._halt_placements:
                 break
@@ -687,7 +767,7 @@ class InfinityLadderGridStrategy:
             if order.side == "buy":
                 # Buy filled - place SELL order one step above to take profit
                 new_sell_price = order.price * (Decimal("1") + step)
-                if self._place_order("sell", new_sell_price, order.quantity):
+                if self._place_order("sell", new_sell_price):
                     LOGGER.info(
                         "Buy filled at %s, placed sell at %s",
                         order.price,
@@ -697,9 +777,7 @@ class InfinityLadderGridStrategy:
                 # Sell filled - TWO actions:
                 # 1. Extend the ladder upward (no upper limit!)
                 new_sell_price = self.state.highest_sell_price * (Decimal("1") + step)
-                placed_sell = self._place_order(
-                    "sell", new_sell_price, self.config.base_order_size
-                )
+                placed_sell = self._place_order("sell", new_sell_price)
 
                 # Update highest sell price
                 if placed_sell and new_sell_price > self.state.highest_sell_price:
@@ -712,7 +790,7 @@ class InfinityLadderGridStrategy:
                 # 2. Place buy order below to buy back (if above lower limit)
                 new_buy_price = order.price * (Decimal("1") - step)
                 if new_buy_price >= self.state.lowest_buy_price:
-                    if self._place_order("buy", new_buy_price, order.quantity):
+                    if self._place_order("buy", new_buy_price):
                         LOGGER.info(
                             "Sell filled at %s, placed buy-back at %s",
                             order.price,

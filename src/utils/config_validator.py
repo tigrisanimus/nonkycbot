@@ -262,6 +262,30 @@ def validate_infinity_grid_config(config: dict[str, Any]) -> None:
     validate_positive_integer(config, "n_buy_levels", required=True, minimum=1)
     validate_positive_integer(config, "initial_sell_levels", required=True, minimum=1)
     validate_positive_decimal(config, "base_order_size", required=True)
+    validate_choice(
+        config,
+        "buy_sizing_mode",
+        {"fixed", "dynamic", "hybrid"},
+        required=False,
+    )
+    validate_choice(
+        config,
+        "sell_sizing_mode",
+        {"fixed", "dynamic", "hybrid"},
+        required=False,
+    )
+    validate_positive_decimal(config, "fixed_base_order_qty", required=False)
+    validate_positive_decimal(config, "target_quote_per_order", required=False)
+    validate_positive_decimal(config, "min_base_order_qty", required=False)
+    validate_positive_decimal(config, "min_order_qty", required=False)
+    sizing_modes = {
+        config.get("buy_sizing_mode", "fixed"),
+        config.get("sell_sizing_mode", "dynamic"),
+    }
+    if "hybrid" in sizing_modes and "min_base_order_qty" not in config:
+        raise ConfigValidationError(
+            "min_base_order_qty is required when using hybrid sizing mode."
+        )
 
     validate_positive_decimal(config, "min_notional_quote", required=True)
     validate_non_negative_decimal(config, "total_fee_rate", required=True)

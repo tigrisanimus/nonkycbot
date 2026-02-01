@@ -125,6 +125,12 @@ base_order_size = min(
 )
 ```
 
+By default, **BUY orders stay fixed** at `base_order_size`, while **SELL orders
+size dynamically** based on a quote-denominated target. If you do not specify
+`target_quote_per_order`, the bot derives it from `base_order_size` and the entry
+price so the first sell order matches the legacy size and then **shrinks as
+price rises** to preserve upside inventory.
+
 ### Example 1: Small Balance (You!)
 
 Your balance:
@@ -192,10 +198,23 @@ n_buy_levels: 5                  # Buy orders below (adjust to your USDT balance
 initial_sell_levels: 5           # Initial sell orders (adjust to your BTC balance)
 base_order_size: "0.0001"        # Size per order (see calculation above)
 
+# Order sizing (buy vs sell are independent)
+buy_sizing_mode: "fixed"         # "fixed", "dynamic", or "hybrid"
+sell_sizing_mode: "dynamic"      # Default: dynamic sells for unlimited upside
+
+# Sizing parameters
+fixed_base_order_qty: "0.0001"   # Optional override for fixed sizing
+target_quote_per_order: "9.0"    # Quote value per order (dynamic/hybrid)
+min_base_order_qty: "0.00005"    # Hybrid floor (dynamic qty won't go below this)
+min_order_qty: "0.00001"         # Exchange min base quantity (optional)
+
 # Exchange requirements
 min_notional_quote: "1.0"        # $1 minimum order
 total_fee_rate: "0.002"          # 0.2% fees
 fee_buffer_pct: "0.0001"         # 0.01% safety buffer
+
+# Safety policy
+# Orders that round below min_order_qty or min_notional_quote are skipped (not placed).
 
 # Market precision
 tick_size: "0.01"                # Price precision
