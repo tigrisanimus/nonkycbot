@@ -536,7 +536,7 @@ def _save_state(state_path: Path, payload: dict[str, Any]) -> None:
 def run_arbitrage_bot(config: dict[str, Any]) -> None:
     """Main bot loop."""
     from engine.rest_client_factory import build_exchange_client, build_rest_client
-    from utils.profit_store import build_profit_store
+    from utils.profit_store import build_profit_store, execute_exit_liquidation
 
     mode = config.get("mode", "monitor")
 
@@ -639,6 +639,15 @@ def run_arbitrage_bot(config: dict[str, Any]) -> None:
                         profit_store.record_profit(profit, config["asset_a"])
             if profit_store is not None:
                 profit_store.process()
+                if profit_store.should_trigger_exit():
+                    handled = execute_exit_liquidation(
+                        exchange_client,
+                        profit_store,
+                        config["pair_ac"],
+                        mode,
+                    )
+                    if handled:
+                        profit_store.mark_exit_handled()
 
             _save_state(
                 state_path,
