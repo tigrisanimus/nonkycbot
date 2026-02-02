@@ -19,6 +19,9 @@ class ProfitStoreConfig:
     quote_asset: str = "USDT"
     min_profit_quote: Decimal = Decimal("1")
     aggressive_limit_pct: Decimal = Decimal("0.003")
+    principal_investment_quote: Decimal | None = None
+    exit_dump_pct: Decimal = Decimal("0.75")
+    exit_convert_pct: Decimal = Decimal("0.5")
 
 
 class ProfitStore:
@@ -36,6 +39,8 @@ class ProfitStore:
         self.pending_profit = Decimal("0")
         self.reserved_profit = Decimal("0")
         self.open_order_id: str | None = None
+        self.total_converted_quote = Decimal("0")
+        self._exit_triggered = False
 
     def record_profit(self, amount: Decimal, asset: str) -> None:
         if not self.config.enabled:
@@ -127,8 +132,10 @@ class ProfitStore:
                 "Profit store conversion filled (order_id=%s).",
                 self.open_order_id,
             )
+            self.total_converted_quote += self.reserved_profit
             self.open_order_id = None
             self.reserved_profit = Decimal("0")
+            self._check_exit_trigger()
             return True
         if normalized in cancelled_statuses:
             LOGGER.info(
@@ -140,6 +147,20 @@ class ProfitStore:
             self.open_order_id = None
             return True
         return False
+
+    def should_trigger_exit(self) -> bool:
+        return self._exit_triggered
+
+    def mark_exit_handled(self) -> None:
+        if self._exit_triggered:
+            self._exit_triggered = False
+
+    def _check_exit_trigger(self) -> None:
+        target = self.config.principal_investment_quote
+        if target is None or target <= 0:
+            return
+        if self.total_converted_quote >= target:
+            self._exit_triggered = True
 
 
 def build_profit_store(
@@ -156,6 +177,13 @@ def build_profit_store(
         quote_asset=str(raw.get("quote_asset", "USDT")),
         min_profit_quote=Decimal(str(raw.get("min_profit_quote", "1"))),
         aggressive_limit_pct=Decimal(str(raw.get("aggressive_limit_pct", "0.003"))),
+        principal_investment_quote=(
+            Decimal(str(raw["principal_investment_quote"]))
+            if "principal_investment_quote" in raw
+            else None
+        ),
+        exit_dump_pct=Decimal(str(raw.get("exit_dump_pct", "0.75"))),
+        exit_convert_pct=Decimal(str(raw.get("exit_convert_pct", "0.5"))),
     )
     return ProfitStore(client=client, config=profit_config, mode=mode)
 

@@ -88,3 +88,20 @@ def test_profit_store_ignores_wrong_asset() -> None:
 
     assert store.pending_profit == Decimal("0")
     assert not exchange.orders
+
+
+def test_profit_store_exit_trigger_on_principal() -> None:
+    exchange = FakeExchange()
+    config = ProfitStoreConfig(
+        enabled=True,
+        min_profit_quote=Decimal("1"),
+        principal_investment_quote=Decimal("2"),
+    )
+    store = ProfitStore(exchange, config, mode="live")
+    store.open_order_id = "order-1"
+    store.reserved_profit = Decimal("2")
+    exchange.status = "filled"
+
+    store.process()
+
+    assert store.should_trigger_exit() is True

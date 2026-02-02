@@ -96,6 +96,7 @@
 - [x] Add buy/sell-specific sizing modes with dynamic sell sizing defaults for infinity grid.
 - [x] Add optional profit store hooks with net profit tracking for grid/arb bots.
 - [x] Document full config reference and per-bot state paths.
+- [x] Add profit-store exit trigger for partial liquidation to target asset.
 
 ## Next
 - [ ] Define API client interfaces and error handling.
