@@ -19,6 +19,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import sys
 import time
@@ -51,8 +52,12 @@ class HybridArbBot:
 
     def __init__(self, config: dict[str, Any]) -> None:
         """Initialize bot with configuration."""
+        from engine.rest_client_factory import build_exchange_client
+        from utils.profit_store import build_profit_store
+
         self.config = config
         self.rest_client = self._build_rest_client()
+        self.exchange_client = build_exchange_client(config)
         self.mode = config.get("mode", "monitor")  # monitor, dry-run, or live
         self.min_profit_pct = Decimal(str(config.get("min_profit_pct", "0.5")))
         self.trade_amount = Decimal(str(config.get("trade_amount", "100")))
@@ -75,6 +80,9 @@ class HybridArbBot:
         self.opportunities_found = 0
         self.trades_executed = 0
         self.total_profit = Decimal("0")
+        self.profit_store = build_profit_store(config, self.exchange_client, self.mode)
+        self.state_path = Path(config.get("state_path", "state/hybrid_arb_state.json"))
+        self.state_path.parent.mkdir(parents=True, exist_ok=True)
 
         logger.info(f"Initialized HybridArbBot in {self.mode.upper()} mode")
         logger.info(f"Monitoring {len(self.orderbook_pairs)} order book pairs + 1 pool")
@@ -403,6 +411,8 @@ class HybridArbBot:
             logger.info(f"Cycle executed successfully! Profit: {cycle.net_profit:.4f}")
             self.trades_executed += 1
             self.total_profit += cycle.net_profit
+            if self.profit_store is not None:
+                self.profit_store.record_profit(cycle.net_profit, self.base_currency)
             return True
 
         except Exception as e:
@@ -545,6 +555,9 @@ class HybridArbBot:
             while True:
                 start_time = time.time()
                 self.run_cycle()
+                if self.profit_store is not None:
+                    self.profit_store.process()
+                self._save_state()
                 elapsed = time.time() - start_time
 
                 # Log statistics periodically
@@ -569,6 +582,20 @@ class HybridArbBot:
                 f"{self.trades_executed} trades executed, "
                 f"total profit: {self.total_profit:.4f}"
             )
+            self._save_state()
+
+    def _save_state(self) -> None:
+        payload = {
+            "mode": self.mode,
+            "cycles_evaluated": self.cycles_evaluated,
+            "opportunities_found": self.opportunities_found,
+            "trades_executed": self.trades_executed,
+            "total_profit": str(self.total_profit),
+            "updated_at": time.time(),
+        }
+        self.state_path.write_text(
+            json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
+        )
 
 
 def load_config(config_path: str) -> dict[str, Any]:

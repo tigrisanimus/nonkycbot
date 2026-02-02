@@ -9,14 +9,18 @@ import uuid
 from dataclasses import dataclass, field
 from decimal import ROUND_DOWN, Decimal
 from pathlib import Path
-from typing import Iterable
+from typing import TYPE_CHECKING, Iterable
 
 from engine.exchange_client import ExchangeClient, OrderStatusView
 from nonkyc_client.rest import RestError, TransientApiError
 from utils.profit_calculator import (
+    calculate_grid_profit,
     calculate_min_profitable_step_pct,
     validate_order_profitability,
 )
+
+if TYPE_CHECKING:
+    from utils.profit_store import ProfitStore
 
 LOGGER = logging.getLogger("nonkyc_bot.strategy.ladder_grid")
 
@@ -54,6 +58,7 @@ class LiveOrder:
     quantity: Decimal
     client_id: str
     created_at: float
+    cost_basis: Decimal | None = None
 
 
 @dataclass
@@ -61,6 +66,7 @@ class LadderGridState:
     open_orders: dict[str, LiveOrder] = field(default_factory=dict)
     last_mid: Decimal | None = None
     needs_rebalance: bool = False
+    total_profit_quote: Decimal = Decimal("0")
 
 
 class LadderGridStrategy:
@@ -70,10 +76,12 @@ class LadderGridStrategy:
         config: LadderGridConfig,
         *,
         state_path: Path | None = None,
+        profit_store: ProfitStore | None = None,
     ) -> None:
         self.client = client
         self.config = config
         self.state_path = state_path
+        self.profit_store = profit_store
         self.state = LadderGridState()
         self._last_reconcile = 0.0
         self._last_balance_refresh = 0.0
@@ -93,12 +101,18 @@ class LadderGridStrategy:
                 quantity=Decimal(payload["quantity"]),
                 client_id=payload["client_id"],
                 created_at=payload["created_at"],
+                cost_basis=(
+                    Decimal(payload["cost_basis"])
+                    if payload.get("cost_basis") is not None
+                    else None
+                ),
             )
         last_mid = data.get("last_mid")
         self.state = LadderGridState(
             open_orders=open_orders,
             last_mid=Decimal(last_mid) if last_mid is not None else None,
             needs_rebalance=bool(data.get("needs_rebalance", False)),
+            total_profit_quote=Decimal(data.get("total_profit_quote", "0")),
         )
 
     def save_state(self) -> None:
@@ -112,6 +126,9 @@ class LadderGridStrategy:
                     "quantity": str(order.quantity),
                     "client_id": order.client_id,
                     "created_at": order.created_at,
+                    "cost_basis": (
+                        str(order.cost_basis) if order.cost_basis is not None else None
+                    ),
                 }
                 for order_id, order in self.state.open_orders.items()
             },
@@ -119,6 +136,7 @@ class LadderGridStrategy:
                 str(self.state.last_mid) if self.state.last_mid is not None else None
             ),
             "needs_rebalance": self.state.needs_rebalance,
+            "total_profit_quote": str(self.state.total_profit_quote),
         }
         self.state_path.write_text(
             json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
@@ -267,6 +285,8 @@ class LadderGridStrategy:
             self._reconcile_missing_levels()
             self._last_reconcile = now
         self.save_state()
+        if self.profit_store is not None:
+            self.profit_store.process()
 
     def _is_fetch_backoff_active(self, order_id: str, now: float) -> bool:
         backoff = self.config.fetch_backoff_sec
@@ -289,10 +309,32 @@ class LadderGridStrategy:
         if order.side.lower() == "buy":
             new_side = "sell"
             new_price = self._apply_step(filled_price, 1, upward=True)
+            cost_basis = filled_price
         else:
             new_side = "buy"
             new_price = self._apply_step(filled_price, 1, upward=False)
-        self._place_order(new_side, new_price, filled_qty)
+            cost_basis = None
+            if order.cost_basis is not None:
+                net_profit = calculate_grid_profit(
+                    order.cost_basis,
+                    filled_price,
+                    filled_qty,
+                    self.config.total_fee_rate,
+                )
+                self.state.total_profit_quote += net_profit
+                if self.profit_store is not None:
+                    _, quote = self._split_symbol(self.config.symbol)
+                    self.profit_store.record_profit(net_profit, quote)
+                LOGGER.info(
+                    "Sell net profit: %s (cumulative: %s)",
+                    net_profit,
+                    self.state.total_profit_quote,
+                )
+            else:
+                LOGGER.info(
+                    "Sell filled with unknown cost basis; net profit not tracked."
+                )
+        self._place_order(new_side, new_price, filled_qty, cost_basis=cost_basis)
 
     def _reconcile_missing_levels(self) -> None:
         mid_price = self.client.get_mid_price(self.config.symbol)
@@ -433,7 +475,14 @@ class LadderGridStrategy:
         if normalized != "filled":
             self.client.cancel_order(order_id)
 
-    def _place_order(self, side: str, price: Decimal, base_quantity: Decimal) -> None:
+    def _place_order(
+        self,
+        side: str,
+        price: Decimal,
+        base_quantity: Decimal,
+        *,
+        cost_basis: Decimal | None = None,
+    ) -> None:
         if self._halt_placements:
             return
         price = self._quantize_price(price)
@@ -464,6 +513,7 @@ class LadderGridStrategy:
                 quantity=quantity,
                 client_id=client_id,
                 created_at=time.time(),
+                cost_basis=cost_basis,
             )
             return
 
@@ -534,6 +584,7 @@ class LadderGridStrategy:
             quantity=quantity,
             client_id=client_id,
             created_at=time.time(),
+            cost_basis=cost_basis,
         )
 
     def _resolve_order_quantity(

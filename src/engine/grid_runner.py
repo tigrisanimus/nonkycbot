@@ -13,6 +13,7 @@ from strategies.grid import (
     LadderGridStrategy,
     derive_market_id,
 )
+from utils.profit_store import build_profit_store
 
 
 def normalize_ladder_config(config: dict) -> dict:
@@ -82,7 +83,10 @@ def build_strategy(config: dict, state_path: Path) -> LadderGridStrategy:
         mode=normalized.get("mode", "live"),
     )
     exchange = build_exchange_client(normalized)
-    return LadderGridStrategy(exchange, ladder_config, state_path=state_path)
+    profit_store = build_profit_store(normalized, exchange, ladder_config.mode)
+    return LadderGridStrategy(
+        exchange, ladder_config, state_path=state_path, profit_store=profit_store
+    )
 
 
 def run_grid(config: dict, state_path: Path) -> None:

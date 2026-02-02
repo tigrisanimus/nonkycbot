@@ -19,6 +19,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import sys
 import time
@@ -79,6 +80,8 @@ class RebalanceBot:
         # Statistics
         self.checks_performed = 0
         self.rebalances_executed = 0
+        self.state_path = Path(config.get("state_path", "state/rebalance_state.json"))
+        self.state_path.parent.mkdir(parents=True, exist_ok=True)
 
         logger.info(f"Initialized RebalanceBot in {self.mode.upper()} mode")
         logger.info(f"Trading pair: {self.trading_pair}")
@@ -307,6 +310,7 @@ class RebalanceBot:
             while True:
                 start_time = time.time()
                 self.run_cycle()
+                self._save_state()
                 elapsed = time.time() - start_time
 
                 # Log statistics periodically
@@ -328,6 +332,18 @@ class RebalanceBot:
                 f"Final stats: {self.checks_performed} checks performed, "
                 f"{self.rebalances_executed} rebalances executed"
             )
+            self._save_state()
+
+    def _save_state(self) -> None:
+        payload = {
+            "mode": self.mode,
+            "checks_performed": self.checks_performed,
+            "rebalances_executed": self.rebalances_executed,
+            "updated_at": time.time(),
+        }
+        self.state_path.write_text(
+            json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
+        )
 
 
 def load_config(config_path: str) -> dict[str, Any]:

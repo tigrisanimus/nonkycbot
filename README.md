@@ -135,6 +135,8 @@ The standalone scripts (`bots/run_*.py`) are simpler and include strategy-specif
 
 The bot supports **JSON**, **TOML**, and **YAML** configuration files:
 
+See [docs/CONFIG_REFERENCE.md](docs/CONFIG_REFERENCE.md) for a full list of all supported config keys, defaults, and aliases.
+
 **YAML Example** (`config.yml`):
 ```yaml
 exchange: "nonkyc"

@@ -351,6 +351,34 @@ def test_hybrid_mode_clamps_to_min_base_qty(tmp_path) -> None:
     assert placed_order.quantity == Decimal("0.5")
 
 
+def test_hybrid_mode_preserves_min_base_after_quantize(tmp_path) -> None:
+    config = InfinityLadderGridConfig(
+        symbol="BTC/USDT",
+        step_mode="pct",
+        step_pct=Decimal("0.01"),
+        step_abs=None,
+        n_buy_levels=1,
+        initial_sell_levels=1,
+        base_order_size=Decimal("1"),
+        sell_sizing_mode="hybrid",
+        target_quote_per_order=Decimal("0.002"),
+        min_base_order_qty=Decimal("0.000053"),
+        min_notional_quote=Decimal("0.001"),
+        fee_buffer_pct=Decimal("0"),
+        total_fee_rate=Decimal("0"),
+        tick_size=Decimal("0.01"),
+        step_size=Decimal("0.00001"),
+        poll_interval_sec=1.0,
+    )
+    strategy = InfinityLadderGridStrategy(
+        config, FakeExchange(), tmp_path / "state.json"
+    )
+
+    quantity = strategy._resolve_order_quantity("sell", Decimal("100"))
+
+    assert quantity == Decimal("0.00006")
+
+
 def test_min_constraints_skip_orders(tmp_path) -> None:
     config = InfinityLadderGridConfig(
         symbol="BTC/USDT",
@@ -453,6 +481,7 @@ def test_profit_accounting_uses_variable_sell_sizes(tmp_path) -> None:
             quantity=Decimal("0.5"),
             client_id="client-1",
             created_at=0.0,
+            cost_basis=Decimal("90"),
         ),
         "order-2": LiveOrder(
             side="sell",
@@ -460,12 +489,13 @@ def test_profit_accounting_uses_variable_sell_sizes(tmp_path) -> None:
             quantity=Decimal("0.25"),
             client_id="client-2",
             created_at=0.0,
+            cost_basis=Decimal("100"),
         ),
     }
 
     strategy.reconcile(now=0.0)
 
-    assert strategy.state.total_profit_quote == Decimal("76.25")
+    assert strategy.state.total_profit_quote == Decimal("6.25")
 
 
 def test_dynamic_sell_reduces_inventory_depletion(tmp_path) -> None:

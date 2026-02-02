@@ -18,6 +18,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import re
 import sys
@@ -526,9 +527,16 @@ def evaluate_profitability_and_execute(
     return None
 
 
+def _save_state(state_path: Path, payload: dict[str, Any]) -> None:
+    state_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
+    )
+
+
 def run_arbitrage_bot(config: dict[str, Any]) -> None:
     """Main bot loop."""
-    from engine.rest_client_factory import build_rest_client
+    from engine.rest_client_factory import build_exchange_client, build_rest_client
+    from utils.profit_store import build_profit_store
 
     mode = config.get("mode", "monitor")
 
@@ -550,8 +558,13 @@ def run_arbitrage_bot(config: dict[str, Any]) -> None:
 
     # Setup client
     client = build_rest_client(config)
+    exchange_client = build_exchange_client(config)
+    profit_store = build_profit_store(config, exchange_client, mode)
 
     logger.info("\n✅ Connected to NonKYC API")
+
+    state_path = Path(config.get("state_path", "state/arb_state.json"))
+    state_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Initialize current balance (will be updated after successful profitable trades)
     current_balance = Decimal(str(config["trade_amount_a"]))
@@ -622,6 +635,23 @@ def run_arbitrage_bot(config: dict[str, Any]) -> None:
                     logger.info(
                         f"  Successful profit cycles: {successful_profit_cycles}"
                     )
+                    if profit_store is not None:
+                        profit_store.record_profit(profit, config["asset_a"])
+            if profit_store is not None:
+                profit_store.process()
+
+            _save_state(
+                state_path,
+                {
+                    "mode": mode,
+                    "cycle_count": cycle_count,
+                    "successful_profit_cycles": successful_profit_cycles,
+                    "opportunities_found": opportunities_found,
+                    "current_balance": str(current_balance),
+                    "initial_balance": str(initial_balance),
+                    "updated_at": datetime.now().isoformat(),
+                },
+            )
 
             # Log statistics periodically
             if cycle_count % 100 == 0:
@@ -648,6 +678,18 @@ def run_arbitrage_bot(config: dict[str, Any]) -> None:
             logger.info(
                 f"  Total profit: {total_profit} {config['asset_a']} ({total_profit_pct:.2f}%)"
             )
+        _save_state(
+            state_path,
+            {
+                "mode": mode,
+                "cycle_count": cycle_count,
+                "successful_profit_cycles": successful_profit_cycles,
+                "opportunities_found": opportunities_found,
+                "current_balance": str(current_balance),
+                "initial_balance": str(initial_balance),
+                "updated_at": datetime.now().isoformat(),
+            },
+        )
     except Exception as e:
         logger.error(f"\n❌ Fatal error: {e}", exc_info=True)
 

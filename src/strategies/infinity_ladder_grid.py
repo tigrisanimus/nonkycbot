@@ -19,15 +19,20 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass, field
-from decimal import ROUND_DOWN, Decimal
+from decimal import ROUND_DOWN, ROUND_UP, Decimal
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from engine.exchange_client import ExchangeClient
 from nonkyc_client.rest import RestError, TransientApiError
 from utils.profit_calculator import (
+    calculate_grid_profit,
     calculate_min_profitable_step_pct,
     validate_order_profitability,
 )
+
+if TYPE_CHECKING:
+    from utils.profit_store import ProfitStore
 
 LOGGER = logging.getLogger("nonkyc_bot.strategy.infinity_ladder_grid")
 
@@ -78,6 +83,7 @@ class LiveOrder:
     quantity: Decimal
     client_id: str
     created_at: float
+    cost_basis: Decimal | None = None
 
 
 @dataclass
@@ -90,7 +96,7 @@ class InfinityLadderGridState:
     open_orders: dict[str, LiveOrder] = field(default_factory=dict)
     needs_rebalance: bool = False
     last_mid: Decimal | None = None
-    total_profit_quote: Decimal = Decimal("0")  # Accumulated profit from sells
+    total_profit_quote: Decimal = Decimal("0")  # Net profit in quote currency
 
 
 class InfinityLadderGridStrategy:
@@ -101,10 +107,12 @@ class InfinityLadderGridStrategy:
         config: InfinityLadderGridConfig,
         client: ExchangeClient,
         state_path: Path,
+        profit_store: ProfitStore | None = None,
     ):
         self.config = config
         self.client = client
         self.state_path = state_path
+        self.profit_store = profit_store
         self.state = self._load_or_create_state()
         self._balances: dict[str, tuple[Decimal, Decimal]] = {}
         self._halt_placements = False
@@ -124,6 +132,11 @@ class InfinityLadderGridStrategy:
                         quantity=Decimal(o["quantity"]),
                         client_id=o["client_id"],
                         created_at=o["created_at"],
+                        cost_basis=(
+                            Decimal(o["cost_basis"])
+                            if o.get("cost_basis") is not None
+                            else None
+                        ),
                     )
                     for oid, o in data.get("open_orders", {}).items()
                 }
@@ -209,6 +222,9 @@ class InfinityLadderGridStrategy:
                     "quantity": str(o.quantity),
                     "client_id": o.client_id,
                     "created_at": o.created_at,
+                    "cost_basis": (
+                        str(o.cost_basis) if o.cost_basis is not None else None
+                    ),
                 }
                 for oid, o in self.state.open_orders.items()
             },
@@ -270,6 +286,7 @@ class InfinityLadderGridStrategy:
         """Resolve order quantity using side-specific sizing and exchange guards."""
         sizing_mode = self._resolve_sizing_mode(side).lower()
         fixed_base_qty = self._resolve_fixed_base_order_qty()
+        min_base_quantized: Decimal | None = None
 
         if sizing_mode == "fixed":
             quantity = fixed_base_qty
@@ -284,9 +301,17 @@ class InfinityLadderGridStrategy:
                     raise ValueError(
                         "min_base_order_qty is required for hybrid sizing mode."
                     )
-                quantity = max(min_base, quantity)
+                if self.config.step_size > 0:
+                    min_base_quantized = (min_base / self.config.step_size).quantize(
+                        Decimal("1"), rounding=ROUND_UP
+                    ) * self.config.step_size
+                else:
+                    min_base_quantized = min_base
+                quantity = max(min_base_quantized, quantity)
 
         quantity = self._quantize_quantity(quantity)
+        if min_base_quantized is not None:
+            quantity = max(min_base_quantized, quantity)
         if quantity <= 0:
             return None
         if (
@@ -350,7 +375,9 @@ class InfinityLadderGridStrategy:
         available = self._balances.get(base, (Decimal("0"), Decimal("0")))[0]
         return available >= quantity
 
-    def _place_order(self, side: str, price: Decimal) -> bool:
+    def _place_order(
+        self, side: str, price: Decimal, *, cost_basis: Decimal | None = None
+    ) -> bool:
         """Place a single order."""
         if self._halt_placements:
             return False
@@ -385,6 +412,7 @@ class InfinityLadderGridStrategy:
                 quantity=quantity,
                 client_id=client_id,
                 created_at=time.time(),
+                cost_basis=cost_basis,
             )
             return True
 
@@ -465,6 +493,7 @@ class InfinityLadderGridStrategy:
             quantity=quantity,
             client_id=client_id,
             created_at=time.time(),
+            cost_basis=cost_basis,
         )
         LOGGER.info(
             f"Placed {side.upper()} order: {quantity} @ {price} (order_id={order_id})"
@@ -727,15 +756,27 @@ class InfinityLadderGridStrategy:
                 )
                 filled.append((order_id, order))
 
-                # Track gross revenue from sells (buy cost not tracked here)
                 if order.side == "sell":
-                    revenue = order.quantity * order.price
-                    self.state.total_profit_quote += revenue
-                    LOGGER.info(
-                        "Sell revenue: %s (cumulative: %s)",
-                        revenue,
-                        self.state.total_profit_quote,
-                    )
+                    if order.cost_basis is not None:
+                        net_profit = calculate_grid_profit(
+                            order.cost_basis,
+                            order.price,
+                            order.quantity,
+                            self.config.total_fee_rate,
+                        )
+                        self.state.total_profit_quote += net_profit
+                        if self.profit_store is not None:
+                            _, quote = self._split_symbol(self.config.symbol)
+                            self.profit_store.record_profit(net_profit, quote)
+                        LOGGER.info(
+                            "Sell net profit: %s (cumulative: %s)",
+                            net_profit,
+                            self.state.total_profit_quote,
+                        )
+                    else:
+                        LOGGER.info(
+                            "Sell filled with unknown cost basis; net profit not tracked."
+                        )
             elif normalized_status in cancelled_statuses or status.status in {
                 "Cancelled",
                 "Canceled",
@@ -767,7 +808,7 @@ class InfinityLadderGridStrategy:
             if order.side == "buy":
                 # Buy filled - place SELL order one step above to take profit
                 new_sell_price = order.price * (Decimal("1") + step)
-                if self._place_order("sell", new_sell_price):
+                if self._place_order("sell", new_sell_price, cost_basis=order.price):
                     LOGGER.info(
                         "Buy filled at %s, placed sell at %s",
                         order.price,
@@ -805,6 +846,8 @@ class InfinityLadderGridStrategy:
                     )
 
         self.save_state()
+        if self.profit_store is not None:
+            self.profit_store.process()
 
     @staticmethod
     def _split_symbol(symbol: str) -> tuple[str, str]:

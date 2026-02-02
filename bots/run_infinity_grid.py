@@ -105,18 +105,21 @@ def run_infinity_grid(config: dict, state_path: str) -> None:
     """Run infinity grid bot."""
     from engine.rest_client_factory import build_exchange_client
     from strategies.infinity_ladder_grid import InfinityLadderGridStrategy
+    from utils.profit_store import build_profit_store
 
     # Build exchange client using centralized factory
     client = build_exchange_client(config)
 
     # Build grid config
     grid_config = build_config(config)
+    profit_store = build_profit_store(config, client, grid_config.mode)
 
     # Create strategy
     strategy = InfinityLadderGridStrategy(
         config=grid_config,
         client=client,
         state_path=Path(state_path),
+        profit_store=profit_store,
     )
 
     # Cancel existing orders if requested
