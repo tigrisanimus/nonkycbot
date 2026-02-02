@@ -148,3 +148,36 @@ def test_hybrid_arb_bot_live_mode_configuration(mock_config):
         bot = run_hybrid_arb_bot.HybridArbBot(mock_config)
 
         assert bot.mode == "live"
+
+
+def test_execute_leg_buy_uses_inverted_price_and_output_qty(mock_config):
+    """Ensure buy legs place base-quantity orders at quote price."""
+    from strategies.hybrid_triangular_arb import LegType, TradeLeg, TradeSide
+
+    mock_rest_client = Mock()
+    mock_rest_client.place_order.return_value = Mock(order_id="order-123")
+
+    with (
+        patch(
+            "bots.run_hybrid_arb_bot.build_rest_client", return_value=mock_rest_client
+        ),
+        patch("engine.rest_client_factory.build_exchange_client", return_value=Mock()),
+    ):
+        bot = run_hybrid_arb_bot.HybridArbBot(mock_config)
+        leg = TradeLeg(
+            leg_type=LegType.ORDERBOOK,
+            symbol="PIRATE_USDT",
+            side=TradeSide.BUY,
+            input_currency="USDT",
+            output_currency="PIRATE",
+            input_amount=Decimal("100"),
+            output_amount=Decimal("5000"),
+            price=Decimal("50"),
+            fee_rate=Decimal("0.002"),
+        )
+
+        assert bot._execute_leg(leg) is True
+
+        order_request = mock_rest_client.place_order.call_args[0][0]
+        assert order_request.quantity == "5000"
+        assert order_request.price == "0.02"

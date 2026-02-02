@@ -111,6 +111,8 @@ def calculate_leg_output(leg: TradeLeg, input_amount: Decimal) -> Decimal:
     Calculate output amount for a single leg given input amount.
 
     For orderbook legs: output = input * price * (1 - fee_rate)
+        - BUY legs use price as base-per-quote (token per base).
+        - SELL legs use price as quote-per-base (base per token).
     For pool legs: output = input * effective_price * (1 - fee_rate) * (1 - slippage)
 
     Args:
@@ -129,8 +131,7 @@ def calculate_leg_output(leg: TradeLeg, input_amount: Decimal) -> Decimal:
     # Apply price conversion
     if leg.side == TradeSide.BUY:
         # Buying: spend input to get output
-        # Example: Buy COSA with USDT at price 0.5 USDT/COSA
-        # If price is in quote terms: output = input / price
+        # Example: Buy COSA with USDT at price 2 COSA/USDT (token per base)
         output = input_amount * leg.price
     else:
         # Selling: sell input to get output

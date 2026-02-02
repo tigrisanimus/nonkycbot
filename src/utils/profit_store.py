@@ -163,6 +163,120 @@ class ProfitStore:
             self._exit_triggered = True
 
 
+def execute_exit_liquidation(
+    client: ExchangeClient,
+    profit_store: ProfitStore,
+    symbol: str,
+    mode: str,
+) -> bool:
+    if not profit_store.config.enabled:
+        return False
+    if not symbol:
+        LOGGER.warning("Exit liquidation skipped: missing liquidation symbol.")
+        return False
+    if mode == "monitor":
+        LOGGER.info("MONITOR MODE: Profit-store exit triggered; no orders placed.")
+        return True
+    if mode == "dry-run":
+        LOGGER.info("DRY RUN: Profit-store exit triggered; no orders placed.")
+        return True
+
+    profit_config = profit_store.config
+    symbols_to_cancel = {symbol, profit_config.target_symbol}
+    if profit_store.open_order_id is not None:
+        try:
+            client.cancel_order(profit_store.open_order_id)
+        except Exception as exc:
+            LOGGER.warning(
+                "Exit cancel failed for %s: %s", profit_store.open_order_id, exc
+            )
+        profit_store.open_order_id = None
+
+    for cancel_symbol in symbols_to_cancel:
+        try:
+            open_orders = client.list_open_orders(cancel_symbol)
+        except Exception as exc:
+            LOGGER.warning(
+                "Exit failed to list open orders for %s: %s", cancel_symbol, exc
+            )
+            try:
+                client.cancel_all(cancel_symbol)
+            except Exception as cancel_exc:
+                LOGGER.warning(
+                    "Exit cancel-all failed for %s: %s",
+                    cancel_symbol,
+                    cancel_exc,
+                )
+            continue
+        for order in open_orders:
+            try:
+                client.cancel_order(order.order_id)
+            except Exception as exc:
+                LOGGER.warning("Exit cancel failed for %s: %s", order.order_id, exc)
+
+    balances = client.get_balances()
+    base_asset, _ = _split_symbol(symbol)
+    base_available = balances.get(base_asset, (Decimal("0"), Decimal("0")))[0]
+    if base_available <= 0:
+        LOGGER.info("Exit triggered but no %s balance to sell.", base_asset)
+        return True
+
+    dump_qty = base_available * profit_config.exit_dump_pct
+    if dump_qty <= 0:
+        return True
+    try:
+        best_bid, _ = client.get_orderbook_top(symbol)
+    except Exception as exc:
+        LOGGER.warning("Exit failed to read %s orderbook: %s", symbol, exc)
+        return False
+    limit_price = best_bid * (Decimal("1") - profit_config.aggressive_limit_pct)
+    if limit_price <= 0:
+        return False
+    try:
+        client.place_limit(symbol, "sell", limit_price, dump_qty)
+        LOGGER.info(
+            "Exit placed SELL %s %s @ %s",
+            dump_qty,
+            base_asset,
+            limit_price,
+        )
+    except Exception as exc:
+        LOGGER.warning("Exit SELL placement failed: %s", exc)
+        return False
+
+    quote_estimate = dump_qty * limit_price
+    convert_quote = quote_estimate * profit_config.exit_convert_pct
+    if convert_quote <= 0:
+        return True
+    try:
+        _, ask = client.get_orderbook_top(profit_config.target_symbol)
+    except Exception as exc:
+        LOGGER.warning(
+            "Exit failed to read %s orderbook: %s",
+            profit_config.target_symbol,
+            exc,
+        )
+        return False
+    buy_price = ask * (Decimal("1") + profit_config.aggressive_limit_pct)
+    if buy_price <= 0:
+        return False
+    buy_qty = convert_quote / buy_price
+    if buy_qty <= 0:
+        return True
+    try:
+        client.place_limit(profit_config.target_symbol, "buy", buy_price, buy_qty)
+        LOGGER.info(
+            "Exit placed %s BUY %s @ %s",
+            profit_config.target_symbol,
+            buy_qty,
+            buy_price,
+        )
+    except Exception as exc:
+        LOGGER.warning("Exit profit-store BUY failed: %s", exc)
+        return False
+    return True
+
+
 def build_profit_store(
     config: dict[str, Any],
     client: ExchangeClient,

@@ -70,6 +70,9 @@ class HybridArbBot:
         self.orderbook_pairs = config.get("orderbook_pairs", [])
         self.pool_pair = config.get("pool_pair", "")
         self.base_currency = config.get("base_currency", "USDT")
+        self.exit_symbol = config.get("exit_symbol")
+        if not self.exit_symbol and self.orderbook_pairs:
+            self.exit_symbol = self.orderbook_pairs[0]
 
         # Fee configuration
         self.orderbook_fee = Decimal(str(config.get("orderbook_fee", "0.002")))
@@ -87,6 +90,8 @@ class HybridArbBot:
         logger.info(f"Initialized HybridArbBot in {self.mode.upper()} mode")
         logger.info(f"Monitoring {len(self.orderbook_pairs)} order book pairs + 1 pool")
         logger.info(f"Min profit threshold: {self.min_profit_pct}%")
+        if self.exit_symbol:
+            logger.info(f"Exit liquidation symbol: {self.exit_symbol}")
 
     def _build_rest_client(self):
         """Build REST client from config using centralized factory."""
@@ -430,9 +435,13 @@ class HybridArbBot:
 
         # Check minimum notional for orderbook trades
         if leg.leg_type == LegType.ORDERBOOK:
-            notional_value = (
-                leg.input_amount * leg.price if leg.price else leg.input_amount
-            )
+            if leg.price is None or leg.price <= 0:
+                logger.error(f"Leg {leg.symbol} missing price data")
+                return False
+            if leg.side == TradeSide.BUY:
+                notional_value = leg.input_amount
+            else:
+                notional_value = leg.input_amount * leg.price
             if notional_value < self.min_notional_quote:
                 logger.warning(
                     f"Leg {leg.symbol} below minimum notional: ${notional_value:.2f} < ${self.min_notional_quote:.2f}. Skipping."
@@ -441,13 +450,27 @@ class HybridArbBot:
 
         try:
             if leg.leg_type == LegType.ORDERBOOK:
+                if leg.price is None or leg.price <= 0:
+                    logger.error(f"Leg {leg.symbol} missing price data")
+                    return False
+                if leg.side == TradeSide.BUY:
+                    order_price = Decimal("1") / leg.price
+                    quantity = leg.input_amount * leg.price
+                else:
+                    order_price = leg.price
+                    quantity = leg.input_amount
+
+                if order_price <= 0 or quantity <= 0:
+                    logger.error(f"Leg {leg.symbol} has invalid order values")
+                    return False
+
                 # Place limit order
                 order = OrderRequest(
                     symbol=leg.symbol,
                     side="buy" if leg.side == TradeSide.BUY else "sell",
                     order_type="limit",
-                    quantity=str(leg.input_amount),
-                    price=str(leg.price),
+                    quantity=str(quantity),
+                    price=str(order_price),
                 )
                 response = self.rest_client.place_order(order)
                 logger.info(f"Order placed: {response.order_id}")
@@ -548,6 +571,8 @@ class HybridArbBot:
 
     def run(self) -> None:
         """Run the bot continuously."""
+        from utils.profit_store import execute_exit_liquidation
+
         logger.info("Starting HybridArbBot...")
         logger.info("Press Ctrl+C to stop")
 
@@ -557,6 +582,20 @@ class HybridArbBot:
                 self.run_cycle()
                 if self.profit_store is not None:
                     self.profit_store.process()
+                    if self.profit_store.should_trigger_exit():
+                        if not self.exit_symbol:
+                            logger.warning(
+                                "Profit-store exit triggered but no exit symbol configured."
+                            )
+                        else:
+                            handled = execute_exit_liquidation(
+                                self.exchange_client,
+                                self.profit_store,
+                                self.exit_symbol,
+                                self.mode,
+                            )
+                            if handled:
+                                self.profit_store.mark_exit_handled()
                 self._save_state()
                 elapsed = time.time() - start_time
 
