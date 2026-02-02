@@ -35,6 +35,7 @@ These keys enable the opt-in profit store. If omitted, the feature is disabled.
 | `profit_store.min_profit_quote` | number | `1` | Minimum net profit before conversion. |
 | `profit_store.aggressive_limit_pct` | number | `0.003` | Extra premium for pseudo-market limits. |
 | `profit_store.principal_investment_quote` | number | unset | Net-profit target to trigger exit dump logic. |
+| `profit_store.exit_profit_pct` | number | `1` | Multiplier against `principal_investment_quote` for exit trigger threshold. |
 | `profit_store.exit_dump_pct` | number | `0.75` | Portion of base balance to sell on exit trigger. |
 | `profit_store.exit_convert_pct` | number | `0.5` | Portion of exit proceeds to convert to target asset. |
 
@@ -177,5 +178,6 @@ These keys enable the opt-in profit store. If omitted, the feature is disabled.
 | `pool_pair` | string | required | Pool pair symbol. |
 | `base_currency` | string | `USDT` | Base currency for profit tracking. |
 | `orderbook_fee` | number | `0.002` | Fee for orderbook trades. |
+| `orderbook_aggressive_limit_pct` | number | `0.003` | Extra premium/discount for pseudo-market limit orders. |
 | `pool_fee` | number | `0.003` | Fee for pool swaps. |
 | `mode` | string | `monitor` | `live`, `dry-run`, or `monitor`. |

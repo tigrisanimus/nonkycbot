@@ -23,6 +23,7 @@ def mock_config():
         "mode": "monitor",
         "orderbook_fee": "0.002",
         "pool_fee": "0.003",
+        "orderbook_aggressive_limit_pct": "0.003",
         "api_key": "test_key",
         "api_secret": "test_secret",
         "base_url": "https://api.test.com",
@@ -151,17 +152,18 @@ def test_hybrid_arb_bot_live_mode_configuration(mock_config):
 
 
 def test_execute_leg_buy_uses_inverted_price_and_output_qty(mock_config):
-    """Ensure buy legs place base-quantity orders at quote price."""
+    """Ensure buy legs place aggressive limit orders with inverted pricing."""
     from strategies.hybrid_triangular_arb import LegType, TradeLeg, TradeSide
 
-    mock_rest_client = Mock()
-    mock_rest_client.place_order.return_value = Mock(order_id="order-123")
+    mock_exchange_client = Mock()
+    mock_exchange_client.place_limit.return_value = "order-123"
 
     with (
+        patch("bots.run_hybrid_arb_bot.build_rest_client", return_value=Mock()),
         patch(
-            "bots.run_hybrid_arb_bot.build_rest_client", return_value=mock_rest_client
+            "engine.rest_client_factory.build_exchange_client",
+            return_value=mock_exchange_client,
         ),
-        patch("engine.rest_client_factory.build_exchange_client", return_value=Mock()),
     ):
         bot = run_hybrid_arb_bot.HybridArbBot(mock_config)
         leg = TradeLeg(
@@ -178,6 +180,6 @@ def test_execute_leg_buy_uses_inverted_price_and_output_qty(mock_config):
 
         assert bot._execute_leg(leg) is True
 
-        order_request = mock_rest_client.place_order.call_args[0][0]
-        assert order_request.quantity == "5000"
-        assert order_request.price == "0.02"
+        call_kwargs = mock_exchange_client.place_limit.call_args.kwargs
+        assert call_kwargs["quantity"] == Decimal("5000")
+        assert call_kwargs["price"] == Decimal("0.02") * Decimal("1.003")

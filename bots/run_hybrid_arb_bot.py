@@ -65,6 +65,14 @@ class HybridArbBot:
             str(config.get("min_notional_quote", "1.0"))
         )  # $1 minimum
         self.poll_interval = config.get("poll_interval_seconds", 2.0)
+        self.orderbook_aggressive_limit_pct = Decimal(
+            str(
+                config.get(
+                    "orderbook_aggressive_limit_pct",
+                    config.get("aggressive_limit_pct", "0.003"),
+                )
+            )
+        )
 
         # Market configuration
         self.orderbook_pairs = config.get("orderbook_pairs", [])
@@ -90,6 +98,10 @@ class HybridArbBot:
         logger.info(f"Initialized HybridArbBot in {self.mode.upper()} mode")
         logger.info(f"Monitoring {len(self.orderbook_pairs)} order book pairs + 1 pool")
         logger.info(f"Min profit threshold: {self.min_profit_pct}%")
+        logger.info(
+            "Orderbook aggressive limit pct: "
+            f"{self.orderbook_aggressive_limit_pct:.4%}"
+        )
         if self.exit_symbol:
             logger.info(f"Exit liquidation symbol: {self.exit_symbol}")
 
@@ -105,11 +117,8 @@ class HybridArbBot:
             Dictionary with 'bid' and 'ask' prices
         """
         try:
-            ticker = self.rest_client.get_market_data(symbol)
-            return {
-                "bid": Decimal(ticker.bid) if ticker.bid else Decimal("0"),
-                "ask": Decimal(ticker.ask) if ticker.ask else Decimal("0"),
-            }
+            bid, ask = self.exchange_client.get_orderbook_top(symbol)
+            return {"bid": bid, "ask": ask}
         except Exception as e:
             logger.warning(f"Failed to fetch prices for {symbol}: {e}")
             return {"bid": Decimal("0"), "ask": Decimal("0")}
@@ -426,7 +435,6 @@ class HybridArbBot:
 
     def _execute_leg(self, leg: TradeLeg) -> bool:
         """Execute a single leg of the cycle."""
-        from nonkyc_client.models import OrderRequest
         from strategies.hybrid_triangular_arb import LegType, TradeSide
 
         if leg.input_amount is None or leg.output_amount is None:
@@ -460,20 +468,29 @@ class HybridArbBot:
                     order_price = leg.price
                     quantity = leg.input_amount
 
+                order_price = self._apply_aggressive_limit_price(
+                    order_price, leg.side
+                )
+
                 if order_price <= 0 or quantity <= 0:
                     logger.error(f"Leg {leg.symbol} has invalid order values")
                     return False
 
-                # Place limit order
-                order = OrderRequest(
+                # Place aggressive limit order to emulate market execution.
+                side = "buy" if leg.side == TradeSide.BUY else "sell"
+                order_id = self.exchange_client.place_limit(
                     symbol=leg.symbol,
-                    side="buy" if leg.side == TradeSide.BUY else "sell",
-                    order_type="limit",
-                    quantity=str(quantity),
-                    price=str(order_price),
+                    side=side,
+                    price=order_price,
+                    quantity=quantity,
                 )
-                response = self.rest_client.place_order(order)
-                logger.info(f"Order placed: {response.order_id}")
+                logger.info(
+                    "Order placed: %s %s %s @ %s",
+                    leg.symbol,
+                    side,
+                    quantity,
+                    order_price,
+                )
 
                 # TODO: Wait for fill with timeout
                 # For now, assume immediate fill (risky!)
@@ -499,6 +516,17 @@ class HybridArbBot:
             return False
 
         return False
+
+    def _apply_aggressive_limit_price(
+        self, price: Decimal, side: "TradeSide"
+    ) -> Decimal:
+        from strategies.hybrid_triangular_arb import TradeSide
+
+        if self.orderbook_aggressive_limit_pct <= 0:
+            return price
+        if side == TradeSide.BUY:
+            return price * (Decimal("1") + self.orderbook_aggressive_limit_pct)
+        return price * (Decimal("1") - self.orderbook_aggressive_limit_pct)
 
     def run_cycle(self) -> None:
         """Run one iteration of the arbitrage detection cycle."""

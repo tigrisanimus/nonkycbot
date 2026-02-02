@@ -55,6 +55,7 @@ poll_interval_seconds: 2.0  # Check for opportunities every 2 seconds
 
 # Fee configuration
 orderbook_fee: "0.002"  # 0.2% taker fee for limit orders
+orderbook_aggressive_limit_pct: "0.003"  # Extra premium/discount for pseudo-market limits
 pool_fee: "0.003"      # 0.3% swap fee for liquidity pool
 
 # REST API settings

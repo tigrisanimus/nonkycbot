@@ -97,7 +97,9 @@
 - [x] Add optional profit store hooks with net profit tracking for grid/arb bots.
 - [x] Document full config reference and per-bot state paths.
 - [x] Add profit-store exit trigger for partial liquidation to target asset.
+- [x] Document profit-store exit profit multiplier configuration.
 - [x] Handle profit-store exit liquidation in arb and hybrid bot loops.
+- [x] Use aggressive limit orders for hybrid arb orderbook legs.
 - [x] Fix hybrid arb orderbook execution to invert buy prices and size quantities correctly.
 
 ## Next
