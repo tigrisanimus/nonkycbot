@@ -139,3 +139,52 @@ def test_rebalance_bot_uses_correct_trading_pair_format(mock_config):
         bot = run_rebalance_bot.RebalanceBot(mock_config)
 
         assert bot.trading_pair == "BTC_USDT"
+
+
+def test_rebalance_bot_multi_asset_selects_quote_pair():
+    """Ensure multi-asset rebalance selects the correct trading pair."""
+    config = {
+        "rebalance_assets": [
+            {"asset": "BTC", "target_percent": "0.5", "trading_pair": "BTC_USDT"},
+            {"asset": "ETH", "target_percent": "0.25", "trading_pair": "ETH_USDT"},
+            {"asset": "USDT", "target_percent": "0.25"},
+        ],
+        "quote_asset": "USDT",
+        "rebalance_threshold_percent": "0.05",
+        "mode": "dry-run",
+    }
+
+    mock_rest_client = Mock()
+    mock_rest_client.get_balances.return_value = [
+        Mock(asset="BTC", available="1"),
+        Mock(asset="ETH", available="10"),
+        Mock(asset="USDT", available="1000"),
+    ]
+
+    def market_data_for_pair(symbol: str):
+        if symbol == "BTC_USDT":
+            return Mock(
+                last_price=Decimal("30000"), bid=Decimal("29999"), ask=Decimal("30001")
+            )
+        if symbol == "ETH_USDT":
+            return Mock(
+                last_price=Decimal("2000"), bid=Decimal("1999"), ask=Decimal("2001")
+            )
+        raise AssertionError(f"Unexpected symbol: {symbol}")
+
+    mock_rest_client.get_market_data.side_effect = market_data_for_pair
+
+    with patch(
+        "bots.run_rebalance_bot.build_rest_client", return_value=mock_rest_client
+    ):
+        bot = run_rebalance_bot.RebalanceBot(config)
+        bot.execute_rebalance = Mock(return_value=True)
+
+        bot.run_cycle()
+
+        bot.execute_rebalance.assert_called_once()
+        args, kwargs = bot.execute_rebalance.call_args
+        assert args[0] == "sell"
+        assert args[1] == Decimal("3.625")
+        assert args[2] == Decimal("2004")
+        assert kwargs["trading_pair"] == "ETH_USDT"

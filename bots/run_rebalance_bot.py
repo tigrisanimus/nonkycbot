@@ -23,6 +23,7 @@ import json
 import logging
 import sys
 import time
+from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -34,6 +35,21 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class AssetTarget:
+    asset: str
+    target_ratio: Decimal
+    trading_pair: str | None
+
+
+def _parse_symbol(symbol: str) -> tuple[str, str]:
+    for delimiter in ("_", "/", "-"):
+        if delimiter in symbol:
+            base, quote = symbol.split(delimiter, 1)
+            return base, quote
+    raise ValueError(f"Invalid trading pair format: {symbol}")
 
 
 def build_rest_client(config: dict[str, Any]):
@@ -55,12 +71,14 @@ class RebalanceBot:
 
         # Market configuration
         self.trading_pair = config.get("trading_pair", "ETH_USDT")
+        self.quote_asset = config.get("quote_asset")
         self.target_base_percent = Decimal(
             str(config.get("target_base_percent", "0.5"))
         )
         self.rebalance_threshold_percent = Decimal(
             str(config.get("rebalance_threshold_percent", "0.02"))
         )
+        self.asset_targets = self._load_asset_targets()
 
         # Order configuration
         self.order_type = config.get("rebalance_order_type", "limit")
@@ -84,18 +102,124 @@ class RebalanceBot:
         self.state_path.parent.mkdir(parents=True, exist_ok=True)
 
         logger.info(f"Initialized RebalanceBot in {self.mode.upper()} mode")
-        logger.info(f"Trading pair: {self.trading_pair}")
-        logger.info(f"Target base ratio: {self.target_base_percent * 100}%")
+        logger.info(f"Quote asset: {self.quote_asset}")
+        for target in self.asset_targets:
+            ratio_pct = target.target_ratio * 100
+            pair_label = target.trading_pair or "quote balance"
+            logger.info(f"Target {target.asset}: {ratio_pct:.2f}% via {pair_label}")
         logger.info(f"Rebalance threshold: {self.rebalance_threshold_percent * 100}%")
 
     def _build_rest_client(self):
         """Build REST client from config using centralized factory."""
         return build_rest_client(self.config)
 
-    def get_price(self) -> Decimal | None:
+    def _load_asset_targets(self) -> list[AssetTarget]:
+        assets_config = self.config.get("rebalance_assets")
+        if assets_config:
+            if not isinstance(assets_config, list):
+                raise ValueError("rebalance_assets must be a list of asset targets")
+            targets: list[AssetTarget] = []
+            for entry in assets_config:
+                asset = str(entry.get("asset", "")).strip()
+                if not asset:
+                    raise ValueError(
+                        "Each rebalance asset must include an asset symbol"
+                    )
+                target_ratio = Decimal(str(entry.get("target_percent", "0")))
+                trading_pair = entry.get("trading_pair")
+                if trading_pair is not None:
+                    trading_pair = str(trading_pair)
+                targets.append(
+                    AssetTarget(
+                        asset=asset,
+                        target_ratio=target_ratio,
+                        trading_pair=trading_pair,
+                    )
+                )
+
+            if not self.quote_asset:
+                for target in targets:
+                    if target.trading_pair:
+                        _, quote = _parse_symbol(target.trading_pair)
+                        self.quote_asset = quote
+                        break
+
+            if not self.quote_asset:
+                raise ValueError(
+                    "quote_asset is required when rebalance_assets does not define trading_pair values"
+                )
+
+            normalized_targets: list[AssetTarget] = []
+            for target in targets:
+                trading_pair = target.trading_pair
+                if target.asset == self.quote_asset:
+                    trading_pair = None
+                if trading_pair:
+                    base, quote = _parse_symbol(trading_pair)
+                    if base != target.asset:
+                        raise ValueError(
+                            f"Trading pair {trading_pair} does not match asset {target.asset}"
+                        )
+                    if quote != self.quote_asset:
+                        raise ValueError(
+                            f"Trading pair {trading_pair} must quote {self.quote_asset}"
+                        )
+                else:
+                    if target.asset != self.quote_asset:
+                        trading_pair = f"{target.asset}_{self.quote_asset}"
+                normalized_targets.append(
+                    AssetTarget(
+                        asset=target.asset,
+                        target_ratio=target.target_ratio,
+                        trading_pair=trading_pair,
+                    )
+                )
+
+            total_ratio = sum(target.target_ratio for target in normalized_targets)
+            has_quote = any(
+                target.asset == self.quote_asset for target in normalized_targets
+            )
+            if not has_quote:
+                if total_ratio > Decimal("1"):
+                    raise ValueError(
+                        "Target ratios exceed 1 without a quote asset target"
+                    )
+                normalized_targets.append(
+                    AssetTarget(
+                        asset=self.quote_asset,
+                        target_ratio=Decimal("1") - total_ratio,
+                        trading_pair=None,
+                    )
+                )
+                total_ratio = Decimal("1")
+
+            if abs(total_ratio - Decimal("1")) > Decimal("0.0001"):
+                raise ValueError("Target ratios must sum to 1.0")
+
+            return normalized_targets
+
+        base, quote = _parse_symbol(self.trading_pair)
+        if not self.quote_asset:
+            self.quote_asset = quote
+        elif self.quote_asset != quote:
+            raise ValueError("quote_asset does not match trading_pair quote asset")
+        return [
+            AssetTarget(
+                asset=base,
+                target_ratio=self.target_base_percent,
+                trading_pair=self.trading_pair,
+            ),
+            AssetTarget(
+                asset=self.quote_asset,
+                target_ratio=Decimal("1") - self.target_base_percent,
+                trading_pair=None,
+            ),
+        ]
+
+    def get_price_for_pair(self, trading_pair: str) -> Decimal | None:
         """Fetch current market price based on configured price source."""
         try:
-            ticker = self.rest_client.get_market_data(self.trading_pair)
+            ticker = self.rest_client.get_market_data(trading_pair)
 
             if self.price_source == "mid":
                 bid = Decimal(ticker.bid) if ticker.bid else None
@@ -116,13 +240,29 @@ class RebalanceBot:
             if ticker.last_price:
                 return Decimal(ticker.last_price)
 
-            logger.warning(f"No price data available for {self.trading_pair}")
+            logger.warning(f"No price data available for {trading_pair}")
             return None
 
         except Exception as e:
             logger.error(
-                f"Failed to fetch price for {self.trading_pair}: {e}", exc_info=True
+                f"Failed to fetch price for {trading_pair}: {e}", exc_info=True
             )
+            return None
+
+    def get_price(self) -> Decimal | None:
+        """Fetch current market price based on configured price source."""
+        return self.get_price_for_pair(self.trading_pair)
+
+    def get_balances_map(self) -> dict[str, Decimal] | None:
+        """Get balances keyed by asset symbol."""
+        try:
+            balances = self.rest_client.get_balances()
+            balance_map: dict[str, Decimal] = {}
+            for balance in balances:
+                balance_map[balance.asset] = Decimal(balance.available)
+            return balance_map
+        except Exception as e:
+            logger.error(f"Failed to fetch balances: {e}", exc_info=True)
             return None
 
     def get_balances(self) -> tuple[Decimal, Decimal] | None:
@@ -133,7 +273,7 @@ class RebalanceBot:
         """
         try:
             # Extract base and quote from trading pair (underscore format)
-            base, quote = self.trading_pair.split("_")
+            base, quote = _parse_symbol(self.trading_pair)
 
             balances = self.rest_client.get_balances()
 
@@ -152,13 +292,20 @@ class RebalanceBot:
             logger.error(f"Failed to fetch balances: {e}", exc_info=True)
             return None
 
-    def execute_rebalance(self, side: str, amount: Decimal, price: Decimal) -> bool:
+    def execute_rebalance(
+        self,
+        side: str,
+        amount: Decimal,
+        price: Decimal,
+        trading_pair: str | None = None,
+    ) -> bool:
         """Execute rebalance order.
 
         Args:
             side: Buy or sell
             amount: Amount to trade
             price: Limit price
+            trading_pair: Symbol to trade (defaults to bot trading_pair)
 
         Returns:
             True if successful, False otherwise
@@ -187,8 +334,9 @@ class RebalanceBot:
 
         # Live execution
         try:
+            symbol = trading_pair or self.trading_pair
             order = OrderRequest(
-                symbol=self.trading_pair,
+                symbol=symbol,
                 side=side.lower(),
                 order_type=self.order_type,
                 quantity=str(amount),
@@ -206,52 +354,50 @@ class RebalanceBot:
 
     def run_cycle(self) -> None:
         """Run one iteration of the rebalance check."""
-        from strategies.rebalance import calculate_rebalance_order
+        from strategies.rebalance import calculate_multi_asset_rebalance
 
         try:
             self.checks_performed += 1
 
-            # Fetch price
-            logger.debug("Fetching market price...")
-            price = self.get_price()
-            if price is None:
-                logger.warning("Failed to fetch price, skipping cycle")
-                return
-
-            logger.debug(f"Current price: {price}")
-
-            # Fetch balances
             logger.debug("Fetching balances...")
-            balances = self.get_balances()
+            balances = self.get_balances_map()
             if balances is None:
                 logger.warning("Failed to fetch balances, skipping cycle")
                 return
 
-            base_balance, quote_balance = balances
-            logger.debug(f"Balances - Base: {base_balance}, Quote: {quote_balance}")
-
-            # Calculate current ratio
-            if base_balance == 0 and quote_balance == 0:
-                logger.warning("Both balances are zero, cannot rebalance")
+            if all(balance == 0 for balance in balances.values()):
+                logger.warning("All balances are zero, cannot rebalance")
                 return
 
-            base_value = base_balance * price
-            total_value = base_value + quote_balance
-            current_ratio = (
-                base_value / total_value if total_value > 0 else Decimal("0")
-            )
+            prices: dict[str, Decimal] = {}
+            for target in self.asset_targets:
+                if target.asset == self.quote_asset:
+                    prices[target.asset] = Decimal("1")
+                    continue
+                if not target.trading_pair:
+                    logger.warning(
+                        f"Missing trading pair for asset {target.asset}, skipping cycle"
+                    )
+                    return
+                price = self.get_price_for_pair(target.trading_pair)
+                if price is None:
+                    logger.warning(
+                        f"Failed to fetch price for {target.trading_pair}, skipping cycle"
+                    )
+                    return
+                prices[target.asset] = price
 
-            logger.info(
-                f"Portfolio status: {current_ratio * 100:.2f}% base "
-                f"(target: {self.target_base_percent * 100:.2f}%)"
-            )
-
-            # Check if rebalance is needed
-            rebalance_order = calculate_rebalance_order(
-                base_balance=base_balance,
-                quote_balance=quote_balance,
-                mid_price=price,
-                target_base_ratio=self.target_base_percent,
+            target_ratios = {
+                target.asset: target.target_ratio for target in self.asset_targets
+            }
+            balances_for_calc = {
+                asset: balances.get(asset, Decimal("0")) for asset in target_ratios
+            }
+            rebalance_order = calculate_multi_asset_rebalance(
+                balances=balances_for_calc,
+                prices=prices,
+                target_ratios=target_ratios,
+                quote_asset=self.quote_asset,
                 drift_threshold=self.rebalance_threshold_percent,
             )
 
@@ -259,16 +405,48 @@ class RebalanceBot:
                 logger.info("✓ Portfolio within target range, no rebalance needed")
                 return
 
-            # Rebalance needed
-            drift = abs(current_ratio - self.target_base_percent)
             logger.info(
-                f"⚠️  Rebalance needed! Drift: {drift * 100:.2f}% "
-                f"(threshold: {self.rebalance_threshold_percent * 100:.2f}%)"
+                f"⚠️  Rebalance needed for {rebalance_order.asset}! "
+                f"Current: {rebalance_order.current_ratio * 100:.2f}% "
+                f"Target: {rebalance_order.target_ratio * 100:.2f}%"
             )
             logger.info(
                 f"Action: {rebalance_order.side.upper()} {rebalance_order.amount} "
-                f"at price {rebalance_order.price}"
+                f"{rebalance_order.asset} at price {rebalance_order.price}"
             )
+
+            trading_pair = next(
+                (
+                    target.trading_pair
+                    for target in self.asset_targets
+                    if target.asset == rebalance_order.asset
+                ),
+                None,
+            )
+            if trading_pair is None:
+                logger.warning(
+                    f"No trading pair available for {rebalance_order.asset}, skipping cycle"
+                )
+                return
+
+            quote_balance = balances.get(self.quote_asset, Decimal("0"))
+            if rebalance_order.side == "buy":
+                max_amount = quote_balance / rebalance_order.price
+            else:
+                max_amount = balances.get(rebalance_order.asset, Decimal("0"))
+
+            amount = rebalance_order.amount
+            if max_amount <= 0:
+                logger.warning(
+                    f"Insufficient balance to rebalance {rebalance_order.asset}"
+                )
+                return
+            if max_amount < amount:
+                logger.info(
+                    f"Clamping rebalance amount from {amount} to {max_amount} "
+                    f"based on available balance"
+                )
+                amount = max_amount
 
             # Calculate limit price with spread
             # Buy: place order BELOW market to get better price (maker)
@@ -288,8 +466,9 @@ class RebalanceBot:
             # Execute rebalance
             success = self.execute_rebalance(
                 rebalance_order.side,
-                rebalance_order.amount,
+                amount,
                 limit_price,
+                trading_pair=trading_pair,
             )
 
             if success:

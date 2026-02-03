@@ -42,6 +42,20 @@ def test_rebalance_no_order_within_threshold() -> None:
     assert order is None
 
 
+def test_multi_asset_rebalance_prefers_largest_drift() -> None:
+    order = rebalance.calculate_multi_asset_rebalance(
+        balances={"BTC": "1", "ETH": "10", "USDT": "1000"},
+        prices={"BTC": "30000", "ETH": "2000", "USDT": "1"},
+        target_ratios={"BTC": "0.5", "ETH": "0.25", "USDT": "0.25"},
+        quote_asset="USDT",
+        drift_threshold=Decimal("0.05"),
+    )
+    assert order is not None
+    assert order.asset == "ETH"
+    assert order.side == "sell"
+    assert order.amount == Decimal("3.625")
+
+
 def test_triangular_arb_cycle_profitability() -> None:
     rates = {
         "A/B": Decimal("2"),

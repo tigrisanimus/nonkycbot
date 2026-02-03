@@ -224,11 +224,42 @@ def validate_grid_config(config: dict[str, Any]) -> None:
 def validate_rebalance_config(config: dict[str, Any]) -> None:
     """Validate configuration for rebalance strategy."""
     validate_api_credentials(config, allow_missing=True)
-    validate_symbol(config)
     validate_url(config)
 
-    validate_percentage(config, "target_base_percent", required=True)
-    validate_percentage(config, "drift_threshold", required=True)
+    if "rebalance_assets" in config:
+        assets = config["rebalance_assets"]
+        if not isinstance(assets, list) or not assets:
+            raise ConfigValidationError("rebalance_assets must be a non-empty list")
+        for entry in assets:
+            if not isinstance(entry, dict):
+                raise ConfigValidationError(
+                    "Each rebalance asset entry must be a mapping"
+                )
+            asset = entry.get("asset")
+            if not isinstance(asset, str) or not asset.strip():
+                raise ConfigValidationError("rebalance_assets entries require asset")
+            if "target_percent" not in entry:
+                raise ConfigValidationError(
+                    f"rebalance_assets entry for {asset} missing target_percent"
+                )
+            validate_percentage(entry, "target_percent", required=True)
+            if "trading_pair" in entry:
+                validate_symbol({"symbol": entry["trading_pair"]})
+        if "quote_asset" in config and (
+            not isinstance(config["quote_asset"], str)
+            or not config["quote_asset"].strip()
+        ):
+            raise ConfigValidationError("quote_asset must be a non-empty string")
+        validate_percentage(config, "drift_threshold", required=True)
+    else:
+        if "symbol" in config:
+            validate_symbol(config)
+        elif "trading_pair" in config:
+            validate_symbol({"symbol": config["trading_pair"]})
+        else:
+            raise ConfigValidationError("Missing required field: symbol")
+        validate_percentage(config, "target_base_percent", required=True)
+        validate_percentage(config, "drift_threshold", required=True)
 
     # Ensure drift threshold is reasonable
     if "drift_threshold" in config:
