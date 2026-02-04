@@ -104,6 +104,10 @@
 - [x] Fix hybrid arb aggressive limit sizing and add pool swap symbol fallbacks.
 - [x] Enable multi-asset rebalance bot targets using quote-based pairs.
 - [x] Document multi-asset rebalance configuration in the example YAML.
+- [x] Add fee-aware market maker bot with inside-spread quoting and inventory skew.
+- [x] Fix infinity ladder grid refills to honor absolute step sizing on buy/sell fills.
+- [x] Ignore not-found cancel errors in market maker order cleanup.
+- [x] Halt market maker placements on insufficient funds errors.
 
 ## Next
 - [ ] Define API client interfaces and error handling.

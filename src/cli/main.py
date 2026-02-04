@@ -17,6 +17,7 @@ from strategies import (
     adaptive_capped_martingale_describe,
     grid_describe,
     infinity_grid_describe,
+    market_maker_describe,
     rebalance_describe,
     triangular_arb_describe,
 )
@@ -29,6 +30,7 @@ STRATEGY_DESCRIPTIONS: dict[str, Callable[[], str]] = {
     "adaptive_capped_martingale": adaptive_capped_martingale_describe,
     "grid": grid_describe,
     "infinity_grid": infinity_grid_describe,
+    "market_maker": market_maker_describe,
     "rebalance": rebalance_describe,
     "triangular_arb": triangular_arb_describe,
 }

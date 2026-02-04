@@ -38,6 +38,7 @@ class ExchangeClient(Protocol):
         price: Decimal,
         quantity: Decimal,
         client_id: str | None = None,
+        strict_validate: bool | None = None,
     ) -> str:
         """Place a limit order and return the order id."""
 
