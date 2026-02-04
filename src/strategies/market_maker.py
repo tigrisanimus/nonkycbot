@@ -65,6 +65,8 @@ class MarketMakerStrategy:
         self.state = MarketMakerState()
         self._last_balance_refresh = 0.0
         self._balances: dict[str, tuple[Decimal, Decimal]] = {}
+        self._halt_placements = False
+        self._halt_logged = False
 
     def load_state(self) -> None:
         if self.state_path is None or not self.state_path.exists():
@@ -325,6 +327,14 @@ class MarketMakerStrategy:
         return order.price != desired_price or order.quantity != desired_qty
 
     def _place_order(self, side: str, price: Decimal, quantity: Decimal) -> None:
+        if self._halt_placements:
+            if not self._halt_logged:
+                LOGGER.info(
+                    "[%s] Skipping order placement; placements are halted.",
+                    self.config.symbol,
+                )
+                self._halt_logged = True
+            return
         if self.config.mode in {"monitor", "dry-run"}:
             LOGGER.info(
                 "[%s] Skipping order placement in %s mode: %s %s @ %s",
@@ -336,14 +346,27 @@ class MarketMakerStrategy:
             )
             return
         client_id = f"mm-{uuid.uuid4().hex}"
-        order_id = self.client.place_limit(
-            self.config.symbol,
-            side,
-            price,
-            quantity,
-            client_id=client_id,
-            strict_validate=self.config.post_only,
-        )
+        try:
+            order_id = self.client.place_limit(
+                self.config.symbol,
+                side,
+                price,
+                quantity,
+                client_id=client_id,
+                strict_validate=self.config.post_only,
+            )
+        except RestError as exc:
+            if self._is_insufficient_funds(exc):
+                LOGGER.warning(
+                    "Insufficient funds to place %s order at %s for %s.",
+                    side,
+                    price,
+                    quantity,
+                )
+                self._halt_placements = True
+                self._halt_logged = False
+                return
+            raise
         self.state.open_orders[order_id] = LiveOrder(
             side=side,
             price=price,
