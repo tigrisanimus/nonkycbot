@@ -11,6 +11,7 @@ from decimal import ROUND_DOWN, ROUND_UP, Decimal
 from pathlib import Path
 
 from engine.exchange_client import ExchangeClient, OrderStatusView
+from nonkyc_client.rest import RestError
 
 LOGGER = logging.getLogger("nonkyc_bot.strategy.market_maker")
 
@@ -64,6 +65,7 @@ class MarketMakerStrategy:
         self.state = MarketMakerState()
         self._last_balance_refresh = 0.0
         self._balances: dict[str, tuple[Decimal, Decimal]] = {}
+        self._halt_placements = False
 
     def load_state(self) -> None:
         if self.state_path is None or not self.state_path.exists():
@@ -324,6 +326,12 @@ class MarketMakerStrategy:
         return order.price != desired_price or order.quantity != desired_qty
 
     def _place_order(self, side: str, price: Decimal, quantity: Decimal) -> None:
+        if self._halt_placements:
+            LOGGER.info(
+                "[%s] Skipping order placement; placements are halted.",
+                self.config.symbol,
+            )
+            return
         if self.config.mode in {"monitor", "dry-run"}:
             LOGGER.info(
                 "[%s] Skipping order placement in %s mode: %s %s @ %s",
@@ -335,14 +343,26 @@ class MarketMakerStrategy:
             )
             return
         client_id = f"mm-{uuid.uuid4().hex}"
-        order_id = self.client.place_limit(
-            self.config.symbol,
-            side,
-            price,
-            quantity,
-            client_id=client_id,
-            strict_validate=self.config.post_only,
-        )
+        try:
+            order_id = self.client.place_limit(
+                self.config.symbol,
+                side,
+                price,
+                quantity,
+                client_id=client_id,
+                strict_validate=self.config.post_only,
+            )
+        except RestError as exc:
+            if self._is_insufficient_funds(exc):
+                LOGGER.warning(
+                    "Insufficient funds to place %s order at %s for %s.",
+                    side,
+                    price,
+                    quantity,
+                )
+                self._halt_placements = True
+                return
+            raise
         self.state.open_orders[order_id] = LiveOrder(
             side=side,
             price=price,
@@ -367,7 +387,15 @@ class MarketMakerStrategy:
                 order_id,
             )
             return
-        self.client.cancel_order(order_id)
+        try:
+            self.client.cancel_order(order_id)
+        except RestError as exc:
+            if self._is_not_found_cancel(exc):
+                LOGGER.info(
+                    "Cancel skipped for %s; order not found on exchange.", order_id
+                )
+            else:
+                raise
         self.state.open_orders.pop(order_id, None)
 
     def _cancel_all_open_orders(self) -> None:
@@ -388,6 +416,16 @@ class MarketMakerStrategy:
         return (quantity / self.config.step_size).to_integral_value(
             rounding=ROUND_DOWN
         ) * self.config.step_size
+
+    @staticmethod
+    def _is_not_found_cancel(exc: RestError) -> bool:
+        message = str(exc).lower()
+        return "not found" in message or "active order not found" in message
+
+    @staticmethod
+    def _is_insufficient_funds(exc: RestError) -> bool:
+        message = str(exc).lower()
+        return "insufficient funds" in message
 
     @staticmethod
     def _split_symbol(symbol: str) -> tuple[str, str]:

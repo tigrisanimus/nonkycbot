@@ -3,6 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from engine.exchange_client import OpenOrder, OrderStatusView
+from nonkyc_client.rest import RestError
 from strategies.market_maker import LiveOrder, MarketMakerConfig, MarketMakerStrategy
 
 
@@ -64,6 +65,28 @@ class FakeExchange:
 
     def get_balances(self) -> dict[str, tuple[Decimal, Decimal]]:
         return self.balances
+
+
+class NotFoundCancelExchange(FakeExchange):
+    def cancel_order(self, order_id: str) -> bool:
+        raise RestError(
+            'HTTP error 400: {"error":{"code":20002,"message":"Not found","description":"Active order not found for cancellation"}}'
+        )
+
+
+class InsufficientFundsExchange(FakeExchange):
+    def place_limit(
+        self,
+        symbol: str,
+        side: str,
+        price: Decimal,
+        quantity: Decimal,
+        client_id: str | None = None,
+        strict_validate: bool | None = None,
+    ) -> str:
+        raise RestError(
+            'HTTP error 400: {"error":{"code":20001,"message":"Bad Request","description":"Insufficient funds for order creation"}}'
+        )
 
 
 def build_config() -> MarketMakerConfig:
@@ -136,3 +159,47 @@ def test_places_inside_spread_post_only_orders(tmp_path) -> None:
     assert sell_order[1] < Decimal("102")
     assert buy_order[3] is True
     assert sell_order[3] is True
+
+
+def test_cancel_ignores_not_found_errors(tmp_path) -> None:
+    client = NotFoundCancelExchange(
+        best_bid=Decimal("100"),
+        best_ask=Decimal("100.1"),
+        balances={
+            "BTC": (Decimal("1"), Decimal("0")),
+            "USDT": (Decimal("100"), Decimal("0")),
+        },
+    )
+    config = build_config()
+    strategy = MarketMakerStrategy(client, config, state_path=tmp_path / "state.json")
+    strategy.state.open_orders = {
+        "order-1": LiveOrder(
+            side="buy",
+            price=Decimal("99"),
+            quantity=Decimal("1"),
+            client_id="client-1",
+            created_at=0.0,
+        )
+    }
+
+    strategy.poll_once()
+
+    assert not strategy.state.open_orders
+
+
+def test_place_order_handles_insufficient_funds(tmp_path) -> None:
+    client = InsufficientFundsExchange(
+        best_bid=Decimal("100"),
+        best_ask=Decimal("102"),
+        balances={
+            "BTC": (Decimal("2"), Decimal("0")),
+            "USDT": (Decimal("1000"), Decimal("0")),
+        },
+    )
+    config = build_config()
+    strategy = MarketMakerStrategy(client, config, state_path=tmp_path / "state.json")
+
+    strategy.poll_once()
+
+    assert not strategy.state.open_orders
+    assert strategy._halt_placements
