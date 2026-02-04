@@ -806,12 +806,11 @@ class InfinityLadderGridStrategy:
 
         # Refill orders
         self._refresh_balances(now)
-        mid_price = self.client.get_mid_price(self.config.symbol)
-        step = self._get_step_size(mid_price)
 
         for order_id, order in filled:
             if order.side == "buy":
                 # Buy filled - place SELL order one step above to take profit
+                step = self._get_step_size(order.price)
                 new_sell_price = order.price * (Decimal("1") + step)
                 if self._place_order("sell", new_sell_price, cost_basis=order.price):
                     LOGGER.info(
@@ -822,6 +821,7 @@ class InfinityLadderGridStrategy:
             else:
                 # Sell filled - TWO actions:
                 # 1. Extend the ladder upward (no upper limit!)
+                step = self._get_step_size(self.state.highest_sell_price)
                 new_sell_price = self.state.highest_sell_price * (Decimal("1") + step)
                 placed_sell = self._place_order("sell", new_sell_price)
 
@@ -834,6 +834,7 @@ class InfinityLadderGridStrategy:
                     )
 
                 # 2. Place buy order below to buy back (if above lower limit)
+                step = self._get_step_size(order.price)
                 new_buy_price = order.price * (Decimal("1") - step)
                 if new_buy_price >= self.state.lowest_buy_price:
                     if self._place_order("buy", new_buy_price):

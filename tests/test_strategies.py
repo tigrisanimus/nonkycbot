@@ -8,6 +8,7 @@ from strategies import (
     adaptive_capped_martingale,
     grid,
     infinity_ladder_grid,
+    market_maker,
     rebalance,
     triangular_arb,
 )
@@ -88,6 +89,11 @@ def test_triangular_arb_rejects_unprofitable_cycle_with_fees() -> None:
 
 def test_grid_description() -> None:
     assert "grid" in grid.describe().lower() or "Grid" in grid.describe()
+
+
+def test_market_maker_description() -> None:
+    description = market_maker.describe().lower()
+    assert "market" in description
 
 
 def test_adaptive_capped_martingale_description() -> None:

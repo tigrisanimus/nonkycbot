@@ -1,0 +1,61 @@
+# Market Maker Bot Configuration
+# Fee-aware spread capture with inventory skew
+#
+# HOW TO USE:
+# 1. Store your API credentials securely in the OS keychain (RECOMMENDED):
+#    python scripts/nonkyc_store_credentials.py --api-key "your_key" --api-secret "your_secret"
+#
+#    The bot will automatically load credentials from the keychain.
+#    DO NOT edit api_key/api_secret below - leave them commented out!
+#
+# 2. Run the bot:
+#    python bots/run_market_maker.py examples/market_maker.yml
+#
+# WHAT THIS BOT DOES:
+# - Posts maker-only quotes inside the spread
+# - Enforces fee-safe minimum spread before quoting
+# - Skews quotes based on inventory to stay balanced
+
+# Exchange settings
+base_url: "https://api.nonkyc.io/api/v2"
+
+# API credentials - DO NOT EDIT! Use keychain storage instead (see above)
+# api_key: "${NONKYC_API_KEY}"      # Loaded from keychain automatically
+# api_secret: "${NONKYC_API_SECRET}" # Loaded from keychain automatically
+
+# Trading pair (NonKYC uses UNDERSCORE format, not slashes!)
+symbol: "ETH_USDT"
+
+# Order sizing
+base_order_size: "0.01"       # Fixed buy size (ETH)
+sell_quote_target: "25"       # Target sell value in quote (USDT)
+min_notional_quote: "1.0"     # Minimum order value in USDT
+
+# Fee configuration (per-side maker fee)
+fee_rate: "0.001"             # 0.1% per side
+safety_buffer_pct: "0.0005"   # Extra spread buffer for slippage/partials
+
+# Quote placement inside the spread
+inside_spread_pct: "0.1"      # Quote 10% inside the current spread
+post_only: true               # Enforce maker-only orders
+
+# Inventory controls
+inventory_target_pct: "0.5"   # Target 50/50 base vs quote value
+inventory_tolerance_pct: "0.05" # Start skewing when off target by 5%
+inventory_skew_pct: "0.2"     # Skew up to 20% of spread based on inventory
+
+# Exchange precision
+tick_size: "0.01"
+step_size: "0.001"
+
+# Polling settings
+poll_interval_sec: 5
+balance_refresh_sec: 30
+max_order_age_sec: 30
+
+# REST API settings
+rest_timeout_sec: 30.0
+rest_retries: 3
+
+# State persistence
+state_path: "state/market_maker_state.json"

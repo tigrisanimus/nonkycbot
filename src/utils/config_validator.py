@@ -389,6 +389,39 @@ def validate_adaptive_capped_martingale_config(config: dict[str, Any]) -> None:
         validate_positive_decimal(config, "poll_interval_sec", required=False)
 
 
+def validate_market_maker_config(config: dict[str, Any]) -> None:
+    """Validate configuration for market maker strategy."""
+    validate_api_credentials(config, allow_missing=True)
+    validate_symbol(config)
+    validate_url(config)
+
+    validate_positive_decimal(config, "base_order_size", required=True)
+    validate_positive_decimal(config, "sell_quote_target", required=True)
+    validate_positive_decimal(config, "fee_rate", required=True)
+    validate_positive_decimal(config, "min_notional_quote", required=False)
+    validate_non_negative_decimal(config, "safety_buffer_pct", required=False)
+    validate_non_negative_decimal(config, "inside_spread_pct", required=False)
+    validate_non_negative_decimal(config, "inventory_skew_pct", required=False)
+    if "inventory_target_pct" in config:
+        target_pct = Decimal(str(config["inventory_target_pct"]))
+        if not (Decimal("0") <= target_pct <= Decimal("1")):
+            raise ConfigValidationError("inventory_target_pct must be between 0 and 1")
+    if "inventory_tolerance_pct" in config:
+        validate_positive_decimal(config, "inventory_tolerance_pct", required=False)
+    if "tick_size" in config:
+        validate_non_negative_decimal(config, "tick_size", required=False)
+    if "step_size" in config:
+        validate_non_negative_decimal(config, "step_size", required=False)
+    if "poll_interval_sec" in config:
+        validate_positive_decimal(config, "poll_interval_sec", required=False)
+    if "max_order_age_sec" in config:
+        validate_positive_decimal(config, "max_order_age_sec", required=False)
+    if "balance_refresh_sec" in config:
+        validate_positive_decimal(config, "balance_refresh_sec", required=False)
+    if "post_only" in config and not isinstance(config["post_only"], bool):
+        raise ConfigValidationError("post_only must be a boolean")
+
+
 def validate_config(config: dict[str, Any], strategy: str | None = None) -> None:
     """
     Validate configuration for a specific strategy.
@@ -421,6 +454,8 @@ def validate_config(config: dict[str, Any], strategy: str | None = None) -> None
         validate_triangular_arb_config(config)
     elif strategy == "adaptive_capped_martingale":
         validate_adaptive_capped_martingale_config(config)
+    elif strategy == "market_maker":
+        validate_market_maker_config(config)
     elif strategy is not None:
         # For other strategies, at least validate basic fields
         if "symbol" in config:
