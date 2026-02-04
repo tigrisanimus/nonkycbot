@@ -107,8 +107,6 @@
 - [x] Add fee-aware market maker bot with inside-spread quoting and inventory skew.
 - [x] Fix infinity ladder grid refills to honor absolute step sizing on buy/sell fills.
 - [x] Ignore not-found cancel errors in market maker order cleanup.
-- [x] Halt market maker placements on insufficient funds errors.
-- [x] Reduce repeated halted-placement logs in market maker strategy.
 
 ## Next
 - [ ] Define API client interfaces and error handling.
