@@ -498,6 +498,84 @@ def test_profit_accounting_uses_variable_sell_sizes(tmp_path) -> None:
     assert strategy.state.total_profit_quote == Decimal("6.25")
 
 
+def test_reconcile_uses_absolute_step_for_sell_and_buy_back(tmp_path) -> None:
+    config = InfinityLadderGridConfig(
+        symbol="BTC/USDT",
+        step_mode="abs",
+        step_pct=None,
+        step_abs=Decimal("10"),
+        n_buy_levels=1,
+        initial_sell_levels=1,
+        base_order_size=Decimal("1"),
+        min_notional_quote=Decimal("1"),
+        fee_buffer_pct=Decimal("0"),
+        total_fee_rate=Decimal("0"),
+        tick_size=Decimal("0.01"),
+        step_size=Decimal("0.001"),
+        poll_interval_sec=1.0,
+    )
+    client = FakeExchange()
+    strategy = InfinityLadderGridStrategy(config, client, tmp_path / "state.json")
+    strategy.state.highest_sell_price = Decimal("130")
+    strategy.state.lowest_buy_price = Decimal("50")
+    strategy.state.open_orders = {
+        "order-1": LiveOrder(
+            side="sell",
+            price=Decimal("130"),
+            quantity=Decimal("1"),
+            client_id="client-1",
+            created_at=0.0,
+        )
+    }
+
+    strategy.reconcile(now=0.0)
+
+    assert any(
+        order[0] == "sell" and order[1] == Decimal("140.00")
+        for order in client.placed_orders
+    )
+    assert any(
+        order[0] == "buy" and order[1] == Decimal("120.00")
+        for order in client.placed_orders
+    )
+
+
+def test_reconcile_uses_absolute_step_for_buy_fill(tmp_path) -> None:
+    config = InfinityLadderGridConfig(
+        symbol="BTC/USDT",
+        step_mode="abs",
+        step_pct=None,
+        step_abs=Decimal("10"),
+        n_buy_levels=1,
+        initial_sell_levels=1,
+        base_order_size=Decimal("1"),
+        min_notional_quote=Decimal("1"),
+        fee_buffer_pct=Decimal("0"),
+        total_fee_rate=Decimal("0"),
+        tick_size=Decimal("0.01"),
+        step_size=Decimal("0.001"),
+        poll_interval_sec=1.0,
+    )
+    client = FakeExchange()
+    strategy = InfinityLadderGridStrategy(config, client, tmp_path / "state.json")
+    strategy.state.open_orders = {
+        "order-1": LiveOrder(
+            side="buy",
+            price=Decimal("80"),
+            quantity=Decimal("1"),
+            client_id="client-1",
+            created_at=0.0,
+        )
+    }
+
+    strategy.reconcile(now=0.0)
+
+    assert any(
+        order[0] == "sell" and order[1] == Decimal("90.00")
+        for order in client.placed_orders
+    )
+
+
 def test_dynamic_sell_reduces_inventory_depletion(tmp_path) -> None:
     config = InfinityLadderGridConfig(
         symbol="BTC/USDT",

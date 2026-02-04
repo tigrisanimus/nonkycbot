@@ -46,6 +46,7 @@ class NonkycRestExchangeClient(ExchangeClient):
         price: Decimal,
         quantity: Decimal,
         client_id: str | None = None,
+        strict_validate: bool | None = None,
     ) -> str:
         order = OrderRequest(
             symbol=symbol,
@@ -54,6 +55,7 @@ class NonkycRestExchangeClient(ExchangeClient):
             price=str(price),
             quantity=str(quantity),
             user_provided_id=client_id,
+            strict_validate=strict_validate,
         )
         response = self._rest.place_order(order)
         return response.order_id

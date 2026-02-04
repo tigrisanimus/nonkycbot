@@ -322,7 +322,17 @@ Combines order book trading with liquidity pool swaps for arbitrage.
 **Runner**: `bots/run_hybrid_arb_bot.py`
 **Examples**: `examples/hybrid_arb.yml`
 
-### 5. Rebalance Strategy
+### 5. Market Maker
+Fee-aware market making that posts inside-spread quotes with inventory skewing.
+
+**Use case**: Capture spread on wide, low-liquidity markets while staying inventory-balanced
+**How it works**: Quotes just inside the best bid/ask, skips unprofitable spreads, and biases prices based on inventory drift
+**Config**: `symbol`, `base_order_size`, `sell_quote_target`, `fee_rate`, `inside_spread_pct`, `inventory_target_pct`
+**Module**: `strategies.market_maker`
+**Runner**: `bots/run_market_maker.py`
+**Examples**: `examples/market_maker.yml`
+
+### 6. Rebalance Strategy
 Maintains a target ratio between base and quote assets.
 
 **Use case**: Keep consistent portfolio allocation (e.g., 50% ETH, 50% USDT)
@@ -332,7 +342,7 @@ Maintains a target ratio between base and quote assets.
 **Runner**: `bots/run_rebalance_bot.py`
 **Examples**: `examples/rebalance_bot.yml`
 
-### 6. Adaptive Capped Martingale (Spot)
+### 7. Adaptive Capped Martingale (Spot)
 Fee-aware, spot-only mean reversion strategy that accumulates BTC with capped geometric adds.
 
 **Use case**: Accumulate BTC during pullbacks with capped exposure and staged exits
