@@ -569,3 +569,156 @@ def test_rest_market_data_uses_bid_ask_mid_when_last_missing() -> None:
         ticker = client.get_market_data("BTC/USD")
 
     assert ticker.last_price == "105"
+
+
+class TestCloudflareErrorDetection:
+    """Tests for Cloudflare transient error detection."""
+
+    CLOUDFLARE_1018_ERROR_PAGE = """<!DOCTYPE html>
+<html class="no-js" lang="en-US">
+<head>
+<title>Could not find host | api.nonkyc.io | Cloudflare</title>
+</head>
+<body>
+<h1><span>Error</span><span>1018</span></h1>
+<h2>Could not find host</h2>
+<p>Cloudflare is currently unable to resolve your requested domain (api.nonkyc.io).</p>
+</body>
+</html>"""
+
+    CLOUDFLARE_522_ERROR_PAGE = """<!DOCTYPE html>
+<html class="no-js" lang="en-US">
+<head>
+<title>Connection timed out | Cloudflare</title>
+</head>
+<body>
+<h1><span>Error</span><span>522</span></h1>
+<h2>Connection timed out</h2>
+<p>The initial connection between Cloudflare and the origin web server timed out.</p>
+</body>
+</html>"""
+
+    def test_detects_cloudflare_1018_error(self) -> None:
+        client = RestClient(base_url="https://api.example")
+        assert client._is_cloudflare_transient_error(self.CLOUDFLARE_1018_ERROR_PAGE)
+
+    def test_detects_cloudflare_522_error(self) -> None:
+        client = RestClient(base_url="https://api.example")
+        assert client._is_cloudflare_transient_error(self.CLOUDFLARE_522_ERROR_PAGE)
+
+    def test_does_not_detect_non_cloudflare_error(self) -> None:
+        client = RestClient(base_url="https://api.example")
+        regular_error = '{"error": "Invalid order", "code": "INVALID_ORDER"}'
+        assert not client._is_cloudflare_transient_error(regular_error)
+
+    def test_does_not_detect_empty_payload(self) -> None:
+        client = RestClient(base_url="https://api.example")
+        assert not client._is_cloudflare_transient_error("")
+
+    def test_does_not_detect_cloudflare_without_error_code(self) -> None:
+        client = RestClient(base_url="https://api.example")
+        # Has Cloudflare but no known error code
+        payload = "<html><title>Cloudflare</title><body>Success</body></html>"
+        assert not client._is_cloudflare_transient_error(payload)
+
+    def test_cloudflare_error_raises_transient_error_on_http_409(self) -> None:
+        import io
+        from urllib.error import HTTPError
+
+        from nonkyc_client.rest import TransientApiError
+
+        client = RestClient(
+            base_url="https://api.example",
+            max_retries=0,  # Don't retry for this test
+        )
+
+        def fake_urlopen(request, timeout=10.0, context=None):
+            # Create an HTTPError with Cloudflare error page body
+            error = HTTPError(
+                "https://api.example/getorder/123",
+                409,
+                "Conflict",
+                {},
+                io.BytesIO(self.CLOUDFLARE_1018_ERROR_PAGE.encode("utf8")),
+            )
+            raise error
+
+        with (
+            patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen),
+            pytest.raises(TransientApiError) as exc_info,
+        ):
+            client.send(RestRequest(method="GET", path="/getorder/123"))
+
+        assert "Cloudflare transient error" in str(exc_info.value)
+        assert "HTTP 409" in str(exc_info.value)
+
+    def test_regular_http_409_raises_rest_error(self) -> None:
+        import io
+        from urllib.error import HTTPError
+
+        from nonkyc_client.rest import RestError, TransientApiError
+
+        client = RestClient(
+            base_url="https://api.example",
+            max_retries=0,
+        )
+
+        def fake_urlopen(request, timeout=10.0, context=None):
+            error = HTTPError(
+                "https://api.example/getorder/123",
+                409,
+                "Conflict",
+                {},
+                io.BytesIO(b'{"error": "Order already cancelled"}'),
+            )
+            raise error
+
+        with (
+            patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen),
+            pytest.raises(RestError) as exc_info,
+        ):
+            client.send(RestRequest(method="GET", path="/getorder/123"))
+
+        # Should be a RestError, not TransientApiError
+        assert not isinstance(exc_info.value, TransientApiError)
+        assert "Order already cancelled" in str(exc_info.value)
+
+    def test_cloudflare_error_is_retried(self) -> None:
+        import io
+        from urllib.error import HTTPError
+
+        client = RestClient(
+            base_url="https://api.example",
+            max_retries=2,
+            backoff_factor=0.1,
+        )
+
+        call_count = {"count": 0}
+        sleep_calls: list[float] = []
+
+        def fake_urlopen(request, timeout=10.0, context=None):
+            call_count["count"] += 1
+            if call_count["count"] == 1:
+                error = HTTPError(
+                    "https://api.example/getorder/123",
+                    409,
+                    "Conflict",
+                    {},
+                    io.BytesIO(TestCloudflareErrorDetection.CLOUDFLARE_1018_ERROR_PAGE.encode("utf8")),
+                )
+                raise error
+            return FakeResponse({"data": {"id": "123", "status": "Filled"}})
+
+        def fake_sleep(duration: float) -> None:
+            sleep_calls.append(duration)
+
+        with (
+            patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen),
+            patch("nonkyc_client.rest.time.sleep", side_effect=fake_sleep),
+            patch("nonkyc_client.rest.random.uniform", return_value=0.0),
+        ):
+            response = client.send(RestRequest(method="GET", path="/getorder/123"))
+
+        assert response["data"]["status"] == "Filled"
+        assert call_count["count"] == 2
+        assert len(sleep_calls) == 1  # One retry sleep

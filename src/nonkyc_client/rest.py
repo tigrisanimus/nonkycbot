@@ -60,6 +60,23 @@ class TransientApiError(RestError):
     """Raised for transient REST errors that may succeed on retry."""
 
 
+# Cloudflare error codes that indicate transient infrastructure issues
+CLOUDFLARE_TRANSIENT_ERROR_CODES = {
+    "1000",  # DNS points to prohibited IP
+    "1001",  # DNS resolution error
+    "1002",  # DNS points to prohibited IP
+    "1003",  # Direct IP access not allowed
+    "1018",  # Could not find host (DNS resolution)
+    "520",  # Web server returns unknown error
+    "521",  # Web server is down
+    "522",  # Connection timed out
+    "523",  # Origin is unreachable
+    "524",  # A timeout occurred
+    "525",  # SSL handshake failed
+    "526",  # Invalid SSL certificate
+}
+
+
 class RestClient:
     """Minimal REST client with retry and rate-limit handling."""
 
@@ -229,6 +246,11 @@ class RestClient:
             if exc.code in {500, 502, 503, 504}:
                 raise TransientApiError(f"Transient HTTP error {exc.code}") from exc
             payload = exc.read().decode("utf8") if exc.fp else ""
+            # Check for Cloudflare transient errors (DNS issues, origin unreachable, etc.)
+            if self._is_cloudflare_transient_error(payload):
+                raise TransientApiError(
+                    f"Cloudflare transient error (HTTP {exc.code})"
+                ) from exc
             raise RestError(self._build_http_error_message(exc.code, payload)) from exc
         except (TimeoutError, socket.timeout) as exc:
             raise TransientApiError("Network timeout while contacting API") from exc
@@ -283,6 +305,20 @@ class RestClient:
         if payload:
             return f"HTTP error {status_code}: {payload}"
         return f"HTTP error {status_code}"
+
+    def _is_cloudflare_transient_error(self, payload: str) -> bool:
+        """Detect Cloudflare error pages indicating transient infrastructure issues."""
+        if not payload:
+            return False
+        # Check for Cloudflare markers in the response
+        if "cloudflare" not in payload.lower():
+            return False
+        # Look for known transient Cloudflare error codes
+        for error_code in CLOUDFLARE_TRANSIENT_ERROR_CODES:
+            # Match patterns like "Error 1018" or ">1018</span>"
+            if f"Error {error_code}" in payload or f">{error_code}<" in payload:
+                return True
+        return False
 
     def _detect_min_notional_error(self, payload: str) -> str | None:
         if not payload:
@@ -488,6 +524,11 @@ class RestClient:
             if exc.code in {500, 502, 503, 504}:
                 raise TransientApiError(f"Transient HTTP error {exc.code}") from exc
             payload = exc.read().decode("utf8") if exc.fp else ""
+            # Check for Cloudflare transient errors (DNS issues, origin unreachable, etc.)
+            if self._is_cloudflare_transient_error(payload):
+                raise TransientApiError(
+                    f"Cloudflare transient error (HTTP {exc.code})"
+                ) from exc
             raise RestError(self._build_http_error_message(exc.code, payload)) from exc
         except (TimeoutError, socket.timeout) as exc:
             raise TransientApiError("Network timeout while contacting API") from exc
