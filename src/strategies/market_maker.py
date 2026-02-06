@@ -427,6 +427,10 @@ class MarketMakerStrategy:
         return "not found" in message or "active order not found" in message
 
     @staticmethod
+    def _is_insufficient_funds(exc: RestError) -> bool:
+        return "insufficient funds" in str(exc).lower()
+
+    @staticmethod
     def _split_symbol(symbol: str) -> tuple[str, str]:
         for delimiter in ("/", "-", "_"):
             if delimiter in symbol:

@@ -704,7 +704,11 @@ class TestCloudflareErrorDetection:
                     409,
                     "Conflict",
                     {},
-                    io.BytesIO(TestCloudflareErrorDetection.CLOUDFLARE_1018_ERROR_PAGE.encode("utf8")),
+                    io.BytesIO(
+                        TestCloudflareErrorDetection.CLOUDFLARE_1018_ERROR_PAGE.encode(
+                            "utf8"
+                        )
+                    ),
                 )
                 raise error
             return FakeResponse({"data": {"id": "123", "status": "Filled"}})

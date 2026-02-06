@@ -115,7 +115,7 @@ class InfinityLadderGridStrategy:
         self.profit_store = profit_store
         self.state = self._load_or_create_state()
         self._balances: dict[str, tuple[Decimal, Decimal]] = {}
-        self._halt_placements = False
+        self._halted_sides: set[str] = set()
         self._last_balance_refresh = 0.0
         self._exit_triggered = False
         self._startup_reconcile_open_orders()
@@ -343,6 +343,15 @@ class InfinityLadderGridStrategy:
         balances = self.client.get_balances()
         self._balances = balances
         self._last_balance_refresh = now
+        if not self._halted_sides:
+            return
+        base, quote = self._split_symbol(self.config.symbol)
+        base_available = self._balances.get(base, (Decimal("0"), Decimal("0")))[0]
+        quote_available = self._balances.get(quote, (Decimal("0"), Decimal("0")))[0]
+        if base_available > 0:
+            self._halted_sides.discard("sell")
+        if quote_available > 0:
+            self._halted_sides.discard("buy")
 
     def _sync_client_order_counter(self, order_ids: list[str]) -> None:
         """Best-effort sync for fake exchange counters used in tests."""
@@ -380,7 +389,7 @@ class InfinityLadderGridStrategy:
         self, side: str, price: Decimal, *, cost_basis: Decimal | None = None
     ) -> bool:
         """Place a single order."""
-        if self._halt_placements:
+        if side.lower() in self._halted_sides:
             return False
 
         price = self._quantize_price(price)
@@ -438,7 +447,7 @@ class InfinityLadderGridStrategy:
                 required_asset,
             )
             self.state.needs_rebalance = True
-            self._halt_placements = True
+            self._halted_sides.add(side.lower())
             return False
 
         # Calculate opposing price (one step away in the opposite direction)
@@ -476,7 +485,7 @@ class InfinityLadderGridStrategy:
         except RestError as exc:
             if "Insufficient funds" in str(exc):
                 self.state.needs_rebalance = True
-                self._halt_placements = True
+                self._halted_sides.add(side.lower())
                 return False
             if self._is_recoverable_order_error(exc):
                 LOGGER.warning(
@@ -573,7 +582,7 @@ class InfinityLadderGridStrategy:
                 return
             self._extend_buy_levels()
             return
-        self._halt_placements = False
+        self._halted_sides.clear()
         self._refresh_balances(time.time())
 
         mid_price = self.client.get_mid_price(self.config.symbol)
@@ -640,7 +649,7 @@ class InfinityLadderGridStrategy:
 
     def _extend_buy_levels(self) -> None:
         """Extend buy ladder lower without canceling existing orders."""
-        self._halt_placements = False
+        self._halted_sides.discard("buy")
         now = time.time()
         self._refresh_balances(now)
 
@@ -685,7 +694,7 @@ class InfinityLadderGridStrategy:
         for price in sorted(levels_to_add, reverse=True):
             if self._place_order("buy", price):
                 placed_prices.append(self._quantize_price(price))
-            if self._halt_placements:
+            if "buy" in self._halted_sides:
                 break
 
         if placed_prices:
@@ -859,7 +868,7 @@ class InfinityLadderGridStrategy:
         if self._exit_triggered:
             return
         self._exit_triggered = True
-        self._halt_placements = True
+        self._halted_sides = {"buy", "sell"}
         if self.config.mode == "monitor":
             LOGGER.info("MONITOR MODE: Profit-store exit triggered; no orders placed.")
             return

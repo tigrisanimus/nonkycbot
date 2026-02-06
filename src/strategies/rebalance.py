@@ -103,10 +103,10 @@ def calculate_multi_asset_rebalance(
 
     total_value = Decimal("0")
     for asset, ratio in normalized_targets.items():
-        price = normalized_prices.get(asset)
-        if price is None:
+        asset_price = normalized_prices.get(asset)
+        if asset_price is None:
             raise ValueError(f"Missing price for asset: {asset}")
-        total_value += normalized_balances.get(asset, Decimal("0")) * price
+        total_value += normalized_balances.get(asset, Decimal("0")) * asset_price
 
     if total_value <= 0:
         return None
