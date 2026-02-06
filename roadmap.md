@@ -34,6 +34,7 @@ The nonkyc bot is **feature-complete** for production trading. All core strategi
 ### Trading Strategies
 - **Grid Trading**: Standard grid with ladder behavior
 - **Infinity Grid**: No upper limit, extends sell ladder as price rises
+- **Infinity Grid**: Continue buy-back placements even when sell-side funds are briefly insufficient
 - **Triangular Arbitrage**: USDT/ETH/BTC cycle scanning with market execution
 - **Hybrid Arbitrage**: Order book + AMM pool swaps
 - **Portfolio Rebalance**: Multi-asset drift-based rebalancing

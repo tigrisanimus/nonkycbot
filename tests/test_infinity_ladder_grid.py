@@ -208,10 +208,56 @@ def test_seed_ladder_skips_recoverable_rest_error(tmp_path, caplog) -> None:
         strategy.seed_ladder()
 
     assert len(strategy.state.open_orders) == 1
-    assert not strategy._halt_placements
+    assert not strategy._halted_sides
     assert any(
         "Bad userProvidedId" in record.message for record in caplog.records
     ), "Expected warning for recoverable order error"
+
+
+def test_sell_insufficient_balance_does_not_block_buy_back(tmp_path) -> None:
+    config = InfinityLadderGridConfig(
+        symbol="BTC/USDT",
+        step_mode="pct",
+        step_pct=Decimal("0.01"),
+        step_abs=None,
+        n_buy_levels=1,
+        initial_sell_levels=1,
+        base_order_size=Decimal("1"),
+        min_notional_quote=Decimal("1"),
+        fee_buffer_pct=Decimal("0"),
+        total_fee_rate=Decimal("0"),
+        tick_size=Decimal("0.01"),
+        step_size=Decimal("0.001"),
+        poll_interval_sec=1.0,
+    )
+
+    class BaseLimitedExchange(FakeExchange):
+        def get_balances(self) -> dict[str, tuple[Decimal, Decimal]]:
+            return {
+                "BTC": (Decimal("0"), Decimal("0")),
+                "USDT": (Decimal("1000"), Decimal("0")),
+            }
+
+    client = BaseLimitedExchange()
+    strategy = InfinityLadderGridStrategy(config, client, tmp_path / "state.json")
+    strategy.state.highest_sell_price = Decimal("101")
+    strategy.state.lowest_buy_price = Decimal("50")
+    strategy.state.open_orders = {
+        "order-1": LiveOrder(
+            side="sell",
+            price=Decimal("101"),
+            quantity=Decimal("1"),
+            client_id="client-1",
+            created_at=0.0,
+        )
+    }
+
+    strategy.reconcile(now=100.0)
+
+    assert any(
+        order[0] == "buy" and order[1] == Decimal("99.99")
+        for order in client.placed_orders
+    )
 
 
 def test_seed_ladder_extends_buy_levels_on_restart(tmp_path) -> None:
