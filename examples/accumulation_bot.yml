@@ -1,0 +1,109 @@
+# =============================================================================
+# Accumulation Infinity Grid Bot - Example Configuration
+# =============================================================================
+#
+# Buy-only bot: downward infinity grid + passive DCA.
+# "This bot absorbs impatience. If the market doesn't offer cheap coins,
+#  the bot does almost nothing."
+#
+# NO sells. NO market orders. NO upward chasing.
+# =============================================================================
+
+# --- Exchange connection ---
+base_url: "https://api.nonkyc.io/api/v2"
+# api_key and api_secret loaded from environment or keychain
+# api_key: "${NONKYC_API_KEY}"
+# api_secret: "${NONKYC_API_SECRET}"
+sign_requests: true
+nonce_multiplier: 10000
+sign_absolute_url: true
+
+# --- Bot mode ---
+# monitor  = log-only, no orders
+# dry-run  = simulate order placement
+# live     = real orders
+mode: "monitor"
+
+# --- Trading pair (underscore format required) ---
+symbol: "BTC_USDT"
+
+# --- Precision ---
+price_decimals: 2     # decimal places for price rounding
+qty_decimals: 6       # decimal places for quantity rounding
+
+# --- Hard daily budget (quote asset, across BOTH layers) ---
+daily_budget_quote: "100.00"
+
+# --- Poll interval (seconds) ---
+poll_interval_sec: 10
+
+# =============================================================================
+# Grid Engine (Layer A) - Downward-only infinity grid
+# =============================================================================
+# Pi = Pref * (1 - d0 * g^(i-1))    price formula
+# Si = min(s0 * k^(i-1), cap)        size formula
+grid:
+  n: 10                   # max active buy levels
+  d0: "0.005"             # initial distance below Pref (0.5%)
+  g: "1.3"                # geometric growth factor for level spacing
+  s0: "0.0001"            # base order size (BTC)
+  k: "1.1"                # size growth factor per deeper level
+  per_order_volume_cap: "0.005"  # max size per single order (BTC)
+
+# =============================================================================
+# DCA Engine (Layer B) - Slow passive accumulation
+# =============================================================================
+# Independent from grid. Only active in flat markets.
+# Pd = best_bid * (1 - epsilon)
+dca:
+  budget_daily: "20.00"   # fixed daily DCA budget (USDT), separate from grid
+  interval_sec: 3600      # attempt DCA every 1 hour
+  epsilon: "0.001"        # offset below best bid (0.1%)
+  ttl_sec: 1800           # cancel unfilled DCA order after 30 minutes
+
+# =============================================================================
+# Guards - Global safety & impact control
+# =============================================================================
+guards:
+  participation_cap: "0.05"          # max 5% of rolling 1h volume
+  spread_limit: "0.03"              # pause if spread > 3% of mid
+  cooldown_impact_sec: 300           # 5 min cooldown after impact trigger
+  cooldown_grid_dca_sec: 600         # pause DCA 10 min after grid fill
+  fill_time_threshold_sec: 2.0       # impact: fill under 2s is suspicious
+  mid_jump_threshold: "0.005"        # impact: mid jumps > 0.5% after fill
+  best_bid_touch_max: 5              # impact: bot becomes best bid 5+ times
+  best_bid_touch_window_sec: 300     # ... within 5 minutes
+  spread_widen_threshold: "2.0"      # impact: spread widens 2x vs median
+
+# =============================================================================
+# VWAP Controller
+# =============================================================================
+# If VWAP_bot > VWAP_market: reduce size, widen grid, or pause.
+vwap:
+  window_sec: 3600                   # 1 hour rolling window
+  size_reduction_factor: "0.5"       # halve size when triggered
+  spacing_widen_factor: "1.5"        # widen grid spacing 50%
+  pause_threshold: "1.05"            # pause if bot VWAP > 105% of market VWAP
+
+# =============================================================================
+# EMA / ATR - Market regime detection
+# =============================================================================
+ema:
+  ema_window_sec: 3600               # EMA smoothing window
+  ema_alpha: "0.01"                  # smoothing factor (small = slow)
+  atr_window: 60                     # number of samples for ATR
+  atr_flat_threshold: "0.001"        # ATR below 0.1% = market is flat (DCA active)
+
+# =============================================================================
+# REST API settings
+# =============================================================================
+rest_timeout_sec: 30.0
+rest_retries: 3
+rest_backoff_factor: 0.5
+
+# --- State persistence ---
+state_path: "state/accumulation_bot_state.json"
+
+# --- Logging ---
+log_level: "INFO"
+# log_file: "logs/accumulation_bot.log"
