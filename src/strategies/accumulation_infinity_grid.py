@@ -46,6 +46,7 @@ logger = logging.getLogger(__name__)
 
 _ZERO = Decimal("0")
 _ONE = Decimal("1")
+_NOTIONAL_BUFFER = Decimal("1.01")  # 1% safety margin for exchange min notional
 
 
 @dataclass(frozen=True)
@@ -327,8 +328,9 @@ class GridEngine:
             )
             if size <= _ZERO:
                 break
-            # Enforce minimum order notional
-            min_notional = self._cfg.min_order_notional
+            # Enforce minimum order notional (with safety buffer to avoid
+            # exchange rejection due to rounding at the boundary)
+            min_notional = self._cfg.min_order_notional * _NOTIONAL_BUFFER
             if price > _ZERO and price * size < min_notional:
                 size = (min_notional / price).quantize(
                     Decimal(10) ** -qty_dec, rounding=ROUND_UP
@@ -515,8 +517,9 @@ class DCAEngine:
             # Randomise +-3%
             jitter = Decimal(str(random.uniform(0.97, 1.03)))
             qty = (qty * jitter).quantize(Decimal(10) ** -qty_dec, rounding=ROUND_DOWN)
-            # Enforce minimum order notional
-            min_notional = self._cfg.min_order_notional
+            # Enforce minimum order notional (with safety buffer to avoid
+            # exchange rejection due to rounding at the boundary)
+            min_notional = self._cfg.min_order_notional * _NOTIONAL_BUFFER
             if price * qty < min_notional:
                 qty = (min_notional / price).quantize(
                     Decimal(10) ** -qty_dec, rounding=ROUND_UP
@@ -845,11 +848,12 @@ class ExecutionEngine:
             return None
 
         notional = price * quantity
-        if notional < self._cfg.min_order_notional:
+        min_notional = self._cfg.min_order_notional * _NOTIONAL_BUFFER
+        if notional < min_notional:
             logger.warning(
                 "EXEC skip: notional %s < min %s (price=%s qty=%s)",
                 notional,
-                self._cfg.min_order_notional,
+                min_notional,
                 price,
                 quantity,
             )
@@ -1238,14 +1242,18 @@ class AccumulationInfinityGrid:
                 logger.info("GRID CANCEL excess level=%d", lvl.index)
             active = self._grid.active_levels()
 
-        # Place pending levels
+        # Place pending levels (track committed cost from active orders to
+        # avoid over-committing beyond the daily budget)
+        active_committed = sum(
+            lv.price * lv.quantity for lv in self._grid.active_levels()
+        )
         for lvl in self._grid.pending_levels():
             # Only place if below Pref
             if lvl.price >= pref:
                 continue
-            # Check daily budget
+            # Check daily budget (remaining minus already-committed active orders)
             cost = lvl.price * lvl.quantity
-            if self._coord.daily_budget_remaining(now) < cost:
+            if self._coord.daily_budget_remaining(now) - active_committed < cost:
                 logger.debug("GRID skip level=%d: daily budget", lvl.index)
                 continue
             order_id = self._exec.place_buy(
@@ -1254,6 +1262,7 @@ class AccumulationInfinityGrid:
             if order_id:
                 lvl.order_id = order_id
                 lvl.placed_at = now
+                active_committed += cost
 
         # Impact: check if our orders are at best bid
         for lvl in self._grid.active_levels():
@@ -1330,9 +1339,12 @@ class AccumulationInfinityGrid:
         if qty <= _ZERO:
             return
 
-        # Budget check
+        # Budget check (account for committed cost of active grid orders)
+        grid_committed = sum(
+            lv.price * lv.quantity for lv in self._grid.active_levels()
+        )
         cost = price * qty
-        if self._coord.daily_budget_remaining(now) < cost:
+        if self._coord.daily_budget_remaining(now) - grid_committed < cost:
             logger.debug("DCA skip: daily budget insufficient")
             return
 
