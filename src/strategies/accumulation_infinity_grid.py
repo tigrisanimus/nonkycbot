@@ -32,7 +32,7 @@ import time
 import uuid
 from collections import deque
 from dataclasses import dataclass, field
-from decimal import ROUND_DOWN, Decimal
+from decimal import ROUND_DOWN, ROUND_UP, Decimal
 from pathlib import Path
 from typing import Any
 
@@ -119,6 +119,7 @@ class AccumulationConfig:
     poll_interval_sec: float  # main loop interval
     price_decimals: int  # decimal places for price rounding
     qty_decimals: int  # decimal places for quantity rounding
+    min_order_notional: Decimal = Decimal("1.0")  # minimum order value (quote)
     mode: str = "live"  # monitor | dry-run | live
 
 
@@ -326,6 +327,12 @@ class GridEngine:
             )
             if size <= _ZERO:
                 break
+            # Enforce minimum order notional
+            min_notional = self._cfg.min_order_notional
+            if price > _ZERO and price * size < min_notional:
+                size = (min_notional / price).quantize(
+                    Decimal(10) ** -qty_dec, rounding=ROUND_UP
+                )
             levels.append(
                 GridLevel(
                     index=idx,
@@ -508,6 +515,12 @@ class DCAEngine:
             # Randomise +-3%
             jitter = Decimal(str(random.uniform(0.97, 1.03)))
             qty = (qty * jitter).quantize(Decimal(10) ** -qty_dec, rounding=ROUND_DOWN)
+            # Enforce minimum order notional
+            min_notional = self._cfg.min_order_notional
+            if price * qty < min_notional:
+                qty = (min_notional / price).quantize(
+                    Decimal(10) ** -qty_dec, rounding=ROUND_UP
+                )
         else:
             qty = _ZERO
 
@@ -829,6 +842,17 @@ class ExecutionEngine:
         """Place a limit buy order. Returns order_id or None."""
         if price <= _ZERO or quantity <= _ZERO:
             logger.warning("EXEC skip: invalid price=%s qty=%s", price, quantity)
+            return None
+
+        notional = price * quantity
+        if notional < self._cfg.min_order_notional:
+            logger.warning(
+                "EXEC skip: notional %s < min %s (price=%s qty=%s)",
+                notional,
+                self._cfg.min_order_notional,
+                price,
+                quantity,
+            )
             return None
 
         # Randomised timing jitter (0-300ms)
@@ -1414,6 +1438,7 @@ def load_config_from_dict(raw: dict[str, Any]) -> AccumulationConfig:
         poll_interval_sec=float(raw.get("poll_interval_sec", 5)),
         price_decimals=int(raw.get("price_decimals", 2)),
         qty_decimals=int(raw.get("qty_decimals", 6)),
+        min_order_notional=Decimal(str(raw.get("min_order_notional", "1.0"))),
         mode=raw.get("mode", "live"),
     )
 

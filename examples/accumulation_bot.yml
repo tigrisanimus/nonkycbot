@@ -7,6 +7,30 @@
 #  the bot does almost nothing."
 #
 # NO sells. NO market orders. NO upward chasing.
+#
+# HOW TO USE:
+# 1. Store your API credentials securely in the OS keychain (RECOMMENDED):
+#    python scripts/nonkyc_store_credentials.py --api-key "your_key" --api-secret "your_secret"
+#
+#    The bot will automatically load credentials from the keychain.
+#    DO NOT edit api_key/api_secret below - leave them commented out!
+#
+# 2. Run the bot:
+#    python bots/run_accumulation_bot.py examples/accumulation_bot.yml
+#
+#    Other modes:
+#    python bots/run_accumulation_bot.py examples/accumulation_bot.yml --monitor-only
+#    python bots/run_accumulation_bot.py examples/accumulation_bot.yml --dry-run
+#
+# WHAT THIS BOT DOES:
+# - GRID LAYER: Places buy-only limit orders below EMA price (downward grid)
+#   - On fill: does NOT replace upward; instead extends one level deeper
+#   - Spacing grows geometrically: Pi = Pref * (1 - d0 * g^(i-1))
+# - DCA LAYER: Slow passive limit buys during flat markets
+#   - Only active when ATR indicates low volatility
+#   - Skips when grid recently filled (grid has priority)
+# - SAFETY: Impact detection, VWAP throttling, participation caps
+# - All orders are limit-only with randomised timing/sizing
 # =============================================================================
 
 # --- Exchange connection ---
@@ -33,6 +57,11 @@ qty_decimals: 6       # decimal places for quantity rounding
 
 # --- Hard daily budget (quote asset, across BOTH layers) ---
 daily_budget_quote: "100.00"
+
+# --- Minimum order notional (quote asset) ---
+# Orders below this value will have their quantity increased to meet the minimum.
+# NonKYC.io requires 1 USDT minimum per order.
+min_order_notional: "1.0"
 
 # --- Poll interval (seconds) ---
 poll_interval_sec: 10
