@@ -60,8 +60,10 @@ daily_budget_quote: "10.00"
 
 # --- Minimum order notional (quote asset) ---
 # Orders below this value will have their quantity increased to meet the minimum.
-# NonKYC.io requires 1 USDT minimum per order.
-min_order_notional: "1.30"
+# NonKYC.io requires ~1 USDT minimum per order.
+# For BTC-quoted pairs: ~0.00001 BTC (approx 1 USDT at current BTC prices)
+# For USDT-quoted pairs: use "1.30"
+min_order_notional: "0.00001"
 
 # --- Poll interval (seconds) ---
 poll_interval_sec: 20

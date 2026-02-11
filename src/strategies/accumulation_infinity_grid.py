@@ -833,6 +833,7 @@ class ExecutionEngine:
         self._last_place_at: float = 0.0
         self._last_cancel_at: float = 0.0
         self._min_action_gap: float = 0.5  # minimum seconds between actions
+        self.insufficient_funds: bool = False  # set when exchange rejects for low balance
 
     def place_buy(
         self,
@@ -889,8 +890,13 @@ class ExecutionEngine:
             self._last_place_at = time.time()
             logger.info("EXEC PLACED order_id=%s", order_id)
             return order_id
-        except Exception:
+        except Exception as exc:
             logger.exception("EXEC PLACE FAILED price=%s qty=%s", price, quantity)
+            if "Insufficient funds" in str(exc):
+                self.insufficient_funds = True
+                logger.warning(
+                    "EXEC insufficient funds detected — skipping remaining orders this cycle"
+                )
             return None
 
     def cancel(self, order_id: str, *, dry_run: bool = False) -> bool:
@@ -1088,6 +1094,19 @@ class AccumulationInfinityGrid:
         except Exception:
             logger.exception("Failed to save state to %s", self._state_path)
 
+    def _fetch_available_quote(self) -> Decimal:
+        """Fetch available balance of the quote asset."""
+        try:
+            # Symbol format is BASE_QUOTE, e.g. COSA_BTC
+            quote = self._cfg.symbol.split("_")[1]
+            balances = self._client.get_balances()
+            if quote in balances:
+                available, _held = balances[quote]
+                return available
+        except Exception:
+            logger.debug("Could not fetch quote balance, skipping pre-flight check")
+        return Decimal("Infinity")  # allow all if balance check fails
+
     # ----- Main poll loop -----
 
     def poll_once(self) -> None:
@@ -1144,14 +1163,20 @@ class AccumulationInfinityGrid:
         if self._monitor:
             return
 
+        # Reset per-cycle execution flags
+        self._exec.insufficient_funds = False
+
+        # Pre-flight balance check
+        available_quote = self._fetch_available_quote()
+
         # 5. Reconcile exchange state
         open_orders = self._client.list_open_orders(self._cfg.symbol)
 
         # --- Grid engine (Layer A) ---
-        self._run_grid(mkt, open_orders, now, vwap_size_f, vwap_spacing_f)
+        self._run_grid(mkt, open_orders, now, vwap_size_f, vwap_spacing_f, available_quote)
 
         # --- DCA engine (Layer B) ---
-        self._run_dca(mkt, open_orders, now)
+        self._run_dca(mkt, open_orders, now, available_quote)
 
         # 6. Persist
         self.save_state()
@@ -1163,6 +1188,7 @@ class AccumulationInfinityGrid:
         now: float,
         vwap_size_f: Decimal,
         vwap_spacing_f: Decimal,
+        available_quote: Decimal = Decimal("Infinity"),
     ) -> None:
         """Run the grid engine cycle."""
         pref = mkt.ema_price
@@ -1248,6 +1274,10 @@ class AccumulationInfinityGrid:
             lv.price * lv.quantity for lv in self._grid.active_levels()
         )
         for lvl in self._grid.pending_levels():
+            # Stop placing if exchange reported insufficient funds
+            if self._exec.insufficient_funds:
+                logger.info("GRID skip remaining levels: insufficient funds")
+                break
             # Only place if below Pref
             if lvl.price >= pref:
                 continue
@@ -1256,6 +1286,16 @@ class AccumulationInfinityGrid:
             if self._coord.daily_budget_remaining(now) - active_committed < cost:
                 logger.debug("GRID skip level=%d: daily budget", lvl.index)
                 continue
+            # Check available exchange balance
+            if available_quote - active_committed < cost:
+                logger.info(
+                    "GRID skip level=%d: insufficient balance (need=%s, available=%s, committed=%s)",
+                    lvl.index,
+                    cost,
+                    available_quote,
+                    active_committed,
+                )
+                break
             order_id = self._exec.place_buy(
                 lvl.price, lvl.quantity, lvl.client_id, dry_run=self._dry_run
             )
@@ -1281,6 +1321,7 @@ class AccumulationInfinityGrid:
         mkt: MarketState,
         open_orders: list[OpenOrder],
         now: float,
+        available_quote: Decimal = Decimal("Infinity"),
     ) -> None:
         """Run the DCA engine cycle."""
         # Check for stale DCA order
@@ -1328,6 +1369,11 @@ class AccumulationInfinityGrid:
         if self._dca.state.current_order_id is not None:
             return  # already have an active DCA order
 
+        # Skip DCA if insufficient funds was hit during grid placement
+        if self._exec.insufficient_funds:
+            logger.debug("DCA skip: insufficient funds from earlier this cycle")
+            return
+
         if not self._dca.should_attempt(
             now, mkt.is_flat, self._coord.last_grid_fill_at
         ):
@@ -1346,6 +1392,10 @@ class AccumulationInfinityGrid:
         cost = price * qty
         if self._coord.daily_budget_remaining(now) - grid_committed < cost:
             logger.debug("DCA skip: daily budget insufficient")
+            return
+        # Balance check
+        if available_quote - grid_committed < cost:
+            logger.info("DCA skip: insufficient balance (need=%s, available=%s)", cost, available_quote)
             return
 
         client_id = str(uuid.uuid4())
