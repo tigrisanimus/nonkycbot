@@ -85,7 +85,7 @@ def _make_config(**overrides: Any) -> AccumulationConfig:
             atr_window=60,
             atr_flat_threshold=Decimal("0.001"),
         ),
-        daily_budget_quote=Decimal("100"),
+        daily_budget_quote=Decimal("10000"),
         poll_interval_sec=5,
         price_decimals=2,
         qty_decimals=6,
@@ -484,12 +484,12 @@ def test_coordinator_daily_budget() -> None:
     now = time.time()
     coord._daily_reset_at = now
 
-    assert coord.daily_budget_remaining(now) == Decimal("100")
+    assert coord.daily_budget_remaining(now) == Decimal("10000")
 
-    coord.record_grid_fill(now, Decimal("60"))
-    assert coord.daily_budget_remaining(now) == Decimal("40")
+    coord.record_grid_fill(now, Decimal("6000"))
+    assert coord.daily_budget_remaining(now) == Decimal("4000")
 
-    coord.record_dca_fill(now, Decimal("40"))
+    coord.record_dca_fill(now, Decimal("4000"))
     assert coord.daily_budget_exhausted(now)
 
 
@@ -500,11 +500,11 @@ def test_coordinator_participation_cap() -> None:
     coord._daily_reset_at = now
 
     # No spending - ok
-    assert coord.participation_ok(Decimal("1000"))
+    assert coord.participation_ok(Decimal("10000"))
 
-    # Spend 60, volume 1000 → ratio 0.06 > cap 0.05
-    coord.record_grid_fill(now, Decimal("60"))
-    assert not coord.participation_ok(Decimal("1000"))
+    # Spend 600, volume 10000 → ratio 0.06 > cap 0.05
+    coord.record_grid_fill(now, Decimal("600"))
+    assert not coord.participation_ok(Decimal("10000"))
 
 
 def test_coordinator_grid_fill_time_tracking() -> None:
@@ -934,3 +934,93 @@ def test_config_no_hidden_defaults() -> None:
     raw = {"symbol": "BTC_USDT"}
     with pytest.raises(KeyError):
         load_config_from_dict(raw)
+
+
+# ---------------------------------------------------------------------------
+# Notional buffer
+# ---------------------------------------------------------------------------
+
+
+def test_grid_notional_buffer_prevents_edge_case() -> None:
+    """Grid compute_levels bumps qty with 1% buffer to avoid exchange rejection."""
+    cfg = _make_config(
+        grid=GridParams(
+            n=1,
+            d0=Decimal("0.005"),
+            g=Decimal("1.3"),
+            s0=Decimal("0.000001"),  # tiny base size to force min notional bump
+            k=Decimal("1.0"),
+            per_order_volume_cap=Decimal("1000"),
+        ),
+        min_order_notional=Decimal("1.0"),
+    )
+    engine = GridEngine(cfg)
+    levels = engine.compute_levels(Decimal("50000"), 1, 1, 2, 6)
+    assert len(levels) == 1
+
+    # Notional must exceed min_order_notional by the buffer margin
+    notional = levels[0].price * levels[0].quantity
+    assert notional >= Decimal("1.01"), f"notional {notional} too close to minimum"
+
+
+def test_dca_notional_buffer_prevents_edge_case() -> None:
+    """DCA compute_order bumps qty with 1% buffer."""
+    cfg = _make_config(
+        dca=DCAParams(
+            budget_daily=Decimal("0.001"),  # tiny budget to force min notional bump
+            interval_sec=3600,
+            epsilon=Decimal("0.001"),
+            ttl_sec=1800,
+        ),
+        min_order_notional=Decimal("1.0"),
+    )
+    dca = DCAEngine(cfg)
+    price, qty = dca.compute_order(Decimal("50000"), 2, 6)
+    notional = price * qty
+    assert notional >= Decimal("1.01"), f"notional {notional} too close to minimum"
+
+
+def test_execution_notional_buffer_rejects_borderline() -> None:
+    """Execution engine rejects orders whose notional is below min * 1.01."""
+    cfg = _make_config(min_order_notional=Decimal("1.0"))
+    client = _mock_client()
+    exec_eng = ExecutionEngine(client, cfg)
+
+    # Notional = 1.005 → above 1.0 but below 1.01 buffer → should be rejected
+    result = exec_eng.place_buy(
+        Decimal("0.01"), Decimal("100.5"), "c1", dry_run=True
+    )
+    assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Budget committed tracking
+# ---------------------------------------------------------------------------
+
+
+def test_grid_placement_respects_budget_with_committed_tracking() -> None:
+    """Grid placement loop should not over-commit beyond daily budget."""
+    cfg = _make_config(
+        mode="dry-run",
+        daily_budget_quote=Decimal("80"),
+        grid=GridParams(
+            n=5,
+            d0=Decimal("0.005"),
+            g=Decimal("1.3"),
+            s0=Decimal("0.001"),
+            k=Decimal("1.1"),
+            per_order_volume_cap=Decimal("0.01"),
+        ),
+    )
+    client = _mock_client()
+    strategy = AccumulationInfinityGrid(client, cfg)
+
+    strategy.poll_once()
+
+    # With BTC at ~$50000 and each order ~$50-70, a budget of $80
+    # should only allow 1 order (first ~$50, second would exceed $80)
+    placed = [lv for lv in strategy._grid.state.levels if lv.order_id is not None]
+    total_committed = sum(lv.price * lv.quantity for lv in placed)
+    assert total_committed <= Decimal("80"), (
+        f"committed {total_committed} exceeds budget $80"
+    )
