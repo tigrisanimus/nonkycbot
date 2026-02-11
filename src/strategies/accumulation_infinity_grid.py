@@ -27,17 +27,16 @@ from __future__ import annotations
 
 import json
 import logging
-import math
 import random
 import time
 import uuid
 from collections import deque
 from dataclasses import dataclass, field
-from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal
+from decimal import ROUND_DOWN, Decimal
 from pathlib import Path
 from typing import Any
 
-from engine.exchange_client import ExchangeClient, OpenOrder, OrderStatusView
+from engine.exchange_client import ExchangeClient, OpenOrder
 
 logger = logging.getLogger(__name__)
 
@@ -387,7 +386,7 @@ class GridEngine:
         active = self.active_levels()
         if not active:
             return None
-        return max(active, key=lambda l: l.price)
+        return max(active, key=lambda lv: lv.price)
 
     def cancel_shallowest(self) -> GridLevel | None:
         """Mark the shallowest active level for cancellation.

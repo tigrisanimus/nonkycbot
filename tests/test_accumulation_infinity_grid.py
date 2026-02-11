@@ -7,36 +7,31 @@ and the main strategy class.
 
 from __future__ import annotations
 
-import json
 import time
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
-from engine.exchange_client import OpenOrder, OrderStatusView
+from engine.exchange_client import OpenOrder
 from strategies.accumulation_infinity_grid import (
     AccumulationConfig,
     AccumulationInfinityGrid,
     Coordinator,
     DCAEngine,
     DCAParams,
-    DCAState,
     EMAParams,
     ExecutionEngine,
     GridEngine,
     GridLevel,
     GridParams,
-    GridState,
     GuardParams,
     ImpactDetector,
-    MarketState,
     MarketStateTracker,
     VWAPController,
     VWAPParams,
-    VWAPSample,
     describe,
     load_config_from_dict,
 )
@@ -802,8 +797,6 @@ def test_strategy_grid_does_not_chase_up() -> None:
     strategy.poll_once()
 
     # Capture highest grid price from initial seed
-    initial_highest = max(lv.price for lv in strategy._grid.state.levels)
-
     # Price rises significantly
     client.get_orderbook_top.return_value = (Decimal("55000"), Decimal("55100"))
     strategy.poll_once()
