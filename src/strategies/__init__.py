@@ -1,5 +1,6 @@
 """Strategy implementations for nonkyc bot."""
 
+from .accumulation_infinity_grid import describe as accumulation_infinity_grid_describe
 from .adaptive_capped_martingale import describe as adaptive_capped_martingale_describe
 from .grid import describe as grid_describe
 from .hybrid_triangular_arb import describe as hybrid_triangular_arb_describe
@@ -9,6 +10,7 @@ from .rebalance import describe as rebalance_describe
 from .triangular_arb import describe as triangular_arb_describe
 
 __all__ = [
+    "accumulation_infinity_grid_describe",
     "adaptive_capped_martingale_describe",
     "grid_describe",
     "hybrid_triangular_arb_describe",
