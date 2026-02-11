@@ -30,7 +30,7 @@ base_url: "https://api.nonkyc.io/api/v2"
 # - monitor: Only log opportunities, don't execute
 # - dry-run: Simulate execution (no real trades)
 # - live: Execute real trades (USE WITH CAUTION!)
-mode: "monitor"
+mode: "dry-run"
 
 # Triangle: USDT → ETH → BTC → USDT (using only order book pairs)
 asset_a: "USDT"

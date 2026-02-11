@@ -49,7 +49,7 @@ tick_size: "0.01"
 step_size: "0.001"
 
 # Polling settings
-poll_interval_sec: 5
+poll_interval_sec: 30
 balance_refresh_sec: 30
 max_order_age_sec: 30
 

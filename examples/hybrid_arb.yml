@@ -30,7 +30,7 @@ base_url: "https://api.nonkyc.io/api/v2"
 # - monitor: Only log opportunities, don't execute
 # - dry-run: Simulate execution (no real trades)
 # - live: Execute real trades (USE WITH CAUTION!)
-mode: "monitor"
+mode: "live"
 
 # Order book pairs to monitor
 # NOTE: NonKYC uses UNDERSCORE format, not slashes!
@@ -48,7 +48,7 @@ pool_pair: "COSA_PIRATE"  # Try COSA_PIRATE or COSAPIRATE if this fails
 base_currency: "USDT"
 
 # Trading parameters
-trade_amount: "100"  # Amount in base currency (USDT) per cycle
+trade_amount: "10"  # Amount in base currency (USDT) per cycle
 min_profit_pct: "0.5"  # Minimum 0.5% profit to execute
 min_notional_quote: "1.0"  # Minimum order size in quote currency (e.g., $1 USDT)
 poll_interval_seconds: 2.0  # Check for opportunities every 2 seconds

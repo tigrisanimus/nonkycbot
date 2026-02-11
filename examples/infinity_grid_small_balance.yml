@@ -23,15 +23,16 @@ base_url: "https://api.nonkyc.io/api/v2"
 # api_secret: "${NONKYC_API_SECRET}" # Loaded from keychain automatically
 
 # Trading pair
-symbol: "BTC_USDT"
+symbol: "MMX_USDT"
 
 # Grid configuration
 step_mode: "pct"
 step_pct: "0.02"                 # 2% spacing (wider for small balance)
 
 # Order levels (fewer for small balance)
-n_buy_levels: 3                  # 3 buy orders below price
-initial_sell_levels: 6           # 6 sell orders above price (use more of your BTC)
+n_buy_levels: 4                  # 3 buy orders below price
+initial_sell_levels: 10           # 6 sell orders above price (use more of your BTC)
+extend_buy_levels_on_restart: true
 
 # IMPORTANT: Adjust this based on YOUR balance!
 # Formula: min(BTC_balance / sell_levels, USDT_balance / buy_levels / BTC_price)
@@ -39,34 +40,33 @@ initial_sell_levels: 6           # 6 sell orders above price (use more of your B
 #   - BTC per sell: 0.00036 / 6 = 0.00006
 #   - BTC per buy: 33 / 3 / 90000 = 0.00012
 #   - Use smaller: 0.00006 BTC (~$5.40 per order)
-base_order_size: "0.00006"
-
+base_order_size: "100"
 # Order sizing modes (buy vs sell independent)
 buy_sizing_mode: "fixed"         # Default: fixed base size for buys
-sell_sizing_mode: "dynamic"      # Default: dynamic sells to preserve upside inventory
+sell_sizing_mode: "hybrid"      # Default: dynamic sells to preserve upside inventory
 
 # Sizing parameters (optional overrides)
-# fixed_base_order_qty: "0.00006"  # Fixed base size override (defaults to base_order_size)
-# target_quote_per_order: "5.4"    # Quote value per order for dynamic/hybrid sizing
-# min_base_order_qty: "0.00003"    # Hybrid floor for base quantity
+# fixed_base_order_qty: "0.000012" # Fixed base size override (defaults to base_order_size)
+target_quote_per_order: "9"   # Quote value per order for dynamic/hybrid sizing
+min_base_order_qty: "100"   # Hybrid floor for base quantity
 # min_order_qty: "0.00001"         # Exchange min base quantity (optional)
 
 # Exchange requirements
 min_notional_quote: "1.0"        # $1 minimum
-total_fee_rate: "0.002"          # 0.2% total fees
+total_fee_rate: "0.002"          # 0.4% total fees
 fee_buffer_pct: "0.0001"         # 0.01% buffer
 
 # Market precision (BTC/USDT)
-tick_size: "0.01"                # Price: 2 decimals ($90,000.00)
-step_size: "0.00000001"          # Quantity: 8 decimals (0.00000001 BTC)
+tick_size: "0.000001"
+step_size: "0.0001"
 
 # Polling
 # poll_interval_sec checks for fills; reconcile_interval_sec refreshes open orders.
 # The lower of the two effectively determines fill-monitoring cadence.
 # Typical values: 30-120s. Lower values detect fills faster but use more API calls.
-poll_interval_sec: 60
-reconcile_interval_sec: 60
-balance_refresh_sec: 60
+poll_interval_sec: 5
+reconcile_interval_sec: 5
+balance_refresh_sec: 20
 
 # REST API
 rest_timeout_sec: 30.0
@@ -74,6 +74,13 @@ rest_retries: 3
 
 # State file
 state_path: "state/infinity_grid_small_state.json"
+
+profit_store:
+  enabled: true
+  target_symbol: "PAXG_USDT"
+  quote_asset: "USDT"
+  min_profit_quote: 1
+  aggressive_limit_pct: 0.003
 
 # EXPECTED BEHAVIOR:
 # - Bot places 3 buy orders (~$16 USDT total)

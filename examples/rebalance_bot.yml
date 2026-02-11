@@ -25,7 +25,7 @@ base_url: "https://api.nonkyc.io/api/v2"
 # api_secret: "${NONKYC_API_SECRET}" # Loaded from keychain automatically
 
 # Bot mode: monitor, dry-run, or live
-mode: "monitor"
+mode: "live"
 
 # NOTE: NonKYC uses UNDERSCORE format, not hyphens or slashes!
 # SINGLE-PAIR MODE (legacy):
@@ -39,19 +39,19 @@ mode: "monitor"
 quote_asset: "USDT"
 rebalance_assets:
   - asset: "BTC"
-    target_percent: "0.5"
+    target_percent: "0.22"
     trading_pair: "BTC_USDT"
-  - asset: "ETH"
-    target_percent: "0.25"
-    trading_pair: "ETH_USDT"
+  - asset: "PAXG"
+    target_percent: "0.43"
+    trading_pair: "PAXG_USDT"
   - asset: "USDT"
-    target_percent: "0.25"
+    target_percent: "0.35"
 
 # Rebalance parameters
-rebalance_threshold_percent: "0.02"  # Rebalance when drift > 2%
+rebalance_threshold_percent: "0.08"  # Rebalance when drift > 2%
 
 # Order configuration
-rebalance_order_type: "limit"        # Use limit orders
+rebalance_order_type: "market"        # Use limit orders
 rebalance_order_spread: "0.002"      # 0.2% spread from mid price
 min_notional_quote: "1.0"            # Minimum order size in quote currency (e.g., $1 USDT)
 

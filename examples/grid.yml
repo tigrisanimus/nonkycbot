@@ -28,20 +28,20 @@ base_url: "https://api.nonkyc.io/api/v2"
 symbol: "ETH_USDT"
 
 # Grid configuration
-step_pct: "0.01"                 # 1% spread between grid levels
-n_buy_levels: 10                 # Number of buy orders below mid price
-n_sell_levels: 10                # Number of sell orders above mid price
+step_pct: "0.011"                 # 1% spread between grid levels
+n_buy_levels: 4                 # Number of buy orders below mid price
+n_sell_levels: 4                # Number of sell orders above mid price
 base_order_size: "0.01"          # Amount of base asset (ETH) per order (~$35 at ETH=$3500)
 
 # Minimum order size (exchange requirement)
 min_notional_quote: "1.0"        # Minimum order value in USDT
 
 # Fee configuration
-total_fee_rate: "0.002"          # 0.2% total fee (maker + taker)
+total_fee_rate: "0.004"          # 0.2% total fee (maker + taker)
 
 # Polling settings
-poll_interval_sec: 60            # Check for fills every 60 seconds
-balance_refresh_sec: 60          # Refresh balance every 60 seconds
+poll_interval_sec: 5            # Check for fills every 60 seconds
+balance_refresh_sec: 5          # Refresh balance every 60 seconds
 
 # Startup options
 startup_cancel_all: false        # Cancel all existing orders on startup

@@ -23,40 +23,30 @@ base_url: "https://api.nonkyc.io/api/v2"
 # api_key: "${NONKYC_API_KEY}"      # Loaded from keychain automatically
 # api_secret: "${NONKYC_API_SECRET}" # Loaded from keychain automatically
 
-symbol: "BTC_USDT"
+symbol: "MMX_USDT"
 
-# TIGHTEST PROFITABLE SPACING
 step_mode: "pct"
-step_pct: "0.005"                # 0.5% spacing (just above 0.42% minimum)
+step_pct: "0.03"                # 3% spacing (safe > min fee threshold)
 
-# MAXIMUM LEVELS (based on min $1 notional)
-# With 0.00036 BTC, you can fit ~33 sell orders at $1 each
-# With $33 USDT, you can fit ~33 buy orders at $1 each
-n_buy_levels: 15                 # 15 buys (using ~$15 USDT)
-initial_sell_levels: 20          # 20 sells (using ~0.00022 BTC)
+n_buy_levels: 22
+initial_sell_levels: 11
 
-# MINIMUM ORDER SIZE (just above $1 notional)
-# At BTC=$90k: 0.000012 BTC = $1.08
-base_order_size: "0.000012"      # ~$1.08 per order
+# Balanced sizing that fits your balances
+buy_sizing_mode: "hybrid"
+sell_sizing_mode: "hybrid"
+target_quote_per_order: "1.2"   # ~ $1.20 per order
+fixed_base_order_qty: "9"
+min_base_order_qty: "9"
+min_order_qty: "9"
 
-# Order sizing modes (buy vs sell independent)
-buy_sizing_mode: "fixed"         # Default: fixed base size for buys
-sell_sizing_mode: "dynamic"      # Default: dynamic sells to preserve upside inventory
-
-# Sizing parameters (optional overrides)
-# fixed_base_order_qty: "0.000012" # Fixed base size override (defaults to base_order_size)
-# target_quote_per_order: "1.08"   # Quote value per order for dynamic/hybrid sizing
-# min_base_order_qty: "0.000006"   # Hybrid floor for base quantity
-# min_order_qty: "0.00001"         # Exchange min base quantity (optional)
-
-# Exchange requirements
+# Fees and minimums
 min_notional_quote: "1.0"
-total_fee_rate: "0.002"          # 0.2% fees
-fee_buffer_pct: "0.0001"         # 0.01% buffer
+total_fee_rate: "0.002"
+fee_buffer_pct: "0.0001"
 
 # Market precision
-tick_size: "0.01"
-step_size: "0.00000001"
+tick_size: "0.000001"
+step_size: "0.0001"
 
 # Polling (more frequent for tight grid)
 poll_interval_sec: 30            # Check every 30 seconds (tighter = more fills)
@@ -70,24 +60,3 @@ rest_retries: 3
 # State
 state_path: "state/infinity_grid_tight_state.json"
 
-# WHAT TO EXPECT:
-# - 15 buy orders from $90k down to ~$83,500 (0.5% steps)
-# - 20 sell orders from $90k up to ~$99,400 (0.5% steps)
-# - Each order ~$1.08 (minimum size)
-# - Orders fill FREQUENTLY (tight grid = more action!)
-# - Profit per cycle: ~$0.005 (0.5% of $1.08)
-#
-# PROS:
-# - Maximum number of profit opportunities
-# - Catches small price movements
-# - More frequent fills = compounding faster
-#
-# CONS:
-# - More API calls (watch rate limits!)
-# - More gas fees (exchange fees per order)
-# - Requires more monitoring
-# - Small profit per trade (but many trades!)
-#
-# RECOMMENDATION:
-# Start with this for a day and see how it performs.
-# If too many orders/fills, increase step_pct to 0.01 (1%).

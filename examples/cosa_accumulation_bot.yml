@@ -16,11 +16,11 @@
 #    DO NOT edit api_key/api_secret below - leave them commented out!
 #
 # 2. Run the bot:
-#    python bots/run_accumulation_bot.py examples/accumulation_bot.yml
+#    python bots/run_accumulation_bot.py examples/cosa_accumulation_bot.yml
 #
 #    Other modes:
-#    python bots/run_accumulation_bot.py examples/accumulation_bot.yml --monitor-only
-#    python bots/run_accumulation_bot.py examples/accumulation_bot.yml --dry-run
+#    python bots/run_accumulation_bot.py examples/cosa_accumulation_bot.yml --monitor-only
+#    python bots/run_accumulation_bot.py examples/cosa_accumulation_bot.yml --dry-run
 #
 # WHAT THIS BOT DOES:
 # - GRID LAYER: Places buy-only limit orders below EMA price (downward grid)
@@ -49,11 +49,11 @@ sign_absolute_url: true
 mode: "live"
 
 # --- Trading pair (underscore format required) ---
-symbol: "W_USDT"
+symbol: "COSA_BTC"
 
 # --- Precision ---
-price_decimals: 6     # decimal places for price rounding
-qty_decimals: 6       # decimal places for quantity rounding
+price_decimals: 8     # decimal places for price rounding
+qty_decimals: 0       # decimal places for quantity rounding
 
 # --- Hard daily budget (quote asset, across BOTH layers) ---
 daily_budget_quote: "10.00"
@@ -61,10 +61,10 @@ daily_budget_quote: "10.00"
 # --- Minimum order notional (quote asset) ---
 # Orders below this value will have their quantity increased to meet the minimum.
 # NonKYC.io requires 1 USDT minimum per order.
-min_order_notional: "1.0"
+min_order_notional: "1.30"
 
 # --- Poll interval (seconds) ---
-poll_interval_sec: 10
+poll_interval_sec: 20
 
 # =============================================================================
 # Grid Engine (Layer A) - Downward-only infinity grid
@@ -72,12 +72,12 @@ poll_interval_sec: 10
 # Pi = Pref * (1 - d0 * g^(i-1))    price formula
 # Si = min(s0 * k^(i-1), cap)        size formula
 grid:
-  n: 10                   # max active buy levels
-  d0: "0.005"             # initial distance below Pref (0.5%)
-  g: "1.3"                # geometric growth factor for level spacing
-  s0: "60"            # base order size (BTC)
-  k: "1.1"                # size growth factor per deeper level
-  per_order_volume_cap: "120"  # max size per single order (BTC)
+  n: 5                   # max active buy levels
+  d0: "0.04"             # initial distance below Pref (0.5%)
+  g: "2"                # geometric growth factor for level spacing
+  s0: "1"               # base order size
+  k: "1"                # size growth factor per deeper level
+  per_order_volume_cap: "1.0"  # max size per single order 
 
 # =============================================================================
 # DCA Engine (Layer B) - Slow passive accumulation
@@ -85,22 +85,22 @@ grid:
 # Independent from grid. Only active in flat markets.
 # Pd = best_bid * (1 - epsilon)
 dca:
-  budget_daily: "5.00"   # fixed daily DCA budget (USDT), separate from grid
-  interval_sec: 3600      # attempt DCA every 1 hour
-  epsilon: "0.001"        # offset below best bid (0.1%)
-  ttl_sec: 1800           # cancel unfilled DCA order after 30 minutes
+  budget_daily: "0.000032"   # fixed daily DCA budget, separate from grid
+  interval_sec: 10800      # attempt DCA every 1 hour
+  epsilon: "0.006"        # offset below best bid (0.1%)
+  ttl_sec: 900           # cancel unfilled DCA order after 30 minutes
 
 # =============================================================================
 # Guards - Global safety & impact control
 # =============================================================================
 guards:
-  participation_cap: "0.05"          # max 5% of rolling 1h volume
-  spread_limit: "0.03"              # pause if spread > 3% of mid
+  participation_cap: "0.01"          # max 5% of rolling 1h volume
+  spread_limit: "0.10"              # pause if spread > 3% of mid
   cooldown_impact_sec: 300           # 5 min cooldown after impact trigger
-  cooldown_grid_dca_sec: 600         # pause DCA 10 min after grid fill
-  fill_time_threshold_sec: 2.0       # impact: fill under 2s is suspicious
+  cooldown_grid_dca_sec: 1800         # pause DCA 10 min after grid fill
+  fill_time_threshold_sec: 5.0       # impact: fill under 2s is suspicious
   mid_jump_threshold: "0.005"        # impact: mid jumps > 0.5% after fill
-  best_bid_touch_max: 5              # impact: bot becomes best bid 5+ times
+  best_bid_touch_max: 2              # impact: bot becomes best bid 5+ times
   best_bid_touch_window_sec: 300     # ... within 5 minutes
   spread_widen_threshold: "2.0"      # impact: spread widens 2x vs median
 
@@ -110,9 +110,9 @@ guards:
 # If VWAP_bot > VWAP_market: reduce size, widen grid, or pause.
 vwap:
   window_sec: 3600                   # 1 hour rolling window
-  size_reduction_factor: "0.5"       # halve size when triggered
-  spacing_widen_factor: "1.5"        # widen grid spacing 50%
-  pause_threshold: "1.05"            # pause if bot VWAP > 105% of market VWAP
+  size_reduction_factor: "0.3"       # halve size when triggered
+  spacing_widen_factor: "2.0        # widen grid spacing 50%
+  pause_threshold: "1.02"            # pause if bot VWAP > 105% of market VWAP
 
 # =============================================================================
 # EMA / ATR - Market regime detection
@@ -121,7 +121,7 @@ ema:
   ema_window_sec: 3600               # EMA smoothing window
   ema_alpha: "0.01"                  # smoothing factor (small = slow)
   atr_window: 60                     # number of samples for ATR
-  atr_flat_threshold: "0.001"        # ATR below 0.1% = market is flat (DCA active)
+  atr_flat_threshold: "0.003"        # ATR below 0.1% = market is flat (DCA active)
 
 # =============================================================================
 # REST API settings
@@ -131,7 +131,7 @@ rest_retries: 3
 rest_backoff_factor: 0.5
 
 # --- State persistence ---
-state_path: "state/accumulation_bot_state.json"
+state_path: "state/cosa_accumulation_bot_state.json"
 
 # --- Logging ---
 log_level: "INFO"
