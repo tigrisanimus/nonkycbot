@@ -111,7 +111,7 @@ guards:
 vwap:
   window_sec: 3600                   # 1 hour rolling window
   size_reduction_factor: "0.3"       # halve size when triggered
-  spacing_widen_factor: "2.0        # widen grid spacing 50%
+  spacing_widen_factor: "2.0"       # widen grid spacing 50%
   pause_threshold: "1.02"            # pause if bot VWAP > 105% of market VWAP
 
 # =============================================================================
