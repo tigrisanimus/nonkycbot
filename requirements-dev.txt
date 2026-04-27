@@ -19,7 +19,7 @@ isort>=5.13.0,<8.0.0
 # Security scanning
 bandit>=1.7.5,<2.0.0
 safety>=2.3.0,<4.0.0
-pip-audit>=2.6.0,<3.0.0
+pip-audit>=2.10.0,<3.0.0
 
 # Type stubs
 types-PyYAML>=6.0.0,<7.0.0
