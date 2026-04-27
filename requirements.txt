@@ -16,7 +16,7 @@ pyyaml>=6.0.1,<7.0.0
 
 # Async HTTP client and WebSocket support
 # Multiple CVEs fixed in recent versions
-aiohttp>=3.9.0,<4.0.0
+aiohttp>=3.13.5,<4.0.0
 
 # WebSocket protocol implementation
 websockets>=12.0,<17.0
