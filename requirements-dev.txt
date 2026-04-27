@@ -22,7 +22,7 @@ safety>=2.3.0,<4.0.0
 pip-audit>=2.6.0,<3.0.0
 
 # Type stubs
-types-PyYAML>=6.0.0,<7.0.0
+types-PyYAML>=6.0.12.20260408,<7.0.0
 
 # Build tools
 build>=1.0.0,<2.0.0
